@@ -1,0 +1,878 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>포워딩 매니페스트</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ink:#12182A; --ink-soft:#4B5164; --paper:#F1F1EC; --surface:#FFFFFF; --surface-2:#FBFAF6;
+  --line:#DEDCD1; --line-strong:#C7C4B5;
+  --brass:#A9762A; --brass-soft:#E9D9B8;
+  --teal:#1F6B68; --teal-soft:#D7E8E6;
+  --plum:#6B4E7C; --plum-soft:#E7DEEC;
+  --steel:#386693; --steel-soft:#DCE6EE;
+  --slate:#565B5F; --slate-soft:#E4E3DF;
+  --danger:#A93A2C; --danger-soft:#F3DCD5;
+  --warn:#B9832A; --warn-soft:#F1E2C2;
+  --shadow: 0 1px 2px rgba(18,24,42,.06), 0 6px 20px rgba(18,24,42,.06);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ink:#ECE9DF; --ink-soft:#ADA79A; --paper:#14181B; --surface:#1B2024; --surface-2:#20262A;
+    --line:#333A3E; --line-strong:#454D52;
+    --brass:#D6A54A; --brass-soft:#3B321F;
+    --teal:#4BA6A0; --teal-soft:#1B302E;
+    --plum:#A985BE; --plum-soft:#2E2438;
+    --steel:#7FAAD1; --steel-soft:#1D2A36;
+    --slate:#9AA0A4; --slate-soft:#262A2D;
+    --danger:#DD6A55; --danger-soft:#3A2420;
+    --warn:#DDAE52; --warn-soft:#362C18;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.28);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#ECE9DF; --ink-soft:#ADA79A; --paper:#14181B; --surface:#1B2024; --surface-2:#20262A;
+  --line:#333A3E; --line-strong:#454D52;
+  --brass:#D6A54A; --brass-soft:#3B321F;
+  --teal:#4BA6A0; --teal-soft:#1B302E;
+  --plum:#A985BE; --plum-soft:#2E2438;
+  --steel:#7FAAD1; --steel-soft:#1D2A36;
+  --slate:#9AA0A4; --slate-soft:#262A2D;
+  --danger:#DD6A55; --danger-soft:#3A2420;
+  --warn:#DDAE52; --warn-soft:#362C18;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.28);
+  color-scheme: dark;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--paper); color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:14px; line-height:1.5;
+}
+.mono{font-family:"IBM Plex Mono","SFMono-Regular",Consolas,monospace; font-variant-numeric: tabular-nums;}
+.display{font-family:"Fraunces",Georgia,serif;}
+h1,h2,h3{text-wrap:balance; margin:0;}
+button{font-family:inherit; font-size:inherit; cursor:pointer;}
+input,select,textarea{font-family:inherit; font-size:inherit;}
+img{max-width:100%;}
+
+.app{max-width:1180px; margin:0 auto; padding:20px 22px 64px;}
+
+.setup-banner{
+  background:var(--danger-soft); color:var(--danger); border:1px solid var(--danger); border-radius:3px;
+  padding:12px 16px; margin-bottom:16px; font-size:13px; line-height:1.6;
+}
+.setup-banner code{background:rgba(0,0,0,.08); padding:1px 5px; border-radius:2px;}
+
+.topbar{
+  display:flex; align-items:flex-end; justify-content:space-between; gap:16px;
+  flex-wrap:wrap; padding-bottom:16px; margin-bottom:16px; border-bottom:2px solid var(--ink);
+}
+.brand{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;}
+.brand-mark{
+  width:30px; height:30px; border:2px solid var(--ink); border-radius:3px; flex:none;
+  display:flex; align-items:center; justify-content:center; font-family:"Fraunces",serif; font-weight:700; font-size:15px;
+  transform: translateY(2px);
+}
+.brand h1{font-size:22px; font-weight:600; letter-spacing:.2px;}
+.brand .tagline{color:var(--ink-soft); font-size:12.5px;}
+.top-actions{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+.sync-dot{width:8px; height:8px; border-radius:50%; background:var(--slate); flex:none;}
+.sync-dot.live{background:var(--teal);}
+.sync-dot.local{background:var(--warn);}
+.sync-status{font-size:11.5px; color:var(--ink-soft); display:flex; align-items:center; gap:6px; margin-right:6px;}
+
+.btn{
+  border-radius:2px; border:1px solid var(--line-strong); background:var(--surface); color:var(--ink);
+  padding:8px 14px; font-weight:600; font-size:13px; display:inline-flex; align-items:center; gap:7px;
+  transition:border-color .15s, background .15s;
+}
+.btn:hover{border-color:var(--ink);}
+.btn-primary{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+.btn-primary:hover{background:var(--brass); border-color:var(--brass); color:#1a1408;}
+.btn-ghost{border-color:transparent; background:transparent;}
+.btn-ghost:hover{border-color:var(--line-strong);}
+.btn-sm{padding:5px 10px; font-size:12px;}
+.btn[disabled]{opacity:.45; cursor:not-allowed;}
+
+.search{
+  border:1px solid var(--line-strong); border-radius:2px; background:var(--surface); padding:7px 10px;
+  color:var(--ink); min-width:200px;
+}
+.search::placeholder{color:var(--ink-soft);}
+
+.chip-row{display:flex; flex-wrap:wrap; gap:7px; margin-bottom:22px;}
+.chip{
+  border:1px solid var(--line-strong); background:var(--surface); color:var(--ink-soft); border-radius:20px;
+  padding:6px 13px; font-size:12px; font-weight:600;
+}
+.chip.active{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+.chip[disabled]{opacity:.4; cursor:not-allowed;}
+
+.kpi-strip{display:grid; grid-template-columns:repeat(6,1fr); gap:10px; margin-bottom:24px;}
+.kpi{
+  background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--kc,var(--ink));
+  border-radius:2px; padding:12px 12px 10px; box-shadow:var(--shadow);
+}
+.kpi .num{font-family:"Fraunces",serif; font-weight:700; font-size:30px; color:var(--kc,var(--ink)); line-height:1;}
+.kpi .lbl{font-size:11.5px; color:var(--ink-soft); margin-top:5px; font-weight:600; letter-spacing:.2px;}
+
+.board{display:flex; flex-direction:column; gap:20px;}
+.section{background:var(--surface); border:1px solid var(--line); border-radius:3px; overflow:hidden; box-shadow:var(--shadow);}
+.section.alert{border-color:var(--danger);}
+.section-head{
+  display:flex; align-items:center; gap:12px; padding:12px 16px; border-left:5px solid var(--sc,var(--ink));
+  background:var(--surface-2); border-bottom:1px solid var(--line);
+}
+.sec-tag{
+  font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:11px; color:var(--sc,var(--ink));
+  background:var(--sc-soft,transparent); border:1px solid var(--sc,var(--ink)); border-radius:2px;
+  padding:2px 6px; flex:none; min-width:22px; text-align:center;
+}
+.sec-titles{flex:1; min-width:160px;}
+.sec-titles h2{font-size:15.5px; font-weight:600; font-family:"IBM Plex Sans",sans-serif;}
+.sec-titles .sub{font-size:11.5px; color:var(--ink-soft); margin-top:1px;}
+.sec-count{font-family:"Fraunces",serif; font-weight:700; font-size:19px; color:var(--sc,var(--ink)); flex:none;}
+.sec-count .of{font-family:"IBM Plex Sans",sans-serif; font-weight:500; font-size:11px; color:var(--ink-soft); margin-left:2px;}
+
+.table-scroll{overflow-x:auto;}
+.trow{
+  display:grid; grid-template-columns:38px 108px minmax(140px,1fr) 108px 66px 172px 108px 34px;
+  align-items:center; gap:8px; padding:9px 16px; border-bottom:1px solid var(--line); min-width:860px;
+}
+.trow:last-child{border-bottom:none;}
+.trow.head{background:var(--surface-2); font-size:10.5px; font-weight:600; color:var(--ink-soft); letter-spacing:.3px; padding:7px 16px;}
+.trow.empty{color:var(--ink-soft); font-size:12.5px; padding:16px; grid-template-columns:1fr; min-width:0; justify-items:center;}
+.trow:not(.head):not(.empty):hover{background:var(--surface-2);}
+
+.check{
+  width:20px; height:20px; border:1.5px solid var(--line-strong); border-radius:3px; background:var(--surface);
+  flex:none; display:flex; align-items:center; justify-content:center; color:transparent; padding:0;
+}
+.check:hover{border-color:var(--sc,var(--ink)); color:var(--sc,var(--ink));}
+.mgmtno{font-size:12px; font-weight:600; cursor:pointer; background:none; border:none; color:var(--ink); text-align:left; padding:0;}
+.mgmtno:hover{text-decoration:underline;}
+.client-cell{min-width:0;}
+.client-name{font-weight:600; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; background:none; border:none; padding:0; text-align:left; color:var(--ink); display:block; width:100%;}
+.note-line{font-size:11px; color:var(--ink-soft); font-style:italic; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:1px;}
+.route-pill{font-size:10.5px; font-weight:600; padding:2px 7px; border-radius:20px; background:var(--slate-soft); color:var(--slate); white-space:nowrap;}
+.mgr{font-size:12px; color:var(--ink-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.item-label{font-size:12.5px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.item-label .billing-tag{font-size:9.5px; color:var(--brass); border:1px solid var(--brass); border-radius:2px; padding:0 4px; margin-left:5px; font-weight:700;}
+.dday{font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:11.5px; text-align:center; border-radius:2px; padding:3px 5px; white-space:nowrap;}
+.dday.ok{background:var(--slate-soft); color:var(--slate);}
+.dday.warn{background:var(--warn-soft); color:var(--warn);}
+.dday.danger{background:var(--danger-soft); color:var(--danger); font-weight:700;}
+.dday.heavy{background:var(--danger); color:#fff; font-weight:700;}
+.edit-btn{border:none; background:transparent; color:var(--ink-soft); width:26px; height:26px; border-radius:3px; display:flex; align-items:center; justify-content:center; flex:none;}
+.edit-btn:hover{background:var(--surface-2); color:var(--ink);}
+
+.foot{margin-top:30px;}
+details.help{background:var(--surface); border:1px solid var(--line); border-radius:3px; padding:2px 16px; margin-top:10px;}
+details.help summary{cursor:pointer; padding:12px 0; font-weight:600; font-size:13px; list-style:none; display:flex; align-items:center; gap:8px;}
+details.help summary::-webkit-details-marker{display:none;}
+details.help summary:before{content:"+"; font-family:"IBM Plex Mono",monospace; width:16px;}
+details.help[open] summary:before{content:"–";}
+.help-body{padding:2px 0 16px; color:var(--ink-soft); font-size:12.5px; line-height:1.7;}
+.help-body code{background:var(--surface-2); border:1px solid var(--line); border-radius:2px; padding:1px 5px; font-size:11.5px;}
+.help-cols{display:flex; flex-wrap:wrap; gap:6px; margin:8px 0;}
+.help-cols span{background:var(--surface-2); border:1px solid var(--line); border-radius:2px; padding:2px 7px; font-family:"IBM Plex Mono",monospace; font-size:11px;}
+.route-doc{margin:10px 0; padding:10px 12px; background:var(--surface-2); border:1px solid var(--line); border-radius:3px;}
+.route-doc b{color:var(--ink);}
+.archive-table .trow{grid-template-columns:100px minmax(140px,1fr) 108px 90px 100px 34px;}
+
+.modal-overlay{position:fixed; inset:0; background:rgba(18,20,16,.45); display:flex; align-items:flex-start; justify-content:center; padding:5vh 16px; z-index:50; overflow-y:auto;}
+.modal-overlay[hidden]{display:none;}
+.modal{background:var(--surface); border-radius:5px; width:100%; max-width:680px; box-shadow:0 20px 60px rgba(0,0,0,.3); border:1px solid var(--line);}
+.modal-head{display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--line);}
+.modal-head h3{font-family:"Fraunces",serif; font-size:18px; font-weight:600;}
+.modal-close{background:none; border:none; font-size:20px; color:var(--ink-soft); line-height:1; padding:4px;}
+.modal-body{padding:18px 20px; max-height:66vh; overflow-y:auto;}
+.field-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px 14px;}
+.field{display:flex; flex-direction:column; gap:4px;}
+.field.full{grid-column:1 / -1;}
+.field label{font-size:11px; font-weight:600; color:var(--ink-soft); letter-spacing:.2px;}
+.field input, .field select, .field textarea{border:1px solid var(--line-strong); border-radius:2px; padding:7px 9px; background:var(--surface); color:var(--ink);}
+.field textarea{resize:vertical; min-height:44px;}
+.checkbox-row{display:flex; align-items:center; gap:8px; font-size:12.5px; margin-top:10px;}
+.checkbox-row input{width:15px; height:15px;}
+.checklist-block{margin-top:16px; border-top:1px solid var(--line); padding-top:14px;}
+.checklist-block h4{font-size:12.5px; font-weight:700; margin-bottom:8px; color:var(--ink-soft); letter-spacing:.2px;}
+.checklist-item{display:flex; align-items:center; gap:9px; padding:6px 2px; border-bottom:1px dashed var(--line);}
+.checklist-item:last-child{border-bottom:none;}
+.checklist-item input{width:16px; height:16px; flex:none;}
+.checklist-item .n{font-family:"IBM Plex Mono",monospace; font-size:10.5px; color:var(--ink-soft); width:16px; flex:none;}
+.checklist-item span.lbl{font-size:13px;}
+.checklist-item .billing-tag{font-size:9.5px; color:var(--brass); border:1px solid var(--brass); border-radius:2px; padding:0 4px; margin-left:6px; font-weight:700;}
+.modal-foot{display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-top:1px solid var(--line);}
+
+.toast-stack{position:fixed; bottom:20px; right:20px; display:flex; flex-direction:column; gap:8px; z-index:60;}
+.toast{background:var(--ink); color:var(--paper); padding:10px 14px; border-radius:3px; font-size:12.5px; display:flex; align-items:center; gap:12px; box-shadow:0 8px 24px rgba(0,0,0,.25); max-width:340px;}
+.toast button{background:none; border:none; color:var(--brass); font-weight:700; font-size:12px; flex:none;}
+.toast.err{background:var(--danger);}
+
+.progress-wrap{position:fixed; top:0; left:0; right:0; height:3px; background:transparent; z-index:70;}
+.progress-bar{height:100%; background:var(--brass); width:0%; transition:width .2s;}
+
+@media (max-width:760px){
+  .kpi-strip{grid-template-columns:repeat(3,1fr);}
+  .field-grid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
+
+<div class="app">
+  <div id="setupBanner" class="setup-banner" hidden>
+    Apps Script 웹 앱 URL이 설정되지 않았습니다. 이 파일 맨 아래 스크립트에서
+    <code>var WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwyA1J7HErlYdfxT5Bvrp1IhtZwAK84q7tUFAXeEjdR9_129dnQaqC2vlRTHLzN6rwS/exec';</code> 부분을 실제 배포 URL로 바꿔서 다시 올려주세요.
+  </div>
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">FW</div>
+      <div>
+        <h1 class="display">포워딩 매니페스트</h1>
+        <div class="tagline">루틴별 체크리스트 · 엑셀 업로드 자동 반영 · 구글시트 기반 팀 공유</div>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span class="sync-status"><span class="sync-dot" id="syncDot"></span><span id="syncLabel">연결 중…</span></span>
+      <input class="search" id="searchInput" type="search" placeholder="관리번호 · 거래처 · 담당자 검색">
+      <button class="btn" id="csvTemplateBtn">CSV 서식</button>
+      <button class="btn" id="addBtn">+ 신규 건</button>
+      <button class="btn btn-primary" id="uploadBtn">엑셀 업로드</button>
+    </div>
+  </div>
+
+  <div class="chip-row" id="chipRow"></div>
+
+  <section class="kpi-strip" id="kpiStrip"></section>
+  <section class="board" id="board"></section>
+
+  <div class="foot">
+    <details class="help">
+      <summary>파트별 체크리스트 순서 보기</summary>
+      <div class="help-body" id="routeDocBody"></div>
+    </details>
+    <details class="help">
+      <summary>엑셀 업로드 형식 · 사용 안내</summary>
+      <div class="help-body">
+        <div>1) 앨비스(ERP)에서 뽑은 엑셀을 그대로 업로드하면 됩니다. 첫 행은 헤더(컬럼명)여야 하며, 아래 이름 중 하나와 일치해야 자동 인식됩니다.</div>
+        <div class="help-cols" id="helpCols"></div>
+        <div>2) 루틴(해상수출FCL/해상수출LCL/해상수입FCL/해상수입LCL/항공수출)을 <span class="mono">루틴</span> 컬럼에 넣어주면 자동으로 지정되고, 없으면 "루틴 미지정" 건으로 표시되니 직접 한 번 지정해 주세요.</div>
+        <div>3) 관리번호가 <span class="mono">기존번호-X01</span>처럼 "-X숫자"로 끝나면 이월·분할 청구 전용 건으로 자동 인식되어, 체크리스트 중 청구 관련 항목만 표시됩니다.</div>
+        <div>4) 재업로드 시 <b>루틴 · 체크리스트 진행 상태</b>는 절대 덮어쓰지 않습니다 — 이미 체크한 항목은 그대로 유지되고, ETD·ETA·담당자 등 나머지 정보만 최신화됩니다.</div>
+        <div>5) 날짜는 반드시 실제 날짜값으로 입력되어야 인식됩니다 — "TBA" 같은 텍스트는 인식되지 않습니다.</div>
+        <div>6) 이 페이지는 구글시트를 데이터베이스로 사용합니다. 화면은 약 <span id="pollSecLabel">20</span>초마다 자동으로 최신 상태를 다시 불러옵니다 — 진짜 실시간(즉시 반영)은 아니고, 짧은 시차가 있는 "준실시간"입니다.</div>
+      </div>
+    </details>
+    <details class="help archive-table">
+      <summary>전체 건 목록 (관리·수정용)</summary>
+      <div id="archiveBody" class="help-body" style="padding-top:0;"></div>
+    </details>
+  </div>
+</div>
+
+<input type="file" id="fileInput" hidden accept=".xlsx,.xls,.csv">
+<div class="modal-overlay" id="modalOverlay" hidden>
+  <div class="modal" id="modalContent"></div>
+</div>
+<div class="toast-stack" id="toastStack"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+(function(){
+"use strict";
+
+/* =====================================================================
+   여기만 바꾸면 됩니다: Apps Script 배포 후 나오는 웹 앱 URL을 붙여넣으세요.
+   예: https://script.google.com/macros/s/AKfycbxxxxxxxxxxxxxxxxxxxx/exec
+   ===================================================================== */
+var WEBAPP_URL = 'PASTE_YOUR_APPS_SCRIPT_WEBAPP_URL_HERE';
+var POLL_MS = 20000;
+
+/* ================= route / checklist config (Code.gs / xlsx 템플릿과 동일하게 유지) ================= */
+var ROUTES = {
+  SEA_EXP_FCL: {label:'해상수출 FCL', items:[
+    {key:'booking', label:'부킹확정'},
+    {key:'docs', label:'SR, VGM, 면장', anchor:'DOC CLS'},
+    {key:'baecha', label:'배차'},
+    {key:'jigyeol', label:'지결'},
+    {key:'ichejeung', label:'이체증'},
+    {key:'chulhang', label:'출항', anchor:'ETD'},
+    {key:'blIssue', label:'비엘발행'},
+    {key:'invoice', label:'인보이스', billing:true},
+    {key:'settlement', label:'계산서', billing:true}
+  ]},
+  SEA_EXP_LCL: {label:'해상수출 LCL', items:[
+    {key:'booking', label:'부킹확정'},
+    {key:'docs', label:'SR, 면장', anchor:'DOC CLS'},
+    {key:'baecha', label:'배차'},
+    {key:'jigyeol', label:'지결'},
+    {key:'chulhang', label:'출항', anchor:'ETD'},
+    {key:'blIssue', label:'비엘발행'},
+    {key:'invoice', label:'인보이스', billing:true},
+    {key:'settlement', label:'계산서', billing:true}
+  ]},
+  SEA_IMP_FCL: {label:'해상수입 FCL', items:[
+    {key:'booking', label:'부킹확정'},
+    {key:'checkBill', label:'체크빌'},
+    {key:'closeBill', label:'마감빌'},
+    {key:'an', label:'AN'},
+    {key:'jigyeol', label:'지결'},
+    {key:'doIssue', label:'DO 발행'},
+    {key:'arrival', label:'입항', anchor:'ETA(PORT)'},
+    {key:'customsInvoice', label:'통관용 인보이스'},
+    {key:'customs', label:'수입 통관'},
+    {key:'baecha', label:'배차'},
+    {key:'carrierJigyeol', label:'운송사 지결'},
+    {key:'finalInvoice', label:'운송료 포함 최종인보이스', billing:true},
+    {key:'settlement', label:'계산서', billing:true}
+  ]},
+  SEA_IMP_LCL: {label:'해상수입 LCL', items:[
+    {key:'booking', label:'부킹확정'},
+    {key:'checkBill', label:'체크빌'},
+    {key:'closeBill', label:'마감빌'},
+    {key:'consolAn', label:'콘솔사에서 AN'},
+    {key:'ownerReport', label:'실화주 신고 (HBL·사업자번호·포코드)'},
+    {key:'consolJigyeol', label:'콘솔사 지결'},
+    {key:'ichejeung', label:'이체증'},
+    {key:'doIssue', label:'DO 발행'},
+    {key:'customsInvoice', label:'통관용 인보이스'},
+    {key:'customs', label:'수입 통관'},
+    {key:'baecha', label:'배차'},
+    {key:'carrierJigyeol', label:'운송사 지결'},
+    {key:'finalInvoice', label:'최종 인보이스', billing:true},
+    {key:'settlement', label:'계산서', billing:true}
+  ]},
+  AIR_EXP: {label:'항공수출', items:[
+    {key:'booking', label:'부킹확정'},
+    {key:'myeonjang', label:'면장(한영)'},
+    {key:'baecha', label:'배차'},
+    {key:'chkBl', label:'CHK BL'},
+    {key:'baechaInfo', label:'배차정보'},
+    {key:'preAlert', label:'PRE-ALERT(로토스)'},
+    {key:'airDocCls', label:'서류마감(트올)', anchor:'DOC CLS'},
+    {key:'settlementDocs', label:'정산서, 마감서류(로토스)', billing:true},
+    {key:'carrierJigyeol', label:'선사지결', billing:true}
+  ]}
+};
+var ROUTE_ORDER = ['SEA_EXP_FCL','SEA_EXP_LCL','SEA_IMP_FCL','SEA_IMP_LCL','AIR_EXP'];
+var ANCHOR_FIELD = {'DOC CLS':'docCls','ETD':'etd','ETA(PORT)':'etaPort','ETA(DOOR)':'etaDoor'};
+
+function routeItems(routeType, billingOnly){
+  var route = ROUTES[routeType];
+  if(!route) return [];
+  return billingOnly ? route.items.filter(function(it){return it.billing;}) : route.items;
+}
+
+/* 프론트 <-> 시트 헤더/필드 매핑 */
+var INFO_HEADERS = ['관리번호','루틴','청구전용','캔슬','서비스','수출입','거래처명','담당자','POL','POD',
+  'DOC CLS','CFS CLS','ETD','ETA(PORT)','ETA(DOOR)','House B/L No','Master B/L No','선사','운송사','VESSEL','터미널','특이사항',
+  '생성일시','수정일시'];
+var FIELD_TO_HEADER = {
+  managementNo:'관리번호', routeType:'루틴', billingOnly:'청구전용', cancelled:'캔슬',
+  service:'서비스', tradeType:'수출입', client:'거래처명', manager:'담당자', pol:'POL', pod:'POD',
+  docCls:'DOC CLS', cfsCls:'CFS CLS', etd:'ETD', etaPort:'ETA(PORT)', etaDoor:'ETA(DOOR)',
+  hbl:'House B/L No', mbl:'Master B/L No', carrier:'선사', forwarder:'운송사', vessel:'VESSEL', terminal:'터미널', note:'특이사항',
+  createdAt:'생성일시', updatedAt:'수정일시'
+};
+var HEADER_TO_FIELD = {}; Object.keys(FIELD_TO_HEADER).forEach(function(k){ HEADER_TO_FIELD[FIELD_TO_HEADER[k]] = k; });
+var ROUTE_LABEL_TO_KEY = {}; ROUTE_ORDER.forEach(function(k){ ROUTE_LABEL_TO_KEY[normHeader(ROUTES[k].label)] = k; ROUTE_LABEL_TO_KEY[normHeader(k)] = k; });
+
+var FIELD_ALIASES = {
+  managementNo: ['관리번호','FILENO','FILE No','파일번호'],
+  routeTypeRaw: ['루틴','ROUTE','서비스타입'],
+  service: ['서비스'], tradeType: ['수출입'], client: ['거래처명','거래처 명','거래처'], manager: ['담당자'],
+  pol: ['POL'], pod: ['POD'], docCls: ['DOCCLS','DOC CLS'], cfsCls: ['CFSCLS','CFS CLS'], etd: ['ETD'],
+  etaPort: ['ETA(PORT)','ETAPORT','ETA PORT'], etaDoor: ['ETA(DOOR)','ETADOOR','ETA DOOR','DELIVERY'],
+  hbl: ['HOUSEB/LNO','HOUSE B/L NO','HBL'], mbl: ['MASTERB/LNO','MASTER B/L NO','MBL'],
+  carrier: ['선사'], forwarder: ['운송사'], vessel: ['VESSEL'], terminal: ['터미널'], note: ['특이사항']
+};
+var REQUIRED_HEADER_DISPLAY = ['관리번호','루틴','서비스','수출입','거래처명','담당자','POL','POD','DOC CLS','CFS CLS','ETD','ETA(PORT)','ETA(DOOR)','House B/L No','Master B/L No','선사','운송사','VESSEL','터미널','특이사항'];
+function normHeader(h){ return String(h||'').trim().replace(/\s+/g,'').toUpperCase(); }
+
+/* ================= state ================= */
+var allShipments = [];   // [{id(managementNo 기준), managementNo, routeType, billingOnly, cancelled, ...info, checklist:{}}]
+var byId = {};
+var editingId = null;
+var activeFilter = 'ALL';
+var pollTimer = null;
+
+/* ================= date / dday helpers ================= */
+function toDate(v){
+  if(v===null || v===undefined || v==='') return null;
+  if(v instanceof Date) return isNaN(v.getTime())? null : v;
+  if(typeof v==='number'){ var epoch = new Date(Date.UTC(1899,11,30)); return new Date(epoch.getTime() + v*86400000); }
+  var s = String(v).trim(); if(!s) return null;
+  var d = new Date(s.replace(/\./g,'-').replace(/\s+/,'T'));
+  if(!isNaN(d.getTime())) return d;
+  d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+function dayFloor(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function getDday(val){ var d=toDate(val); if(!d) return null; return Math.round((dayFloor(d)-dayFloor(new Date()))/86400000); }
+function getAging(val){ var d=toDate(val); if(!d) return null; return Math.round((dayFloor(new Date())-dayFloor(d))/86400000); }
+function fmtDate(val){
+  var d = toDate(val); if(!d) return {date:'—', time:''};
+  var mm=d.getMonth()+1, dd=d.getDate();
+  var hasTime = (d.getHours()||d.getMinutes());
+  var t = hasTime ? (String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')) : '';
+  return {date: mm+'/'+dd, time:t};
+}
+function fmtDateInput(val){
+  var d = toDate(val); if(!d) return '';
+  var pad=function(n){return String(n).padStart(2,'0');};
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
+}
+function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+function ddayBadge(n, opts){
+  opts = opts||{};
+  if(n===null) return '<span class="dday ok">—</span>';
+  var cls='ok', label;
+  if(opts.aging){ label = n+'일 경과'; if(n>=60) cls='heavy'; else if(n>=30) cls='danger'; else if(n>=14) cls='warn'; else cls='ok'; }
+  else { label = n===0?'D-DAY':(n<0?(Math.abs(n)+'일 지남'):('D-'+n)); if(n<=0) cls='danger'; else if(n<=3) cls='warn'; else cls='ok'; }
+  return '<span class="dday '+cls+'">'+label+'</span>';
+}
+
+/* ================= shipment derived state ================= */
+function isBillingOnlyByNo(no){ return /-X\d+$/i.test(String(no||'').trim()); }
+function relevantItems(s){ return routeItems(s.routeType, !!s.billingOnly); }
+function isDone(s){ var items=relevantItems(s); if(items.length===0) return false; var chk=s.checklist||{}; return items.every(function(it){return !!chk[it.key];}); }
+function statusOf(s){ if(s.cancelled) return 'cancelled'; if(!s.routeType) return 'unassigned'; if(isDone(s)) return 'done'; return 'active'; }
+
+/* ================= computed feeds ================= */
+function matchesFilter(s){ return activeFilter==='ALL' || s.routeType===activeFilter; }
+function matchesSearch(s,q){ if(!q) return true; return (s.managementNo||'').toLowerCase().indexOf(q)>=0 || (s.client||'').toLowerCase().indexOf(q)>=0 || (s.manager||'').toLowerCase().indexOf(q)>=0; }
+function activeShipments(){ return allShipments.filter(function(s){return statusOf(s)==='active';}); }
+function feedUnassigned(){ return allShipments.filter(function(s){return statusOf(s)==='unassigned';}); }
+function feedDueSoon(){
+  var out=[];
+  activeShipments().forEach(function(s){
+    if(!matchesFilter(s)) return;
+    var chk=s.checklist||{};
+    relevantItems(s).forEach(function(it){
+      if(!it.anchor || chk[it.key]) return;
+      var field = ANCHOR_FIELD[it.anchor]; var dd = getDday(s[field]);
+      if(dd!==null && dd<=7) out.push({s:s,item:it,dd:dd,field:field});
+    });
+  });
+  out.sort(function(a,b){return a.dd-b.dd;});
+  return out;
+}
+function feedInProgress(){
+  var out=[];
+  activeShipments().forEach(function(s){
+    if(!matchesFilter(s)) return;
+    var chk=s.checklist||{};
+    relevantItems(s).forEach(function(it){ if(it.anchor||it.billing||chk[it.key]) return; out.push({s:s,item:it}); });
+  });
+  out.sort(function(a,b){ var ad=toDate(a.s.etd), bd=toDate(b.s.etd); if(!ad&&!bd) return 0; if(!ad) return 1; if(!bd) return -1; return ad-bd; });
+  return out;
+}
+function feedBilling(){
+  var out=[];
+  activeShipments().forEach(function(s){
+    if(!matchesFilter(s)) return;
+    var chk=s.checklist||{};
+    relevantItems(s).forEach(function(it){ if(!it.billing||chk[it.key]) return; out.push({s:s,item:it,aging:getAging(s.etd)}); });
+  });
+  out.sort(function(a,b){ return (b.aging===null?-9999:b.aging)-(a.aging===null?-9999:a.aging); });
+  return out;
+}
+
+/* ================= rendering (아티팩트 버전과 동일 로직) ================= */
+function renderChips(){
+  var chips=[{key:'ALL',label:'전체'}].concat(ROUTE_ORDER.map(function(k){return {key:k,label:ROUTES[k].label};}));
+  chips.push({key:'AIR_IMP', label:'항공수입 (준비중)', disabled:true});
+  document.getElementById('chipRow').innerHTML = chips.map(function(c){
+    return '<button class="chip'+(activeFilter===c.key?' active':'')+'" data-chip="'+c.key+'" '+(c.disabled?'disabled':'')+'>'+c.label+'</button>';
+  }).join('');
+  document.querySelectorAll('[data-chip]').forEach(function(btn){
+    btn.addEventListener('click', function(){ activeFilter=btn.dataset.chip; renderChips(); renderBoard(); renderKpis(); });
+  });
+}
+function renderKpis(){
+  var kpis=[
+    {label:'전체 진행중', value: allShipments.filter(function(s){return statusOf(s)==='active';}).length, color:'ink'},
+    {label:'루틴 미지정', value: feedUnassigned().length, color:'danger'},
+    {label:'마감 임박 항목', value: feedDueSoon().length, color:'steel'},
+    {label:'진행 필요 항목', value: feedInProgress().length, color:'plum'},
+    {label:'청구 대기 항목', value: feedBilling().length, color:'brass'},
+    {label:'완료', value: allShipments.filter(function(s){return statusOf(s)==='done';}).length, color:'slate'}
+  ];
+  document.getElementById('kpiStrip').innerHTML = kpis.map(function(k){
+    var style = k.color==='ink' ? '' : ('style="--kc:var(--'+k.color+')"');
+    return '<div class="kpi" '+style+'><div class="num mono">'+k.value+'</div><div class="lbl">'+k.label+'</div></div>';
+  }).join('');
+}
+function itemFeedTable(list, opts){
+  opts=opts||{};
+  if(list.length===0) return '<div class="trow empty">해당 항목 없음</div>';
+  return list.map(function(x){
+    var s=x.s, it=x.item;
+    var d = it.anchor ? fmtDate(s[ANCHOR_FIELD[it.anchor]]) : null;
+    var badge;
+    if(opts.aging){ badge = ddayBadge(x.aging,{aging:true}); }
+    else if(it.anchor){ badge = ddayBadge(x.dd,{}); }
+    else { badge = '<span class="mono" style="font-size:11px;color:var(--ink-soft);">—</span>'; }
+    return '<div class="trow">'+
+      '<button class="check" data-act="toggle" data-id="'+escapeHtml(s.id)+'" data-item="'+it.key+'" title="'+escapeHtml(it.label)+' 완료 처리"><svg width="12" height="12" viewBox="0 0 16 16"><path d="M2 8l4 4 8-8" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'+
+      '<button class="mgmtno mono" data-act="edit" data-id="'+escapeHtml(s.id)+'">'+escapeHtml(s.managementNo||s.id)+'</button>'+
+      '<span class="client-cell"><button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="'+escapeHtml(s.client||'')+'">'+escapeHtml(s.client||'-')+'</button>'+(s.note?'<div class="note-line" title="'+escapeHtml(s.note)+'">'+escapeHtml(s.note)+'</div>':'')+'</span>'+
+      '<span class="route-pill">'+escapeHtml((ROUTES[s.routeType]||{}).label||'-')+(s.billingOnly?' · 청구전용':'')+'</span>'+
+      '<span class="mgr">'+escapeHtml(s.manager||'-')+'</span>'+
+      '<span class="item-label">'+escapeHtml(it.label)+(it.billing?'<span class="billing-tag">청구</span>':'')+'</span>'+
+      '<span>'+(d?('<span class="mono" style="font-size:11px;">'+d.date+(d.time?(' '+d.time):'')+'</span> '+badge):badge)+'</span>'+
+      '<button class="edit-btn" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="상세/수정"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M11 2l3 3-8 8-3.5.5.5-3.5z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg></button>'+
+      '</div>';
+  }).join('');
+}
+function unassignedTable(list){
+  if(list.length===0) return '<div class="trow empty">해당 건 없음</div>';
+  return list.map(function(s){
+    return '<div class="trow" style="grid-template-columns:118px minmax(140px,1fr) 66px 172px 1fr;min-width:640px;">'+
+      '<button class="mgmtno mono" data-act="edit" data-id="'+escapeHtml(s.id)+'">'+escapeHtml(s.managementNo||s.id)+'</button>'+
+      '<button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'">'+escapeHtml(s.client||'-')+'</button>'+
+      '<span class="mgr">'+escapeHtml(s.manager||'-')+'</span>'+
+      '<span class="mgr">'+escapeHtml(s.service||'-')+' / '+escapeHtml(s.tradeType||'-')+'</span>'+
+      '<button class="btn btn-sm" data-act="edit" data-id="'+escapeHtml(s.id)+'">루틴 지정하기</button>'+
+      '</div>';
+  }).join('');
+}
+function renderBoard(){
+  var q=(document.getElementById('searchInput').value||'').trim().toLowerCase();
+  var board=document.getElementById('board');
+  var sections=[];
+  var unassigned=feedUnassigned().filter(function(s){return matchesSearch(s,q);});
+  sections.push({tag:'!', title:'루틴 미지정', sub:'업로드 시 루틴을 인식하지 못했거나, 아직 지정하지 않은 건', color:'danger', alert:true, body:unassignedTable(unassigned), count:unassigned.length});
+  var due=feedDueSoon().filter(function(x){return matchesSearch(x.s,q);});
+  sections.push({tag:'01', title:'마감 임박', sub:'날짜가 정해진 항목 중 오늘 기준 7일 이내 · 경과분 포함', color:'steel', body:itemFeedTable(due), count:due.length});
+  var prog=feedInProgress().filter(function(x){return matchesSearch(x.s,q);});
+  sections.push({tag:'02', title:'진행 필요 항목', sub:'날짜 구분 없이 아직 체크되지 않은 실무 항목 · ETD 빠른 순', color:'plum', body:itemFeedTable(prog), count:prog.length});
+  var billing=feedBilling().filter(function(x){return matchesSearch(x.s,q);});
+  sections.push({tag:'03', title:'청구 대기', sub:'인보이스·계산서 등 청구 항목 · ETD 기준 경과일 30일↑ 강조, 60일↑ 더 진하게', color:'brass', body:itemFeedTable(billing,{aging:true}), count:billing.length});
+
+  var VARS={danger:['--danger','--danger-soft'],steel:['--steel','--steel-soft'],teal:['--teal','--teal-soft'],plum:['--plum','--plum-soft'],slate:['--slate','--slate-soft'],brass:['--brass','--brass-soft']};
+  board.innerHTML = sections.map(function(sec){
+    var vars=VARS[sec.color]; var style='style="--sc:var('+vars[0]+');--sc-soft:var('+vars[1]+')"';
+    return '<div class="section'+(sec.alert&&sec.count>0?' alert':'')+'">'+
+      '<div class="section-head" '+style+'><span class="sec-tag">'+sec.tag+'</span>'+
+      '<div class="sec-titles"><h2>'+sec.title+'</h2><div class="sub">'+sec.sub+'</div></div>'+
+      '<div class="sec-count">'+sec.count+'<span class="of">건</span></div></div>'+
+      '<div class="table-scroll">'+sec.body+'</div></div>';
+  }).join('');
+  wireBoardEvents();
+}
+function renderArchive(){
+  var body=document.getElementById('archiveBody');
+  if(allShipments.length===0){ body.innerHTML='<div style="padding:10px 0;">등록된 건이 없습니다.</div>'; return; }
+  var sorted=allShipments.slice().sort(function(a,b){return (a.managementNo||'').localeCompare(b.managementNo||'');});
+  var head='<div class="trow head"><span>관리번호</span><span>거래처명</span><span>루틴</span><span>상태</span><span>진행률</span><span></span></div>';
+  var rows=sorted.map(function(s){
+    var items=relevantItems(s); var chk=s.checklist||{};
+    var doneCount=items.filter(function(it){return chk[it.key];}).length;
+    var st=statusOf(s); var stLabel={active:'진행중',done:'완료',cancelled:'캔슬',unassigned:'루틴 미지정'}[st];
+    return '<div class="trow">'+
+      '<span class="mono" style="font-size:12px;">'+escapeHtml(s.managementNo||s.id)+'</span>'+
+      '<span style="font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+escapeHtml(s.client||'-')+'</span>'+
+      '<span style="font-size:11px;color:var(--ink-soft);">'+escapeHtml((ROUTES[s.routeType]||{}).label||'-')+(s.billingOnly?' · 청구전용':'')+'</span>'+
+      '<span style="font-size:11.5px;">'+stLabel+'</span>'+
+      '<span class="mono" style="font-size:11.5px;color:var(--ink-soft);">'+(items.length?(doneCount+' / '+items.length):'-')+'</span>'+
+      '<button class="edit-btn" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="수정"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M11 2l3 3-8 8-3.5.5.5-3.5z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg></button>'+
+      '</div>';
+  }).join('');
+  body.innerHTML='<div class="table-scroll">'+head+rows+'</div>';
+}
+function renderRouteDocs(){
+  document.getElementById('routeDocBody').innerHTML = ROUTE_ORDER.map(function(k){
+    var route=ROUTES[k];
+    var stepsHtml=route.items.map(function(it,i){
+      return (i+1)+'. '+escapeHtml(it.label)+(it.billing?' <span style="color:var(--brass);">[청구]</span>':'')+(it.anchor?' <span style="color:var(--ink-soft);">('+it.anchor+' 연동)</span>':'');
+    }).join(' → ');
+    return '<div class="route-doc"><b>'+route.label+'</b><div style="margin-top:5px;">'+stepsHtml+'</div></div>';
+  }).join('') + '<div class="route-doc"><b>항공수입</b><div style="margin-top:5px;color:var(--ink-soft);">체크리스트 준비 중입니다.</div></div>';
+}
+function renderAll(){ renderKpis(); renderBoard(); renderArchive(); renderRouteDocs(); }
+function wireBoardEvents(){
+  document.querySelectorAll('[data-act="toggle"]').forEach(function(btn){ btn.addEventListener('click', function(){ toggleItem(btn.dataset.id, btn.dataset.item); }); });
+  document.querySelectorAll('[data-act="edit"]').forEach(function(el){ el.addEventListener('click', function(){ openModal(el.dataset.id); }); });
+}
+
+/* ================= toast ================= */
+function toast(msg, opts){
+  opts=opts||{};
+  var stack=document.getElementById('toastStack');
+  var el=document.createElement('div');
+  el.className='toast'+(opts.err?' err':'');
+  el.innerHTML='<span>'+escapeHtml(msg)+'</span>'+(opts.undo?'<button>실행취소</button>':'');
+  stack.appendChild(el);
+  if(opts.undo){ el.querySelector('button').addEventListener('click', function(){ opts.undo(); el.remove(); }); }
+  setTimeout(function(){ el.remove(); }, opts.err?5000:6000);
+}
+
+/* ================= backend I/O ================= */
+function webappReady(){ return WEBAPP_URL && WEBAPP_URL.indexOf('PASTE_YOUR') !== 0; }
+
+function sheetRowToShipment(row){
+  var s = { checklist: row.checklist || {} };
+  Object.keys(HEADER_TO_FIELD).forEach(function(h){
+    var f = HEADER_TO_FIELD[h];
+    s[f] = row[h]!==undefined ? row[h] : (f==='billingOnly'||f==='cancelled' ? false : '');
+  });
+  s.id = s.managementNo;
+  return s;
+}
+function shipmentToSheetData(s){
+  var data = {};
+  Object.keys(FIELD_TO_HEADER).forEach(function(f){
+    if(f==='checklist') return;
+    if(s[f]!==undefined) data[FIELD_TO_HEADER[f]] = s[f];
+  });
+  return data;
+}
+
+async function apiPost(payload){
+  var res = await fetch(WEBAPP_URL, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'}, // Apps Script preflight 회피
+    body: JSON.stringify(payload)
+  });
+  var json = await res.json();
+  if(!json.ok) throw new Error(json.error||'요청 실패');
+  return json.result;
+}
+async function apiGet(){
+  var res = await fetch(WEBAPP_URL + (WEBAPP_URL.indexOf('?')>=0?'&':'?') + '_=' + Date.now());
+  var json = await res.json();
+  if(!json.ok) throw new Error(json.error||'조회 실패');
+  return json.rows;
+}
+
+async function refreshFromServer(silent){
+  if(!webappReady()) return;
+  try{
+    var rows = await apiGet();
+    allShipments = rows.map(sheetRowToShipment);
+    byId = {}; allShipments.forEach(function(s){ byId[s.id]=s; });
+    document.getElementById('syncDot').className='sync-dot live';
+    document.getElementById('syncLabel').textContent='연결됨 · '+allShipments.length+'건 · 약 '+Math.round(POLL_MS/1000)+'초마다 갱신';
+    renderAll();
+  }catch(e){
+    document.getElementById('syncDot').className='sync-dot local';
+    document.getElementById('syncLabel').textContent='연결 오류';
+    if(!silent) toast('불러오기 실패: '+e.message, {err:true});
+  }
+}
+function startPolling(){
+  if(pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(function(){ refreshFromServer(true); }, POLL_MS);
+}
+
+/* ================= actions ================= */
+function toggleItem(id, itemKey){
+  var s = byId[id]; if(!s) return;
+  var prevChecklist = Object.assign({}, s.checklist||{});
+  var newChecklist = Object.assign({}, prevChecklist); newChecklist[itemKey]=true;
+  s.checklist = newChecklist; renderAll(); // 낙관적 갱신
+  apiPost({action:'toggleItem', managementNo:s.managementNo, itemKey:itemKey, value:true})
+    .then(function(){
+      toast('"'+(s.managementNo||id)+'" 항목 완료 처리', {undo:function(){
+        s.checklist = prevChecklist; renderAll();
+        apiPost({action:'toggleItem', managementNo:s.managementNo, itemKey:itemKey, value:false}).catch(function(){});
+      }});
+    })
+    .catch(function(e){ s.checklist=prevChecklist; renderAll(); toast('저장 실패: '+e.message, {err:true}); });
+}
+
+/* ================= modal ================= */
+var INFO_FIELDS = [
+  {k:'managementNo', label:'관리번호', type:'text', req:true},
+  {k:'service', label:'서비스', type:'select', opts:['해상','항공']},
+  {k:'tradeType', label:'수출입', type:'select', opts:['수출','수입']},
+  {k:'client', label:'거래처명', type:'text'},
+  {k:'manager', label:'담당자', type:'text'},
+  {k:'pol', label:'POL', type:'text'},
+  {k:'pod', label:'POD', type:'text'},
+  {k:'docCls', label:'DOC CLS', type:'datetime'},
+  {k:'cfsCls', label:'CFS CLS', type:'datetime'},
+  {k:'etd', label:'ETD', type:'datetime'},
+  {k:'etaPort', label:'ETA(PORT)', type:'datetime'},
+  {k:'etaDoor', label:'ETA(DOOR)', type:'datetime'},
+  {k:'hbl', label:'House B/L No', type:'text'},
+  {k:'mbl', label:'Master B/L No', type:'text'},
+  {k:'carrier', label:'선사', type:'text'},
+  {k:'forwarder', label:'운송사', type:'text'},
+  {k:'vessel', label:'VESSEL', type:'text'},
+  {k:'terminal', label:'터미널', type:'text'},
+  {k:'note', label:'특이사항', type:'textarea', full:true}
+];
+function modalChecklistHtml(routeType, billingOnly, checklist){
+  var items = routeItems(routeType, billingOnly);
+  if(!routeType) return '<div style="color:var(--ink-soft);font-size:12.5px;">루틴을 먼저 선택하면 체크리스트가 표시됩니다.</div>';
+  if(items.length===0) return '<div style="color:var(--ink-soft);font-size:12.5px;">해당 조건의 체크 항목이 없습니다.</div>';
+  var chk = checklist||{};
+  return items.map(function(it,i){
+    return '<label class="checklist-item"><span class="n">'+(i+1)+'</span><input type="checkbox" data-chk="'+it.key+'" '+(chk[it.key]?'checked':'')+'><span class="lbl">'+escapeHtml(it.label)+(it.billing?'<span class="billing-tag">청구</span>':'')+'</span></label>';
+  }).join('');
+}
+function refreshModalChecklist(){
+  var routeType = document.getElementById('fld_routeType').value;
+  var billingOnly = document.getElementById('fld_billingOnly').checked;
+  var s = editingId ? (byId[editingId]||{}) : {};
+  document.getElementById('checklistArea').innerHTML = modalChecklistHtml(routeType, billingOnly, s.checklist);
+}
+function openModal(id){
+  editingId = id || null;
+  var s = id ? (byId[id]||{}) : {};
+  var isNew = !id;
+  var defaultBillingOnly = s.billingOnly!==undefined ? s.billingOnly : isBillingOnlyByNo(s.managementNo||'');
+  var infoHtml = INFO_FIELDS.map(function(f){
+    var val = s[f.k]!==undefined ? s[f.k] : '';
+    var inner;
+    if(f.type==='select'){ inner='<select data-k="'+f.k+'"><option value=""></option>'+f.opts.map(function(o){return '<option value="'+escapeHtml(o)+'" '+(val===o?'selected':'')+'>'+escapeHtml(o)+'</option>';}).join('')+'</select>'; }
+    else if(f.type==='datetime'){ inner='<input type="datetime-local" data-k="'+f.k+'" value="'+fmtDateInput(val)+'">'; }
+    else if(f.type==='textarea'){ inner='<textarea data-k="'+f.k+'">'+escapeHtml(val)+'</textarea>'; }
+    else { inner='<input type="text" data-k="'+f.k+'" value="'+escapeHtml(val)+'">'; }
+    return '<div class="field'+(f.full?' full':'')+'"><label>'+f.label+(f.req?' *':'')+'</label>'+inner+'</div>';
+  }).join('');
+  var routeOptionsHtml = '<option value="">— 미지정 —</option>' + ROUTE_ORDER.map(function(k){ return '<option value="'+k+'" '+(s.routeType===k?'selected':'')+'>'+ROUTES[k].label+'</option>'; }).join('') + '<option value="AIR_IMP" disabled>항공수입 (준비중)</option>';
+  document.getElementById('modalContent').innerHTML =
+    '<div class="modal-head"><h3>'+(isNew?'신규 건 등록':'건 상세 / 수정')+'</h3><button class="modal-close" id="modalCloseBtn">&times;</button></div>'+
+    '<div class="modal-body"><div class="field-grid">'+infoHtml+
+      '<div class="field"><label>루틴</label><select id="fld_routeType">'+routeOptionsHtml+'</select></div>'+
+      '<div class="field"><label>상태</label><select data-k="cancelled"><option value="">진행중</option><option value="1" '+(s.cancelled?'selected':'')+'>캔슬</option></select></div>'+
+    '</div>'+
+    '<div class="checkbox-row"><input type="checkbox" id="fld_billingOnly" '+(defaultBillingOnly?'checked':'')+'><label for="fld_billingOnly">이월·분할 청구 전용 건 (청구 관련 항목만 체크리스트에 표시)</label></div>'+
+    '<div class="checklist-block"><h4>체크리스트</h4><div id="checklistArea">'+modalChecklistHtml(s.routeType, defaultBillingOnly, s.checklist)+'</div></div>'+
+    '</div>'+
+    '<div class="modal-foot">'+(isNew?'<span></span>':'<button class="btn btn-ghost" id="deleteBtn" style="color:var(--danger);border-color:var(--danger);">삭제</button>')+'<button class="btn btn-primary" id="saveBtn">저장</button></div>';
+  document.getElementById('modalOverlay').hidden = false;
+  document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+  document.getElementById('saveBtn').addEventListener('click', saveModal);
+  document.getElementById('fld_routeType').addEventListener('change', refreshModalChecklist);
+  document.getElementById('fld_billingOnly').addEventListener('change', refreshModalChecklist);
+  var delBtn = document.getElementById('deleteBtn'); if(delBtn) delBtn.addEventListener('click', deleteFromModal);
+}
+function closeModal(){ document.getElementById('modalOverlay').hidden = true; editingId = null; }
+
+async function saveModal(){
+  var s = editingId ? Object.assign({}, byId[editingId]) : {checklist:{}};
+  document.querySelectorAll('#modalContent .field-grid [data-k]').forEach(function(el){
+    var k=el.dataset.k, v=el.value;
+    if(k==='cancelled'){ s.cancelled = !!v; return; }
+    s[k] = v;
+  });
+  s.routeType = document.getElementById('fld_routeType').value || '';
+  s.billingOnly = document.getElementById('fld_billingOnly').checked;
+  var checklist = {};
+  document.querySelectorAll('#checklistArea [data-chk]').forEach(function(el){ checklist[el.dataset.chk] = el.checked; });
+  s.checklist = checklist;
+  if(!s.managementNo){ toast('관리번호를 입력해 주세요.', {err:true}); return; }
+  s.id = s.managementNo;
+  try{
+    var data = shipmentToSheetData(s);
+    data.checklist = checklist;
+    await apiPost({action:'upsertOne', id: editingId, data: data});
+    toast('저장했습니다.');
+    closeModal();
+    refreshFromServer(true);
+  }catch(e){
+    toast('저장 실패: '+e.message, {err:true});
+  }
+}
+async function deleteFromModal(){
+  if(!editingId) return;
+  var s = byId[editingId];
+  try{ await apiPost({action:'deleteOne', managementNo:s.managementNo}); toast('삭제했습니다.'); closeModal(); refreshFromServer(true); }
+  catch(e){ toast('삭제 실패: '+e.message, {err:true}); }
+}
+
+/* ================= excel upload ================= */
+var HEADER_LOOKUP = {};
+Object.keys(FIELD_ALIASES).forEach(function(field){ FIELD_ALIASES[field].forEach(function(alias){ HEADER_LOOKUP[normHeader(alias)] = field; }); });
+function parseRows(rawRows){
+  return rawRows.map(function(row){
+    var out = {};
+    Object.keys(row).forEach(function(h){
+      var field = HEADER_LOOKUP[normHeader(h)]; if(!field) return;
+      var v = row[h];
+      if(['docCls','cfsCls','etd','etaPort','etaDoor'].indexOf(field)>=0){ var d=toDate(v); out[field]= d?d.toISOString():''; }
+      else { out[field] = (v===undefined||v===null) ? '' : String(v).trim(); }
+    });
+    if(out.routeTypeRaw){ var rk = ROUTE_LABEL_TO_KEY[normHeader(out.routeTypeRaw)]; out.routeType = rk||''; delete out.routeTypeRaw; }
+    return out;
+  }).filter(function(r){ return r.managementNo; });
+}
+var progressBar = document.getElementById('progressBar');
+function setProgress(pct){ progressBar.style.width=pct+'%'; if(pct>=100) setTimeout(function(){progressBar.style.width='0%';},400); }
+
+async function handleFile(file){
+  if(!webappReady()){ toast('먼저 Apps Script 웹 앱 URL을 설정해 주세요 (페이지 상단 안내 참고).', {err:true}); return; }
+  try{
+    var buf = await file.arrayBuffer();
+    var wb = XLSX.read(buf, {type:'array', cellDates:true});
+    var sheet = wb.Sheets[wb.SheetNames[0]];
+    var rawRows = XLSX.utils.sheet_to_json(sheet, {defval:''});
+    var rows = parseRows(rawRows);
+    if(rows.length===0){ toast('인식 가능한 데이터가 없습니다. 헤더(컬럼명)를 확인해 주세요.', {err:true}); return; }
+    setProgress(30);
+    var sheetRows = rows.map(function(r){
+      var fake = Object.assign({id:r.managementNo}, r);
+      return shipmentToSheetData(fake);
+    });
+    var result = await apiPost({action:'upsertMany', rows: sheetRows});
+    setProgress(100);
+    toast('업로드 완료 — 신규 '+result.created+'건, 갱신 '+result.updated+'건.');
+    refreshFromServer(true);
+  }catch(e){
+    toast('엑셀 업로드 중 오류: '+e.message, {err:true});
+  }
+}
+
+/* ================= csv template ================= */
+function downloadCsvTemplate(){
+  var headers = REQUIRED_HEADER_DISPLAY;
+  var example = ['SHP-0001','해상수출FCL','해상','수출','ABC상사','홍길동','BUSAN','LOS ANGELES','2026-09-10 12:00','2026-09-08','2026-09-12 09:00','2026-10-02','2026-10-05','HBL0001','MBL0001','ONE','ABC로지스','ONE HARMONY','신항 3부두','냉동 컨테이너 확인 필요'];
+  var csv = headers.join(',') + '\n' + example.map(function(v){ return /[,"\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }).join(',');
+  var blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = '포워딩_매니페스트_서식.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ================= wire up ================= */
+document.getElementById('helpCols').innerHTML = REQUIRED_HEADER_DISPLAY.map(function(h){ return '<span>'+escapeHtml(h)+'</span>'; }).join('');
+document.getElementById('pollSecLabel').textContent = Math.round(POLL_MS/1000);
+document.getElementById('uploadBtn').addEventListener('click', function(){ document.getElementById('fileInput').click(); });
+document.getElementById('fileInput').addEventListener('change', function(e){ var f=e.target.files[0]; if(f) handleFile(f); e.target.value=''; });
+document.getElementById('addBtn').addEventListener('click', function(){ openModal(null); });
+document.getElementById('csvTemplateBtn').addEventListener('click', downloadCsvTemplate);
+document.getElementById('searchInput').addEventListener('input', renderBoard);
+document.getElementById('modalOverlay').addEventListener('click', function(e){ if(e.target===this) closeModal(); });
+
+renderChips();
+renderRouteDocs();
+if(!webappReady()){
+  document.getElementById('setupBanner').hidden = false;
+  document.getElementById('syncDot').className = 'sync-dot local';
+  document.getElementById('syncLabel').textContent = '웹앱 URL 미설정';
+  renderAll();
+} else {
+  refreshFromServer(false);
+  startPolling();
+}
+})();
+</script>
+</body>
+</html>
