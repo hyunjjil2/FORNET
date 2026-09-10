@@ -245,7 +245,7 @@ details.help[open] summary:before{content:"–";}
     </div>
     <div class="top-actions">
       <span class="sync-status"><span class="sync-dot" id="syncDot"></span><span id="syncLabel">연결 중…</span></span>
-      <input class="search" id="searchInput" type="search" placeholder="관리번호 · 거래처 · 담당자 검색">
+      <input class="search" id="searchInput" type="search" placeholder="FILE No · Line Booking No · HBL · MBL · 거래처 · 담당자 검색">
       <button class="btn" id="csvTemplateBtn">CSV 서식</button>
       <button class="btn" id="addBtn">+ 신규 건</button>
       <button class="btn btn-primary" id="uploadBtn">엑셀 업로드</button>
@@ -376,13 +376,13 @@ function routeItems(routeType, billingOnly){
 
 /* 프론트 <-> 시트 헤더/필드 매핑 */
 var INFO_HEADERS = ['관리번호','루틴','청구전용','캔슬','서비스','수출입','거래처명','담당자','POL','POD',
-  'DOC CLS','CFS CLS','ETD','ETA(PORT)','ETA(DOOR)','House B/L No','Master B/L No','선사','운송사','VESSEL','터미널','특이사항',
+  'DOC CLS','CFS CLS','ETD','ETA(PORT)','ETA(DOOR)','Line Booking No','House B/L No','Master B/L No','선사','운송사','VESSEL','터미널','특이사항',
   '생성일시','수정일시'];
 var FIELD_TO_HEADER = {
   managementNo:'관리번호', routeType:'루틴', billingOnly:'청구전용', cancelled:'캔슬',
   service:'서비스', tradeType:'수출입', client:'거래처명', manager:'담당자', pol:'POL', pod:'POD',
   docCls:'DOC CLS', cfsCls:'CFS CLS', etd:'ETD', etaPort:'ETA(PORT)', etaDoor:'ETA(DOOR)',
-  hbl:'House B/L No', mbl:'Master B/L No', carrier:'선사', forwarder:'운송사', vessel:'VESSEL', terminal:'터미널', note:'특이사항',
+  lineBookingNo:'Line Booking No', hbl:'House B/L No', mbl:'Master B/L No', carrier:'선사', forwarder:'운송사', vessel:'VESSEL', terminal:'터미널', note:'특이사항',
   createdAt:'생성일시', updatedAt:'수정일시'
 };
 var HEADER_TO_FIELD = {}; Object.keys(FIELD_TO_HEADER).forEach(function(k){ HEADER_TO_FIELD[FIELD_TO_HEADER[k]] = k; });
@@ -394,10 +394,11 @@ var FIELD_ALIASES = {
   service: ['서비스'], tradeType: ['수출입'], client: ['거래처명','거래처 명','거래처'], manager: ['담당자'],
   pol: ['POL'], pod: ['POD'], docCls: ['DOCCLS','DOC CLS'], cfsCls: ['CFSCLS','CFS CLS'], etd: ['ETD'],
   etaPort: ['ETA(PORT)','ETAPORT','ETA PORT'], etaDoor: ['ETA(DOOR)','ETADOOR','ETA DOOR','DELIVERY'],
+  lineBookingNo: ['LINEBOOKINGNO','LINE BOOKING NO','LINE BOOKING NUMBER'],
   hbl: ['HOUSEB/LNO','HOUSE B/L NO','HBL'], mbl: ['MASTERB/LNO','MASTER B/L NO','MBL'],
   carrier: ['선사'], forwarder: ['운송사'], vessel: ['VESSEL'], terminal: ['터미널'], note: ['특이사항']
 };
-var REQUIRED_HEADER_DISPLAY = ['관리번호','루틴','서비스','수출입','거래처명','담당자','POL','POD','DOC CLS','CFS CLS','ETD','ETA(PORT)','ETA(DOOR)','House B/L No','Master B/L No','선사','운송사','VESSEL','터미널','특이사항'];
+var REQUIRED_HEADER_DISPLAY = ['관리번호','루틴','서비스','수출입','거래처명','담당자','POL','POD','DOC CLS','CFS CLS','ETD','ETA(PORT)','ETA(DOOR)','Line Booking No','House B/L No','Master B/L No','선사','운송사','VESSEL','터미널','특이사항'];
 function normHeader(h){ return String(h||'').trim().replace(/\s+/g,'').toUpperCase(); }
 
 /* ================= state ================= */
@@ -451,7 +452,16 @@ function statusOf(s){ if(s.cancelled) return 'cancelled'; if(!s.routeType) retur
 
 /* ================= computed feeds ================= */
 function matchesFilter(s){ return activeFilter==='ALL' || s.routeType===activeFilter; }
-function matchesSearch(s,q){ if(!q) return true; return (s.managementNo||'').toLowerCase().indexOf(q)>=0 || (s.client||'').toLowerCase().indexOf(q)>=0 || (s.manager||'').toLowerCase().indexOf(q)>=0; }
+function matchesSearch(s,q){
+  if(!q) return true;
+  return (s.managementNo||'').toLowerCase().indexOf(q)>=0 ||
+         (s.client||'').toLowerCase().indexOf(q)>=0 ||
+         (s.manager||'').toLowerCase().indexOf(q)>=0 ||
+         (s.lineBookingNo||'').toLowerCase().indexOf(q)>=0 ||
+         (s.hbl||'').toLowerCase().indexOf(q)>=0 ||
+         (s.mbl||'').toLowerCase().indexOf(q)>=0;
+}
+function searchResults(q){ if(!q) return []; return allShipments.filter(function(s){ return matchesSearch(s,q); }); }
 function activeShipments(){ return allShipments.filter(function(s){return statusOf(s)==='active';}); }
 function feedUnassigned(){ return allShipments.filter(function(s){return statusOf(s)==='unassigned';}); }
 function feedDueSoon(){
@@ -548,10 +558,35 @@ function unassignedTable(list){
       '</div>';
   }).join('');
 }
+var SEARCH_COLS = '118px minmax(120px,1fr) 108px 66px 130px 130px 130px 84px 34px';
+function searchResultTable(list){
+  if(list.length===0) return '<div class="trow empty">일치하는 건이 없습니다</div>';
+  var head = '<div class="trow head" style="grid-template-columns:'+SEARCH_COLS+';min-width:1000px;">'+
+    '<span>관리번호</span><span>거래처명</span><span>루틴</span><span>상태</span><span>Line Booking No</span><span>House B/L No</span><span>Master B/L No</span><span></span><span></span></div>';
+  var rows = list.map(function(s){
+    var st=statusOf(s); var stLabel={active:'진행중',done:'완료',cancelled:'캔슬',unassigned:'루틴 미지정'}[st];
+    return '<div class="trow" style="grid-template-columns:'+SEARCH_COLS+';min-width:1000px;">'+
+      '<button class="mgmtno mono" data-act="edit" data-id="'+escapeHtml(s.id)+'">'+escapeHtml(s.managementNo||s.id)+'</button>'+
+      '<button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'">'+escapeHtml(s.client||'-')+'</button>'+
+      '<span class="route-pill">'+escapeHtml((ROUTES[s.routeType]||{}).label||'-')+(s.billingOnly?' · 청구전용':'')+'</span>'+
+      '<span class="mgr">'+stLabel+'</span>'+
+      '<span class="mono" style="font-size:11.5px;">'+escapeHtml(s.lineBookingNo||'-')+'</span>'+
+      '<span class="mono" style="font-size:11.5px;">'+escapeHtml(s.hbl||'-')+'</span>'+
+      '<span class="mono" style="font-size:11.5px;">'+escapeHtml(s.mbl||'-')+'</span>'+
+      '<span></span>'+
+      '<button class="edit-btn" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="상세/수정"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M11 2l3 3-8 8-3.5.5.5-3.5z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg></button>'+
+      '</div>';
+  }).join('');
+  return head + rows;
+}
 function renderBoard(){
   var q=(document.getElementById('searchInput').value||'').trim().toLowerCase();
   var board=document.getElementById('board');
   var sections=[];
+  if(q){
+    var results = searchResults(q);
+    sections.push({tag:'Q', title:'검색 결과', sub:'관리번호(FILE No) · Line Booking No · House B/L No · Master B/L No · 거래처 · 담당자 — 상태(완료·캔슬 포함) 전체에서 검색', color:'teal', body:searchResultTable(results), count:results.length});
+  }
   var unassigned=feedUnassigned().filter(function(s){return matchesSearch(s,q);});
   sections.push({tag:'!', title:'루틴 미지정', sub:'업로드 시 루틴을 인식하지 못했거나, 아직 지정하지 않은 건', color:'danger', alert:true, body:unassignedTable(unassigned), count:unassigned.length});
   var due=feedDueSoon().filter(function(x){return matchesSearch(x.s,q);});
@@ -707,6 +742,7 @@ var INFO_FIELDS = [
   {k:'etd', label:'ETD', type:'datetime'},
   {k:'etaPort', label:'ETA(PORT)', type:'datetime'},
   {k:'etaDoor', label:'ETA(DOOR)', type:'datetime'},
+  {k:'lineBookingNo', label:'Line Booking No', type:'text'},
   {k:'hbl', label:'House B/L No', type:'text'},
   {k:'mbl', label:'Master B/L No', type:'text'},
   {k:'carrier', label:'선사', type:'text'},
@@ -841,7 +877,7 @@ async function handleFile(file){
 /* ================= csv template ================= */
 function downloadCsvTemplate(){
   var headers = REQUIRED_HEADER_DISPLAY;
-  var example = ['SHP-0001','해상수출FCL','해상','수출','ABC상사','홍길동','BUSAN','LOS ANGELES','2026-09-10 12:00','2026-09-08','2026-09-12 09:00','2026-10-02','2026-10-05','HBL0001','MBL0001','ONE','ABC로지스','ONE HARMONY','신항 3부두','냉동 컨테이너 확인 필요'];
+  var example = ['SHP-0001','해상수출FCL','해상','수출','ABC상사','홍길동','BUSAN','LOS ANGELES','2026-09-10 12:00','2026-09-08','2026-09-12 09:00','2026-10-02','2026-10-05','LBK-20260910-01','HBL0001','MBL0001','ONE','ABC로지스','ONE HARMONY','신항 3부두','냉동 컨테이너 확인 필요'];
   var csv = headers.join(',') + '\n' + example.map(function(v){ return /[,"\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }).join(',');
   var blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'});
   var url = URL.createObjectURL(blob);
