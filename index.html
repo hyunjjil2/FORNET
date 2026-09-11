@@ -61,7 +61,7 @@ button{font-family:inherit; font-size:inherit; cursor:pointer;}
 input,select,textarea{font-family:inherit; font-size:inherit;}
 img{max-width:100%;}
 
-.app{max-width:1180px; margin:0 auto; padding:20px 22px 64px;}
+.app{max-width:1680px; margin:0 auto; padding:20px 22px 64px;}
 
 .setup-banner{
   background:var(--danger-soft); color:var(--danger); border:1px solid var(--danger); border-radius:3px;
@@ -115,21 +115,28 @@ img{max-width:100%;}
 .chip.active{background:var(--ink); color:var(--paper); border-color:var(--ink);}
 .chip[disabled]{opacity:.4; cursor:not-allowed;}
 
-.kpi-strip{display:grid; grid-template-columns:repeat(6,1fr); gap:10px; margin-bottom:24px;}
+.kpi-strip{display:grid; grid-template-columns:repeat(7,1fr); gap:10px; margin-bottom:24px;}
 .kpi{
   background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--kc,var(--ink));
-  border-radius:2px; padding:12px 12px 10px; box-shadow:var(--shadow);
+  border-radius:2px; padding:12px 12px 10px; box-shadow:var(--shadow); text-align:left;
+  font-family:inherit; width:100%; transition:transform .12s, box-shadow .12s;
 }
+.kpi.clickable{cursor:pointer;}
+.kpi.clickable:hover{transform:translateY(-2px); box-shadow:0 2px 6px rgba(18,24,42,.1), 0 10px 26px rgba(18,24,42,.1);}
 .kpi .num{font-family:"Fraunces",serif; font-weight:700; font-size:30px; color:var(--kc,var(--ink)); line-height:1;}
 .kpi .lbl{font-size:11.5px; color:var(--ink-soft); margin-top:5px; font-weight:600; letter-spacing:.2px;}
 
 .board{display:flex; flex-direction:column; gap:20px;}
-.section{background:var(--surface); border:1px solid var(--line); border-radius:3px; overflow:hidden; box-shadow:var(--shadow);}
+.section{background:var(--surface); border:1px solid var(--line); border-radius:3px; overflow:hidden; box-shadow:var(--shadow); scroll-margin-top:16px;}
 .section.alert{border-color:var(--danger);}
 .section-head{
   display:flex; align-items:center; gap:12px; padding:12px 16px; border-left:5px solid var(--sc,var(--ink));
-  background:var(--surface-2); border-bottom:1px solid var(--line);
+  background:var(--surface-2); border-bottom:1px solid var(--line); cursor:pointer; user-select:none;
 }
+.section-head:hover{background:var(--line-strong);}
+.sec-chevron{flex:none; color:var(--ink-soft); transition:transform .15s; display:flex; align-items:center;}
+.section.collapsed .sec-chevron{transform:rotate(-90deg);}
+.section.collapsed .table-scroll{display:none;}
 .sec-tag{
   font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:11px; color:var(--sc,var(--ink));
   background:var(--sc-soft,transparent); border:1px solid var(--sc,var(--ink)); border-radius:2px;
@@ -370,6 +377,22 @@ var ROUTES = {
 };
 var ROUTE_ORDER = ['SEA_EXP_FCL','SEA_EXP_LCL','SEA_IMP_FCL','SEA_IMP_LCL','AIR_EXP'];
 var ANCHOR_FIELD = {'DOC CLS':'docCls','ETD':'etd','ETA(PORT)':'etaPort','ETA(DOOR)':'etaDoor'};
+/* FCL <-> LCL 짝 (같은 수출/수입 방향의 반대 컨테이너 형태) — "LCL 해당" 체크박스가 이 매핑으로 전환함 */
+var LCL_SIBLING = {SEA_EXP_FCL:'SEA_EXP_LCL', SEA_EXP_LCL:'SEA_EXP_FCL', SEA_IMP_FCL:'SEA_IMP_LCL', SEA_IMP_LCL:'SEA_IMP_FCL'};
+function isLclRoute(rt){ return rt==='SEA_EXP_LCL' || rt==='SEA_IMP_LCL'; }
+function isSeaRoute(rt){ return !!LCL_SIBLING[rt]; }
+/* 엑셀에 "루틴" 값이 없을 때, 서비스+수출입만으로 우선 기본 루틴을 추정 (해상은 일단 FCL로, LCL 건은 업로드 후 체크박스로 표시) */
+function deriveRouteFromServiceTrade(service, tradeType){
+  var sv = normHeader(service), td = normHeader(tradeType);
+  var isSea = sv.indexOf('해상')>=0 || sv==='SEA';
+  var isAir = sv.indexOf('항공')>=0 || sv==='AIR';
+  var isExp = td.indexOf('수출')>=0 || td==='EXPORT' || td==='EXP';
+  var isImp = td.indexOf('수입')>=0 || td==='IMPORT' || td==='IMP';
+  if(isSea && isExp) return 'SEA_EXP_FCL';
+  if(isSea && isImp) return 'SEA_IMP_FCL';
+  if(isAir && isExp) return 'AIR_EXP';
+  return ''; // 항공수입 등 아직 지원하지 않는 조합은 미지정으로 남김
+}
 
 function routeItems(routeType, billingOnly){
   var route = ROUTES[routeType];
@@ -545,17 +568,28 @@ function renderChips(){
 function renderKpis(){
   var kpis=[
     {label:'전체 진행중', value: allShipments.filter(function(s){return statusOf(s)==='active' && matchesMyClients(s);}).length, color:'ink'},
-    {label:'루틴 미지정', value: feedUnassigned().length, color:'danger'},
-    {label:'마감 임박 항목', value: feedDueSoon().length, color:'steel'},
-    {label:'진행 필요 항목', value: feedInProgress().length, color:'plum'},
-    {label:'청구 대기 항목', value: feedBilling().length, color:'brass'},
-    {label:'도착 추적', value: feedDoorTracking().length, color:'warn'},
+    {label:'루틴 미지정', value: feedUnassigned().length, color:'danger', target:'sec-unassigned'},
+    {label:'마감 임박 항목', value: feedDueSoon().length, color:'steel', target:'sec-duesoon'},
+    {label:'진행 필요 항목', value: feedInProgress().length, color:'plum', target:'sec-inprogress'},
+    {label:'청구 대기 항목', value: feedBilling().length, color:'brass', target:'sec-billing'},
+    {label:'도착 추적', value: feedDoorTracking().length, color:'warn', target:'sec-doortracking'},
     {label:'완료', value: allShipments.filter(function(s){return statusOf(s)==='done' && matchesMyClients(s);}).length, color:'slate'}
   ];
   document.getElementById('kpiStrip').innerHTML = kpis.map(function(k){
     var style = k.color==='ink' ? '' : ('style="--kc:var(--'+k.color+')"');
-    return '<div class="kpi" '+style+'><div class="num mono">'+k.value+'</div><div class="lbl">'+k.label+'</div></div>';
+    var tag = k.target ? 'button' : 'div';
+    return '<'+tag+' class="kpi'+(k.target?' clickable':'')+'" '+style+(k.target?' data-goto="'+k.target+'"':'')+'><div class="num mono">'+k.value+'</div><div class="lbl">'+k.label+'</div></'+tag+'>';
   }).join('');
+  document.querySelectorAll('[data-goto]').forEach(function(btn){
+    btn.addEventListener('click', function(){ goToSection(btn.dataset.goto); });
+  });
+}
+function goToSection(id){
+  var el = document.getElementById(id);
+  if(!el) return;
+  el.classList.remove('collapsed');
+  try{ localStorage.setItem('fw_collapsed_'+id, '0'); }catch(e){}
+  el.scrollIntoView({behavior:'smooth', block:'start'});
 }
 function doorTrackingTable(list){
   if(list.length===0) return '<div class="trow empty">해당 건 없음</div>';
@@ -636,28 +670,37 @@ function renderBoard(){
   var sections=[];
   if(q){
     var results = searchResults(q);
-    sections.push({tag:'Q', title:'검색 결과', sub:'관리번호(FILE No) · Line Booking No · House B/L No · Master B/L No · 거래처 · 담당자 — 상태(완료·캔슬 포함) 전체에서 검색', color:'teal', body:searchResultTable(results), count:results.length});
+    sections.push({id:'sec-search', tag:'Q', title:'검색 결과', sub:'관리번호(FILE No) · Line Booking No · House B/L No · Master B/L No · 거래처 · 담당자 — 상태(완료·캔슬 포함) 전체에서 검색', color:'teal', body:searchResultTable(results), count:results.length});
   }
   var unassigned=feedUnassigned().filter(function(s){return matchesSearch(s,q);});
-  sections.push({tag:'!', title:'루틴 미지정', sub:'업로드 시 루틴을 인식하지 못했거나, 아직 지정하지 않은 건', color:'danger', alert:true, body:unassignedTable(unassigned), count:unassigned.length});
+  sections.push({id:'sec-unassigned', tag:'!', title:'루틴 미지정', sub:'업로드 시 루틴을 인식하지 못했거나, 아직 지정하지 않은 건', color:'danger', alert:true, body:unassignedTable(unassigned), count:unassigned.length});
   var due=feedDueSoon().filter(function(x){return matchesSearch(x.s,q);});
-  sections.push({tag:'01', title:'마감 임박', sub:'날짜가 정해진 항목 중 오늘 기준 7일 이내 · 경과분 포함', color:'steel', body:itemFeedTable(due), count:due.length});
+  sections.push({id:'sec-duesoon', tag:'01', title:'마감 임박', sub:'날짜가 정해진 항목 중 오늘 기준 7일 이내 · 경과분 포함', color:'steel', body:itemFeedTable(due), count:due.length});
   var prog=feedInProgress().filter(function(x){return matchesSearch(x.s,q);});
-  sections.push({tag:'02', title:'진행 필요 항목', sub:'날짜 구분 없이 아직 체크되지 않은 실무 항목 · ETD 빠른 순', color:'plum', body:itemFeedTable(prog), count:prog.length});
+  sections.push({id:'sec-inprogress', tag:'02', title:'진행 필요 항목', sub:'날짜 구분 없이 아직 체크되지 않은 실무 항목 · ETD 빠른 순', color:'plum', body:itemFeedTable(prog), count:prog.length});
   var billing=feedBilling().filter(function(x){return matchesSearch(x.s,q);});
-  sections.push({tag:'03', title:'청구 대기', sub:'인보이스·계산서 등 청구 항목 · ETD 기준 경과일 30일↑ 강조, 60일↑ 더 진하게', color:'brass', body:itemFeedTable(billing,{aging:true}), count:billing.length});
+  sections.push({id:'sec-billing', tag:'03', title:'청구 대기', sub:'인보이스·계산서 등 청구 항목 · ETD 기준 경과일 30일↑ 강조, 60일↑ 더 진하게', color:'brass', body:itemFeedTable(billing,{aging:true}), count:billing.length});
   var doorList=feedDoorTracking().filter(function(x){return matchesSearch(x.s,q);});
-  sections.push({tag:'04', title:'도착 추적', sub:'Door 배송 해당 건 중 최종 도착·정산 확인이 아직 안 된 건 · ETA(DOOR) 임박 순', color:'warn', body:doorTrackingTable(doorList), count:doorList.length});
+  sections.push({id:'sec-doortracking', tag:'04', title:'도착 추적', sub:'Door 배송 해당 건 중 최종 도착·정산 확인이 아직 안 된 건 · ETA(DOOR) 임박 순', color:'warn', body:doorTrackingTable(doorList), count:doorList.length});
 
   var VARS={danger:['--danger','--danger-soft'],steel:['--steel','--steel-soft'],teal:['--teal','--teal-soft'],plum:['--plum','--plum-soft'],slate:['--slate','--slate-soft'],brass:['--brass','--brass-soft'],warn:['--warn','--warn-soft']};
+  var CHEVRON = '<span class="sec-chevron"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
   board.innerHTML = sections.map(function(sec){
     var vars=VARS[sec.color]; var style='style="--sc:var('+vars[0]+');--sc-soft:var('+vars[1]+')"';
-    return '<div class="section'+(sec.alert&&sec.count>0?' alert':'')+'">'+
-      '<div class="section-head" '+style+'><span class="sec-tag">'+sec.tag+'</span>'+
+    var collapsed = false; try{ collapsed = localStorage.getItem('fw_collapsed_'+sec.id)==='1'; }catch(e){}
+    return '<div class="section'+(sec.alert&&sec.count>0?' alert':'')+(collapsed?' collapsed':'')+'" id="'+sec.id+'">'+
+      '<div class="section-head" '+style+' data-toggle="'+sec.id+'"><span class="sec-tag">'+sec.tag+'</span>'+
       '<div class="sec-titles"><h2>'+sec.title+'</h2><div class="sub">'+sec.sub+'</div></div>'+
-      '<div class="sec-count">'+sec.count+'<span class="of">건</span></div></div>'+
+      '<div class="sec-count">'+sec.count+'<span class="of">건</span></div>'+CHEVRON+'</div>'+
       '<div class="table-scroll">'+sec.body+'</div></div>';
   }).join('');
+  document.querySelectorAll('[data-toggle]').forEach(function(head){
+    head.addEventListener('click', function(){
+      var sec = document.getElementById(head.dataset.toggle);
+      var nowCollapsed = sec.classList.toggle('collapsed');
+      try{ localStorage.setItem('fw_collapsed_'+head.dataset.toggle, nowCollapsed?'1':'0'); }catch(e){}
+    });
+  });
   wireBoardEvents();
 }
 function renderArchive(){
@@ -839,6 +882,24 @@ function refreshDoorArea(){
   var s = editingId ? (byId[editingId]||{}) : {};
   document.getElementById('doorArea').innerHTML = doorAreaHtml(doorEligible, s.checklist);
 }
+function lclRowHtml(routeType){
+  if(!isSeaRoute(routeType)) return '';
+  var checked = isLclRoute(routeType);
+  return '<div class="checkbox-row"><input type="checkbox" id="fld_lclFlag" '+(checked?'checked':'')+'><label for="fld_lclFlag">LCL 건 (혼적) — 체크 시 LCL 탭·체크리스트로 전환</label></div>';
+}
+function refreshLclRow(){
+  var rt = document.getElementById('fld_routeType').value;
+  document.getElementById('lclRow').innerHTML = lclRowHtml(rt);
+  var cb = document.getElementById('fld_lclFlag');
+  if(cb){
+    cb.addEventListener('change', function(){
+      var curRt = document.getElementById('fld_routeType').value;
+      var sib = LCL_SIBLING[curRt];
+      if(sib){ document.getElementById('fld_routeType').value = sib; refreshModalChecklist(); }
+    });
+  }
+}
+function onRouteTypeChange(){ refreshModalChecklist(); refreshLclRow(); }
 function openModal(id){
   editingId = id || null;
   var s = id ? (byId[id]||{}) : {};
@@ -861,6 +922,7 @@ function openModal(id){
       '<div class="field"><label>루틴</label><select id="fld_routeType">'+routeOptionsHtml+'</select></div>'+
       '<div class="field"><label>상태</label><select data-k="cancelled"><option value="">진행중</option><option value="1" '+(s.cancelled?'selected':'')+'>캔슬</option></select></div>'+
     '</div>'+
+    '<div id="lclRow">'+lclRowHtml(s.routeType)+'</div>'+
     '<div class="checkbox-row"><input type="checkbox" id="fld_billingOnly" '+(defaultBillingOnly?'checked':'')+'><label for="fld_billingOnly">이월·분할 청구 전용 건 (청구 관련 항목만 체크리스트에 표시)</label></div>'+
     '<div class="checklist-block"><h4>체크리스트</h4><div id="checklistArea">'+modalChecklistHtml(s.routeType, defaultBillingOnly, s.checklist)+'</div></div>'+
     '<div class="checkbox-row"><input type="checkbox" id="fld_doorEligible" '+(defaultDoorEligible?'checked':'')+'><label for="fld_doorEligible">Door 배송 해당 (체크 시 최종 도착·정산 확인용 "도착 추적" 목록에 표시됨)</label></div>'+
@@ -870,10 +932,11 @@ function openModal(id){
   document.getElementById('modalOverlay').hidden = false;
   document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
   document.getElementById('saveBtn').addEventListener('click', saveModal);
-  document.getElementById('fld_routeType').addEventListener('change', refreshModalChecklist);
+  document.getElementById('fld_routeType').addEventListener('change', onRouteTypeChange);
   document.getElementById('fld_billingOnly').addEventListener('change', refreshModalChecklist);
   document.getElementById('fld_doorEligible').addEventListener('change', refreshDoorArea);
   var delBtn = document.getElementById('deleteBtn'); if(delBtn) delBtn.addEventListener('click', deleteFromModal);
+  refreshLclRow();
 }
 function closeModal(){ document.getElementById('modalOverlay').hidden = true; editingId = null; }
 
@@ -923,6 +986,7 @@ function parseRows(rawRows){
       else { out[field] = (v===undefined||v===null) ? '' : String(v).trim(); }
     });
     if(out.routeTypeRaw){ var rk = ROUTE_LABEL_TO_KEY[normHeader(out.routeTypeRaw)]; out.routeType = rk||''; delete out.routeTypeRaw; }
+    if(!out.routeType && (out.service||out.tradeType)){ out.routeType = deriveRouteFromServiceTrade(out.service, out.tradeType); }
     return out;
   }).filter(function(r){ return r.managementNo; });
 }
