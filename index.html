@@ -363,8 +363,8 @@ var POLL_MS = 20000;
 var ROUTES = {
   SEA_EXP_FCL: {label:'해상수출 FCL', items:[
     {key:'booking', label:'부킹확정'},
-    {key:'docs', label:'SR, VGM, 면장', anchor:'DOC CLS'},
     {key:'baecha', label:'배차'},
+    {key:'docs', label:'SR, VGM, 면장', anchor:'DOC CLS'},
     {key:'jigyeol', label:'지결'},
     {key:'ichejeung', label:'이체증'},
     {key:'chulhang', label:'출항', anchor:'ETD'},
@@ -415,13 +415,13 @@ var ROUTES = {
   ]},
   AIR_EXP: {label:'항공수출', items:[
     {key:'booking', label:'부킹확정'},
-    {key:'myeonjang', label:'면장(한영)'},
     {key:'baecha', label:'배차'},
+    {key:'myeonjang', label:'면장'},
     {key:'chkBl', label:'CHK BL'},
     {key:'baechaInfo', label:'배차정보'},
-    {key:'preAlert', label:'PRE-ALERT(로토스)'},
-    {key:'airDocCls', label:'서류마감(트올)', anchor:'DOC CLS'},
-    {key:'settlementDocs', label:'정산서, 마감서류(로토스)', billing:true},
+    {key:'preAlert', label:'PRE-ALERT'},
+    {key:'airDocCls', label:'서류마감', anchor:'DOC CLS'},
+    {key:'settlementDocs', label:'정산서, 마감서류', billing:true},
     {key:'carrierJigyeol', label:'선사지결', billing:true}
   ]},
   AIR_IMP: {label:'항공수입', items:[
@@ -649,9 +649,14 @@ function goToSection(id){
   var el = document.getElementById(id);
   if(!el) return;
   el.classList.remove('collapsed');
-  try{ localStorage.setItem('fw_collapsed_'+id, '0'); }catch(e){}
+  sectionCollapsedOverride[id] = false;
   el.scrollIntoView({behavior:'smooth', block:'start'});
 }
+/* 섹션(01~04 등) 기본 접힘 상태 — "출항안내"·검색 결과만 기본으로 펼쳐져 있고 나머지는 새로고침하면 접혀 있음.
+   사용자가 이번 화면에서 직접 펼치거나 접은 것은 sectionCollapsedOverride에 기록되어 그 동안은 유지되지만,
+   실제로 페이지를 새로고침하면 이 값도 초기화되어 다시 기본값으로 돌아감. */
+var sectionCollapsedOverride = {};
+function defaultSectionCollapsed(id){ return id!=='sec-duesoon' && id!=='sec-search'; }
 function routePillHtml(s){
   var lcl = isLclRoute(s.routeType);
   var doorBadge = '';
@@ -768,7 +773,7 @@ function renderBoard(){
   var CHEVRON = CHEVRON_SVG;
   board.innerHTML = sections.map(function(sec){
     var vars=VARS[sec.color]; var style='style="--sc:var('+vars[0]+');--sc-soft:var('+vars[1]+')"';
-    var collapsed = false; try{ collapsed = localStorage.getItem('fw_collapsed_'+sec.id)==='1'; }catch(e){}
+    var collapsed = sectionCollapsedOverride.hasOwnProperty(sec.id) ? sectionCollapsedOverride[sec.id] : defaultSectionCollapsed(sec.id);
     var bulkBar = sec.bulk ? bulkBarHtml(sec.id, sec.bulk.items) : '';
     return '<div class="section'+(sec.alert&&sec.count>0?' alert':'')+(collapsed?' collapsed':'')+(sec.raw?' section-raw':'')+'" id="'+sec.id+'">'+
       '<div class="section-head" '+style+' data-toggle="'+sec.id+'"><span class="sec-tag">'+sec.tag+'</span>'+
@@ -781,7 +786,7 @@ function renderBoard(){
     head.addEventListener('click', function(){
       var sec = document.getElementById(head.dataset.toggle);
       var nowCollapsed = sec.classList.toggle('collapsed');
-      try{ localStorage.setItem('fw_collapsed_'+head.dataset.toggle, nowCollapsed?'1':'0'); }catch(e){}
+      sectionCollapsedOverride[head.dataset.toggle] = nowCollapsed;
     });
   });
   wireBoardEvents();
