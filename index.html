@@ -151,8 +151,8 @@ img{max-width:100%;}
 
 .table-scroll{overflow-x:auto;}
 .trow{
-  display:grid; grid-template-columns:38px 108px minmax(140px,1fr) 108px 66px 172px 108px 34px;
-  align-items:center; gap:8px; padding:9px 16px; border-bottom:1px solid var(--line); min-width:860px;
+  display:grid; grid-template-columns:20px 38px 108px minmax(140px,1fr) 108px 66px 172px 108px 34px;
+  align-items:center; gap:8px; padding:9px 16px; border-bottom:1px solid var(--line); min-width:880px;
 }
 .trow:last-child{border-bottom:none;}
 .trow.head{background:var(--surface-2); font-size:10.5px; font-weight:600; color:var(--ink-soft); letter-spacing:.3px; padding:7px 16px;}
@@ -162,8 +162,47 @@ img{max-width:100%;}
 .check{
   width:20px; height:20px; border:1.5px solid var(--line-strong); border-radius:3px; background:var(--surface);
   flex:none; display:flex; align-items:center; justify-content:center; color:transparent; padding:0;
+  transition:background .12s, border-color .12s, color .12s;
 }
 .check:hover{border-color:var(--sc,var(--ink)); color:var(--sc,var(--ink));}
+.check.flash{background:var(--teal); border-color:var(--teal); color:#fff;}
+.select-cb{width:15px; height:15px; flex:none; accent-color:var(--ink);}
+
+.bulk-bar{
+  display:flex; align-items:center; gap:10px; padding:8px 16px; background:var(--surface-2);
+  border-bottom:1px solid var(--line); font-size:12px; color:var(--ink-soft);
+}
+.bulk-bar label{display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600;}
+.bulk-bar .bulk-count{font-family:"IBM Plex Mono",monospace; font-weight:600; color:var(--ink);}
+.bulk-bar .btn[disabled]{opacity:.4;}
+
+.flag-pill{font-size:10px; font-weight:700; padding:2px 6px; border-radius:20px; white-space:nowrap; margin-left:5px;}
+.flag-pill.lcl{background:var(--plum-soft); color:var(--plum);}
+.flag-pill.door-pending{background:var(--warn-soft); color:var(--warn);}
+.flag-pill.door-done{background:var(--teal-soft); color:var(--teal);}
+.route-pill.lcl{background:var(--plum-soft); color:var(--plum);}
+
+.ov-heading{margin-bottom:10px;}
+.ov-heading h2{font-size:19px; font-weight:600;}
+.ov-heading .sub{font-size:12px; color:var(--ink-soft); margin-top:2px;}
+.ov-row{padding:6px 14px; min-width:0;}
+.ov-row.head{background:var(--surface-2);}
+.ov-head-lbl{font-size:9.5px; font-weight:700; color:var(--ink-soft); text-align:center; line-height:1.2; white-space:normal; letter-spacing:0;}
+.ov-head-lbl.door{color:var(--warn);}
+.stage-circle{
+  width:18px; height:18px; border-radius:50%; border:2px solid var(--line-strong); background:var(--surface);
+  padding:0; margin:0 auto; display:block; flex:none; transition:background .12s, border-color .12s;
+}
+.stage-circle:hover{border-color:var(--teal);}
+.stage-circle.done, .stage-circle.flash{background:var(--teal); border-color:var(--teal);}
+.stage-circle.warnring{border-color:var(--warn);}
+.remark-input{
+  border:1px solid transparent; background:transparent; color:var(--ink); font-size:12px;
+  padding:4px 6px; border-radius:2px; width:100%;
+}
+.remark-input:hover{border-color:var(--line);}
+.remark-input:focus{border-color:var(--sc,var(--ink)); background:var(--surface); outline:none;}
+.remark-input.saved{border-color:var(--teal);}
 .mgmtno{font-size:12px; font-weight:600; cursor:pointer; background:none; border:none; color:var(--ink); text-align:left; padding:0;}
 .mgmtno:hover{text-decoration:underline;}
 .client-cell{min-width:0;}
@@ -264,6 +303,12 @@ details.help[open] summary:before{content:"–";}
   </div>
 
   <div class="chip-row" id="chipRow"></div>
+
+  <div class="ov-heading">
+    <h2 class="display">체크리스트 현황판</h2>
+    <div class="sub">루틴별 진행 상황을 한눈에 · 원을 클릭하면 바로 체크됩니다 · 비고는 칸을 클릭해 바로 입력</div>
+  </div>
+  <section class="board" id="overviewBoard" style="margin-bottom:24px;"></section>
 
   <section class="kpi-strip" id="kpiStrip"></section>
   <section class="board" id="board"></section>
@@ -374,9 +419,21 @@ var ROUTES = {
     {key:'airDocCls', label:'서류마감(트올)', anchor:'DOC CLS'},
     {key:'settlementDocs', label:'정산서, 마감서류(로토스)', billing:true},
     {key:'carrierJigyeol', label:'선사지결', billing:true}
+  ]},
+  AIR_IMP: {label:'항공수입', items:[
+    {key:'impBooking', label:'부킹확정'},
+    {key:'impBaecha', label:'배차'},
+    {key:'impChkBl', label:'CHK BL'},
+    {key:'impBaechaInfo', label:'배차정보'},
+    {key:'impInsurance', label:'보험'},
+    {key:'impPreAlert', label:'PRE-ALERT'},
+    {key:'impDocCls', label:'서류마감', anchor:'DOC CLS'},
+    {key:'impSettlementDocs', label:'정산서, 마감서류', billing:true},
+    {key:'impMyeonjang', label:'면장'},
+    {key:'impCarrierJigyeol', label:'선사지결', billing:true}
   ]}
 };
-var ROUTE_ORDER = ['SEA_EXP_FCL','SEA_EXP_LCL','SEA_IMP_FCL','SEA_IMP_LCL','AIR_EXP'];
+var ROUTE_ORDER = ['SEA_EXP_FCL','SEA_EXP_LCL','SEA_IMP_FCL','SEA_IMP_LCL','AIR_EXP','AIR_IMP'];
 var ANCHOR_FIELD = {'DOC CLS':'docCls','ETD':'etd','ETA(PORT)':'etaPort','ETA(DOOR)':'etaDoor'};
 /* FCL <-> LCL 짝 (같은 수출/수입 방향의 반대 컨테이너 형태) — "LCL 해당" 체크박스가 이 매핑으로 전환함 */
 var LCL_SIBLING = {SEA_EXP_FCL:'SEA_EXP_LCL', SEA_EXP_LCL:'SEA_EXP_FCL', SEA_IMP_FCL:'SEA_IMP_LCL', SEA_IMP_LCL:'SEA_IMP_FCL'};
@@ -392,7 +449,8 @@ function deriveRouteFromServiceTrade(service, tradeType){
   if(isSea && isExp) return 'SEA_EXP_FCL';
   if(isSea && isImp) return 'SEA_IMP_FCL';
   if(isAir && isExp) return 'AIR_EXP';
-  return ''; // 항공수입 등 아직 지원하지 않는 조합은 미지정으로 남김
+  if(isAir && isImp) return 'AIR_IMP';
+  return ''; // 그 외 조합은 미지정으로 남김
 }
 
 function routeItems(routeType, billingOnly){
@@ -436,11 +494,16 @@ var REQUIRED_HEADER_DISPLAY = ['관리번호','루틴','서비스','수출입','
 function normHeader(h){ return String(h||'').trim().replace(/\s+/g,'').toUpperCase(); }
 
 /* ================= state ================= */
+var CHEVRON_SVG = '<span class="sec-chevron"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
 var allShipments = [];   // [{id(managementNo 기준), managementNo, routeType, billingOnly, cancelled, ...info, checklist:{}}]
 var byId = {};
 var editingId = null;
 var activeFilter = 'ALL';
 var pollTimer = null;
+var selection = {};  // sectionId -> { "id::itemKey": {id, item} } — 일괄 처리용 선택 상태
+function selKey(id,itemKey){ return id+'::'+itemKey; }
+function getSel(sectionId){ if(!selection[sectionId]) selection[sectionId]={}; return selection[sectionId]; }
+function selCount(sectionId){ return Object.keys(getSel(sectionId)).length; }
 var myClientCodes = [];  // 서버(설정 시트)에서 불러온 "내 거래처 코드" 목록
 function loadMyOnlyPref(){ try{ var v = localStorage.getItem('fw_myClientsOnly'); return v===null ? true : v==='1'; }catch(e){ return true; } }
 function saveMyOnlyPref(v){ try{ localStorage.setItem('fw_myClientsOnly', v?'1':'0'); }catch(e){} }
@@ -558,12 +621,11 @@ function feedDoorTracking(){
 /* ================= rendering (아티팩트 버전과 동일 로직) ================= */
 function renderChips(){
   var chips=[{key:'ALL',label:'전체'}].concat(ROUTE_ORDER.map(function(k){return {key:k,label:ROUTES[k].label};}));
-  chips.push({key:'AIR_IMP', label:'항공수입 (준비중)', disabled:true});
   document.getElementById('chipRow').innerHTML = chips.map(function(c){
     return '<button class="chip'+(activeFilter===c.key?' active':'')+'" data-chip="'+c.key+'" '+(c.disabled?'disabled':'')+'>'+c.label+'</button>';
   }).join('');
   document.querySelectorAll('[data-chip]').forEach(function(btn){
-    btn.addEventListener('click', function(){ activeFilter=btn.dataset.chip; renderChips(); renderBoard(); renderKpis(); });
+    btn.addEventListener('click', function(){ activeFilter=btn.dataset.chip; renderChips(); renderOverview(); renderBoard(); renderKpis(); });
   });
 }
 function renderKpis(){
@@ -582,7 +644,11 @@ function renderKpis(){
     return '<'+tag+' class="kpi'+(k.target?' clickable':'')+'" '+style+(k.target?' data-goto="'+k.target+'"':'')+'><div class="num mono">'+k.value+'</div><div class="lbl">'+k.label+'</div></'+tag+'>';
   }).join('');
   document.querySelectorAll('[data-goto]').forEach(function(btn){
-    btn.addEventListener('click', function(){ goToSection(btn.dataset.goto); });
+    btn.addEventListener('click', function(){
+      var id = btn.dataset.goto;
+      if(id==='sec-unassigned' && activeFilter!=='ALL'){ activeFilter='ALL'; renderChips(); renderOverview(); renderBoard(); }
+      goToSection(id);
+    });
   });
 }
 function goToSection(id){
@@ -592,13 +658,27 @@ function goToSection(id){
   try{ localStorage.setItem('fw_collapsed_'+id, '0'); }catch(e){}
   el.scrollIntoView({behavior:'smooth', block:'start'});
 }
-function doorTrackingTable(list){
+function routePillHtml(s){
+  var lcl = isLclRoute(s.routeType);
+  var doorBadge = '';
+  if(s.doorEligible){
+    var done = !!(s.checklist||{}).doorArrival;
+    doorBadge = '<span class="flag-pill '+(done?'door-done':'door-pending')+'">DOOR'+(done?' 완료':'')+'</span>';
+  }
+  return '<span class="route-pill'+(lcl?' lcl':'')+'">'+escapeHtml((ROUTES[s.routeType]||{}).label||'-')+(s.billingOnly?' · 청구전용':'')+'</span>'+doorBadge;
+}
+function selectCbHtml(sectionId, id, itemKey){
+  var checked = !!getSel(sectionId)[selKey(id,itemKey)];
+  return '<input type="checkbox" class="select-cb" data-sel-sec="'+sectionId+'" data-sel-id="'+escapeHtml(id)+'" data-sel-item="'+itemKey+'" '+(checked?'checked':'')+'>';
+}
+function doorTrackingTable(list, sectionId){
   if(list.length===0) return '<div class="trow empty">해당 건 없음</div>';
   return list.map(function(x){
     var s=x.s;
     var d = fmtDate(s.etaDoor);
     var badge = ddayBadge(x.dd,{});
     return '<div class="trow">'+
+      selectCbHtml(sectionId, s.id, 'doorArrival')+
       '<button class="check" data-act="toggle" data-id="'+escapeHtml(s.id)+'" data-item="doorArrival" title="도착 확인·정산 완료 처리"><svg width="12" height="12" viewBox="0 0 16 16"><path d="M2 8l4 4 8-8" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'+
       '<button class="mgmtno mono" data-act="edit" data-id="'+escapeHtml(s.id)+'">'+escapeHtml(s.managementNo||s.id)+'</button>'+
       '<span class="client-cell"><button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="'+escapeHtml(s.client||'')+'">'+escapeHtml(s.client||'-')+'</button>'+(s.note?'<div class="note-line" title="'+escapeHtml(s.note)+'">'+escapeHtml(s.note)+'</div>':'')+'</span>'+
@@ -621,10 +701,11 @@ function itemFeedTable(list, opts){
     else if(it.anchor){ badge = ddayBadge(x.dd,{}); }
     else { badge = '<span class="mono" style="font-size:11px;color:var(--ink-soft);">—</span>'; }
     return '<div class="trow">'+
+      selectCbHtml(opts.sectionId, s.id, it.key)+
       '<button class="check" data-act="toggle" data-id="'+escapeHtml(s.id)+'" data-item="'+it.key+'" title="'+escapeHtml(it.label)+' 완료 처리"><svg width="12" height="12" viewBox="0 0 16 16"><path d="M2 8l4 4 8-8" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'+
       '<button class="mgmtno mono" data-act="edit" data-id="'+escapeHtml(s.id)+'">'+escapeHtml(s.managementNo||s.id)+'</button>'+
       '<span class="client-cell"><button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="'+escapeHtml(s.client||'')+'">'+escapeHtml(s.client||'-')+'</button>'+(s.note?'<div class="note-line" title="'+escapeHtml(s.note)+'">'+escapeHtml(s.note)+'</div>':'')+'</span>'+
-      '<span class="route-pill">'+escapeHtml((ROUTES[s.routeType]||{}).label||'-')+(s.billingOnly?' · 청구전용':'')+'</span>'+
+      routePillHtml(s)+
       '<span class="mgr">'+escapeHtml(s.manager||'-')+'</span>'+
       '<span class="item-label">'+escapeHtml(it.label)+(it.billing?'<span class="billing-tag">청구</span>':'')+'</span>'+
       '<span>'+(d?('<span class="mono" style="font-size:11px;">'+d.date+(d.time?(' '+d.time):'')+'</span> '+badge):badge)+'</span>'+
@@ -654,7 +735,7 @@ function searchResultTable(list){
     return '<div class="trow" style="grid-template-columns:'+SEARCH_COLS+';min-width:1000px;">'+
       '<button class="mgmtno mono" data-act="edit" data-id="'+escapeHtml(s.id)+'">'+escapeHtml(s.managementNo||s.id)+'</button>'+
       '<button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'">'+escapeHtml(s.client||'-')+'</button>'+
-      '<span class="route-pill">'+escapeHtml((ROUTES[s.routeType]||{}).label||'-')+(s.billingOnly?' · 청구전용':'')+'</span>'+
+      routePillHtml(s)+
       '<span class="mgr">'+stLabel+'</span>'+
       '<span class="mono" style="font-size:11.5px;">'+escapeHtml(s.lineBookingNo||'-')+'</span>'+
       '<span class="mono" style="font-size:11.5px;">'+escapeHtml(s.hbl||'-')+'</span>'+
@@ -673,26 +754,30 @@ function renderBoard(){
     var results = searchResults(q);
     sections.push({id:'sec-search', tag:'Q', title:'검색 결과', sub:'관리번호(FILE No) · Line Booking No · House B/L No · Master B/L No · 거래처 · 담당자 — 상태(완료·캔슬 포함) 전체에서 검색', color:'teal', body:searchResultTable(results), count:results.length});
   }
-  var unassigned=feedUnassigned().filter(function(s){return matchesSearch(s,q);});
-  sections.push({id:'sec-unassigned', tag:'!', title:'루틴 미지정', sub:'업로드 시 루틴을 인식하지 못했거나, 아직 지정하지 않은 건', color:'danger', alert:true, body:unassignedTable(unassigned), count:unassigned.length});
+  if(activeFilter==='ALL'){
+    var unassigned=feedUnassigned().filter(function(s){return matchesSearch(s,q);});
+    sections.push({id:'sec-unassigned', tag:'!', title:'루틴 미지정', sub:'업로드 시 루틴을 인식하지 못했거나, 아직 지정하지 않은 건 · "전체" 탭에서만 표시됨', color:'danger', alert:true, body:unassignedTable(unassigned), count:unassigned.length});
+  }
   var due=feedDueSoon().filter(function(x){return matchesSearch(x.s,q);});
-  sections.push({id:'sec-duesoon', tag:'01', title:'마감 임박', sub:'날짜가 정해진 항목 중 오늘 기준 7일 이내 · 경과분 포함', color:'steel', body:itemFeedTable(due), count:due.length});
+  sections.push({id:'sec-duesoon', tag:'01', title:'마감 임박', sub:'날짜가 정해진 항목 중 오늘 기준 7일 이내 · 경과분 포함', color:'steel', body:itemFeedTable(due,{sectionId:'sec-duesoon'}), count:due.length, bulk:{items:due.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
   var prog=feedInProgress().filter(function(x){return matchesSearch(x.s,q);});
-  sections.push({id:'sec-inprogress', tag:'02', title:'진행 필요 항목', sub:'날짜 구분 없이 아직 체크되지 않은 실무 항목 · ETD 빠른 순', color:'plum', body:itemFeedTable(prog), count:prog.length});
+  sections.push({id:'sec-inprogress', tag:'02', title:'진행 필요 항목', sub:'날짜 구분 없이 아직 체크되지 않은 실무 항목 · ETD 빠른 순', color:'plum', body:itemFeedTable(prog,{sectionId:'sec-inprogress'}), count:prog.length, bulk:{items:prog.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
   var billing=feedBilling().filter(function(x){return matchesSearch(x.s,q);});
-  sections.push({id:'sec-billing', tag:'03', title:'청구 대기', sub:'인보이스·계산서 등 청구 항목 · ETD 기준 경과일 30일↑ 강조, 60일↑ 더 진하게', color:'brass', body:itemFeedTable(billing,{aging:true}), count:billing.length});
+  sections.push({id:'sec-billing', tag:'03', title:'청구 대기', sub:'인보이스·계산서 등 청구 항목 · ETD 기준 경과일 30일↑ 강조, 60일↑ 더 진하게', color:'brass', body:itemFeedTable(billing,{aging:true,sectionId:'sec-billing'}), count:billing.length, bulk:{items:billing.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
   var doorList=feedDoorTracking().filter(function(x){return matchesSearch(x.s,q);});
-  sections.push({id:'sec-doortracking', tag:'04', title:'도착 추적', sub:'Door 배송 해당 건 중 최종 도착·정산 확인이 아직 안 된 건 · ETA(DOOR) 임박 순', color:'warn', body:doorTrackingTable(doorList), count:doorList.length});
+  sections.push({id:'sec-doortracking', tag:'04', title:'도착 추적', sub:'Door 배송 해당 건 중 최종 도착·정산 확인이 아직 안 된 건 · ETA(DOOR) 임박 순', color:'warn', body:doorTrackingTable(doorList,'sec-doortracking'), count:doorList.length, bulk:{items:doorList.map(function(x){return {id:x.s.id,item:'doorArrival',managementNo:x.s.managementNo};})}});
 
   var VARS={danger:['--danger','--danger-soft'],steel:['--steel','--steel-soft'],teal:['--teal','--teal-soft'],plum:['--plum','--plum-soft'],slate:['--slate','--slate-soft'],brass:['--brass','--brass-soft'],warn:['--warn','--warn-soft']};
-  var CHEVRON = '<span class="sec-chevron"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
+  var CHEVRON = CHEVRON_SVG;
   board.innerHTML = sections.map(function(sec){
     var vars=VARS[sec.color]; var style='style="--sc:var('+vars[0]+');--sc-soft:var('+vars[1]+')"';
     var collapsed = false; try{ collapsed = localStorage.getItem('fw_collapsed_'+sec.id)==='1'; }catch(e){}
+    var bulkBar = sec.bulk ? bulkBarHtml(sec.id, sec.bulk.items) : '';
     return '<div class="section'+(sec.alert&&sec.count>0?' alert':'')+(collapsed?' collapsed':'')+'" id="'+sec.id+'">'+
       '<div class="section-head" '+style+' data-toggle="'+sec.id+'"><span class="sec-tag">'+sec.tag+'</span>'+
       '<div class="sec-titles"><h2>'+sec.title+'</h2><div class="sub">'+sec.sub+'</div></div>'+
       '<div class="sec-count">'+sec.count+'<span class="of">건</span></div>'+CHEVRON+'</div>'+
+      bulkBar+
       '<div class="table-scroll">'+sec.body+'</div></div>';
   }).join('');
   document.querySelectorAll('[data-toggle]').forEach(function(head){
@@ -703,6 +788,71 @@ function renderBoard(){
     });
   });
   wireBoardEvents();
+  sections.forEach(function(sec){ if(sec.bulk) wireBulkBar(sec.id, sec.bulk.items); });
+}
+
+/* ================= 일괄 선택 처리 ================= */
+function bulkBarHtml(sectionId, items){
+  var n = selCount(sectionId);
+  var allChecked = items.length>0 && n===items.length;
+  return '<div class="bulk-bar">'+
+    '<label><input type="checkbox" id="bulkAll-'+sectionId+'" '+(allChecked?'checked':'')+(items.length===0?' disabled':'')+'> 전체 선택</label>'+
+    '<span><span class="bulk-count mono">'+n+'</span>건 선택됨</span>'+
+    '<button class="btn btn-sm btn-primary" data-bulk-apply="'+sectionId+'" '+(n===0?'disabled':'')+'>선택 항목 일괄 완료 처리</button>'+
+    '</div>';
+}
+function wireBulkBar(sectionId, items){
+  document.querySelectorAll('.select-cb[data-sel-sec="'+sectionId+'"]').forEach(function(cb){
+    cb.addEventListener('change', function(){
+      var sel = getSel(sectionId);
+      var key = selKey(cb.dataset.selId, cb.dataset.selItem);
+      if(cb.checked) sel[key] = {id:cb.dataset.selId, item:cb.dataset.selItem};
+      else delete sel[key];
+      refreshBulkBar(sectionId, items);
+    });
+  });
+  var allCb = document.getElementById('bulkAll-'+sectionId);
+  if(allCb){
+    allCb.addEventListener('change', function(){
+      var sel = getSel(sectionId);
+      if(allCb.checked){ items.forEach(function(it){ sel[selKey(it.id,it.item)] = it; }); }
+      else { selection[sectionId] = {}; }
+      renderBoard();
+    });
+  }
+  var applyBtn = document.querySelector('[data-bulk-apply="'+sectionId+'"]');
+  if(applyBtn) applyBtn.addEventListener('click', function(){ bulkApply(sectionId); });
+}
+function refreshBulkBar(sectionId, items){
+  var bar = document.querySelector('#'+sectionId+' .bulk-bar');
+  if(!bar) return;
+  bar.outerHTML = bulkBarHtml(sectionId, items);
+  wireBulkBar(sectionId, items);
+}
+async function bulkApply(sectionId){
+  var sel = getSel(sectionId);
+  var entries = Object.keys(sel).map(function(k){ return sel[k]; });
+  if(entries.length===0) return;
+  var prevStates = entries.map(function(en){
+    var s = byId[en.id];
+    return {id:en.id, item:en.item, prevChecklist: s ? Object.assign({}, s.checklist||{}) : null};
+  });
+  entries.forEach(function(en){
+    var s = byId[en.id]; if(!s) return;
+    var nc = Object.assign({}, s.checklist||{}); nc[en.item] = true; s.checklist = nc;
+  });
+  selection[sectionId] = {};
+  renderAll();
+  try{
+    var items = entries.map(function(en){ var s=byId[en.id]; return {managementNo: s?s.managementNo:en.id, itemKey: en.item}; });
+    await apiPost({action:'toggleMany', items: items, value:true});
+    toast(entries.length+'건을 일괄 완료 처리했습니다.');
+    refreshFromServer(true);
+  }catch(e){
+    prevStates.forEach(function(p){ var s=byId[p.id]; if(s && p.prevChecklist) s.checklist=p.prevChecklist; });
+    renderAll();
+    toast('일괄 처리 실패: '+e.message, {err:true});
+  }
 }
 function renderArchive(){
   var body=document.getElementById('archiveBody');
@@ -731,7 +881,7 @@ function renderRouteDocs(){
       return (i+1)+'. '+escapeHtml(it.label)+(it.billing?' <span style="color:var(--brass);">[청구]</span>':'')+(it.anchor?' <span style="color:var(--ink-soft);">('+it.anchor+' 연동)</span>':'');
     }).join(' → ');
     return '<div class="route-doc"><b>'+route.label+'</b><div style="margin-top:5px;">'+stepsHtml+'</div></div>';
-  }).join('') + '<div class="route-doc"><b>항공수입</b><div style="margin-top:5px;color:var(--ink-soft);">체크리스트 준비 중입니다.</div></div>';
+  }).join('');
 }
 function renderMyClientsToggle(){
   var btn = document.getElementById('myClientsToggleBtn');
@@ -739,9 +889,96 @@ function renderMyClientsToggle(){
   btn.title = showMyClientsOnly ? '클릭하면 전체 담당자 건도 함께 봅니다' : '클릭하면 내 거래처 건만 봅니다';
   btn.classList.toggle('btn-primary', showMyClientsOnly);
 }
-function renderAll(){ renderMyClientsToggle(); renderKpis(); renderBoard(); renderArchive(); renderRouteDocs(); }
+/* ================= 체크리스트 현황판 (한눈에 보기) ================= */
+function overviewRoutesToShow(){
+  return activeFilter==='ALL' ? ROUTE_ORDER.slice() : [activeFilter];
+}
+function overviewShipmentsFor(routeType){
+  return allShipments.filter(function(s){
+    return s.routeType===routeType && !s.cancelled && matchesMyClients(s) && statusOf(s)!=='done';
+  }).sort(function(a,b){ var ad=toDate(a.etd)||toDate(a.etaPort), bd=toDate(b.etd)||toDate(b.etaPort); if(!ad&&!bd) return 0; if(!ad) return 1; if(!bd) return -1; return ad-bd; });
+}
+function overviewGridCols(n){
+  return '92px minmax(120px,1fr) 96px 96px 44px ' + new Array(n).fill('50px').join(' ') + ' minmax(160px,1fr)';
+}
+function stageCircleCell(s, it){
+  var chk=s.checklist||{}; var done=!!chk[it.key];
+  return '<button class="stage-circle'+(done?' done':'')+'" data-act="ovtoggle" data-id="'+escapeHtml(s.id)+'" data-item="'+it.key+'" title="'+escapeHtml(it.label)+(done?' — 완료 (클릭 시 해제 불가, 상세에서 수정)':' — 클릭하면 완료 처리')+'" '+(done?'disabled':'')+'></button>';
+}
+function doorFlagCellOv(s){
+  if(!s.doorEligible) return '<span class="mono" style="color:var(--ink-soft);font-size:11px;display:block;text-align:center;">–</span>';
+  var done = !!(s.checklist||{}).doorArrival;
+  return '<button class="stage-circle'+(done?' done':' warnring')+'" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="Door 배송'+(done?' — 도착·정산 완료':' — 도착 추적 중 (클릭해서 상세 열기)')+'"></button>';
+}
+function overviewRowHtml(s, items){
+  var cells = '<button class="mgmtno mono" data-act="edit" data-id="'+escapeHtml(s.id)+'">'+escapeHtml(s.managementNo||s.id)+'</button>'+
+    '<button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="'+escapeHtml(s.client||'')+'">'+escapeHtml(s.client||'-')+'</button>'+
+    '<span class="mono" style="font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escapeHtml(s.hbl||'-')+'</span>'+
+    '<span class="mono" style="font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escapeHtml(s.mbl||'-')+'</span>'+
+    doorFlagCellOv(s)+
+    items.map(function(it){ return stageCircleCell(s, it); }).join('')+
+    '<input type="text" class="remark-input" data-remark-id="'+escapeHtml(s.id)+'" value="'+escapeHtml(s.note||'')+'" placeholder="비고 입력…">';
+  return '<div class="trow ov-row" style="grid-template-columns:'+overviewGridCols(items.length)+';min-width:'+(600+items.length*50)+'px;">'+cells+'</div>';
+}
+function overviewGroupHtml(routeType){
+  var route = ROUTES[routeType]; if(!route) return '';
+  var items = route.items;
+  var list = overviewShipmentsFor(routeType);
+  var headCells = '<span class="ov-head-lbl" style="text-align:left;">관리번호</span><span class="ov-head-lbl" style="text-align:left;">거래처명</span><span class="ov-head-lbl">House B/L</span><span class="ov-head-lbl">Master B/L</span><span class="ov-head-lbl door">DOOR</span>'+
+    items.map(function(it){ return '<span class="ov-head-lbl" title="'+escapeHtml(it.label)+(it.billing?' (청구)':'')+'">'+escapeHtml(it.label)+'</span>'; }).join('')+
+    '<span>비고</span>';
+  var headRow = '<div class="trow ov-row head" style="grid-template-columns:'+overviewGridCols(items.length)+';min-width:'+(600+items.length*50)+'px;">'+headCells+'</div>';
+  var bodyRows = list.length ? list.map(function(s){ return overviewRowHtml(s, items); }).join('') : '<div class="trow empty">진행중인 건 없음</div>';
+  var collapsed=false; try{ collapsed = localStorage.getItem('fw_ovcollapsed_'+routeType)==='1'; }catch(e){}
+  return '<div class="section'+(collapsed?' collapsed':'')+'" id="ov-'+routeType+'">'+
+    '<div class="section-head" data-ovtoggle="'+routeType+'"><span class="sec-tag">'+escapeHtml(route.label.slice(0,2))+'</span>'+
+    '<div class="sec-titles"><h2>'+escapeHtml(route.label)+(isLclRoute(routeType)?' (혼적)':'')+'</h2><div class="sub">체크리스트 진행 상황 · 비고</div></div>'+
+    '<div class="sec-count">'+list.length+'<span class="of">건</span></div>'+CHEVRON_SVG+'</div>'+
+    '<div class="table-scroll">'+headRow+bodyRows+'</div></div>';
+}
+function renderOverview(){
+  var routes = overviewRoutesToShow();
+  document.getElementById('overviewBoard').innerHTML = routes.map(overviewGroupHtml).join('');
+  document.querySelectorAll('#overviewBoard [data-ovtoggle]').forEach(function(head){
+    head.addEventListener('click', function(){
+      var rk = head.dataset.ovtoggle;
+      var sec = document.getElementById('ov-'+rk);
+      var nowCollapsed = sec.classList.toggle('collapsed');
+      try{ localStorage.setItem('fw_ovcollapsed_'+rk, nowCollapsed?'1':'0'); }catch(e){}
+    });
+  });
+  document.querySelectorAll('#overviewBoard [data-act="ovtoggle"]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      if(btn.disabled || btn.classList.contains('flash')) return;
+      btn.classList.add('flash'); btn.disabled = true;
+      setTimeout(function(){ toggleItem(btn.dataset.id, btn.dataset.item); }, 280);
+    });
+  });
+  document.querySelectorAll('#overviewBoard [data-act="edit"]').forEach(function(el){ el.addEventListener('click', function(){ openModal(el.dataset.id); }); });
+  document.querySelectorAll('#overviewBoard .remark-input').forEach(function(inp){
+    inp.addEventListener('change', function(){ saveRemark(inp.dataset.remarkId, inp.value, inp); });
+    inp.addEventListener('keydown', function(e){ if(e.key==='Enter') inp.blur(); });
+  });
+}
+function saveRemark(id, value, inputEl){
+  var s = byId[id]; if(!s) return;
+  var prev = s.note; s.note = value;
+  apiPost({action:'upsertOne', id: s.managementNo, data: {'특이사항': value}})
+    .then(function(){
+      if(inputEl){ inputEl.classList.add('saved'); setTimeout(function(){ inputEl.classList.remove('saved'); }, 900); }
+    })
+    .catch(function(e){ s.note = prev; toast('비고 저장 실패: '+e.message, {err:true}); });
+}
+
+function renderAll(){ renderMyClientsToggle(); renderOverview(); renderKpis(); renderBoard(); renderArchive(); renderRouteDocs(); }
 function wireBoardEvents(){
-  document.querySelectorAll('[data-act="toggle"]').forEach(function(btn){ btn.addEventListener('click', function(){ toggleItem(btn.dataset.id, btn.dataset.item); }); });
+  document.querySelectorAll('[data-act="toggle"]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      if(btn.classList.contains('flash')) return;
+      btn.classList.add('flash');
+      setTimeout(function(){ toggleItem(btn.dataset.id, btn.dataset.item); }, 320);
+    });
+  });
   document.querySelectorAll('[data-act="edit"]').forEach(function(el){ el.addEventListener('click', function(){ openModal(el.dataset.id); }); });
 }
 
@@ -916,7 +1153,7 @@ function openModal(id){
     else { inner='<input type="text" data-k="'+f.k+'" value="'+escapeHtml(val)+'">'; }
     return '<div class="field'+(f.full?' full':'')+'"><label>'+f.label+(f.req?' *':'')+'</label>'+inner+'</div>';
   }).join('');
-  var routeOptionsHtml = '<option value="">— 미지정 —</option>' + ROUTE_ORDER.map(function(k){ return '<option value="'+k+'" '+(s.routeType===k?'selected':'')+'>'+ROUTES[k].label+'</option>'; }).join('') + '<option value="AIR_IMP" disabled>항공수입 (준비중)</option>';
+  var routeOptionsHtml = '<option value="">— 미지정 —</option>' + ROUTE_ORDER.map(function(k){ return '<option value="'+k+'" '+(s.routeType===k?'selected':'')+'>'+ROUTES[k].label+'</option>'; }).join('');
   document.getElementById('modalContent').innerHTML =
     '<div class="modal-head"><h3>'+(isNew?'신규 건 등록':'건 상세 / 수정')+'</h3><button class="modal-close" id="modalCloseBtn">&times;</button></div>'+
     '<div class="modal-body"><div class="field-grid">'+infoHtml+
@@ -924,10 +1161,10 @@ function openModal(id){
       '<div class="field"><label>상태</label><select data-k="cancelled"><option value="">진행중</option><option value="1" '+(s.cancelled?'selected':'')+'>캔슬</option></select></div>'+
     '</div>'+
     '<div id="lclRow">'+lclRowHtml(s.routeType)+'</div>'+
-    '<div class="checkbox-row"><input type="checkbox" id="fld_billingOnly" '+(defaultBillingOnly?'checked':'')+'><label for="fld_billingOnly">이월·분할 청구 전용 건 (청구 관련 항목만 체크리스트에 표시)</label></div>'+
-    '<div class="checklist-block"><h4>체크리스트</h4><div id="checklistArea">'+modalChecklistHtml(s.routeType, defaultBillingOnly, s.checklist)+'</div></div>'+
     '<div class="checkbox-row"><input type="checkbox" id="fld_doorEligible" '+(defaultDoorEligible?'checked':'')+'><label for="fld_doorEligible">Door 배송 해당 (체크 시 최종 도착·정산 확인용 "도착 추적" 목록에 표시됨)</label></div>'+
     '<div id="doorArea">'+doorAreaHtml(defaultDoorEligible, s.checklist)+'</div>'+
+    '<div class="checkbox-row"><input type="checkbox" id="fld_billingOnly" '+(defaultBillingOnly?'checked':'')+'><label for="fld_billingOnly">이월·분할 청구 전용 건 (청구 관련 항목만 체크리스트에 표시)</label></div>'+
+    '<div class="checklist-block"><h4>체크리스트</h4><div id="checklistArea">'+modalChecklistHtml(s.routeType, defaultBillingOnly, s.checklist)+'</div></div>'+
     '</div>'+
     '<div class="modal-foot">'+(isNew?'<span></span>':'<button class="btn btn-ghost" id="deleteBtn" style="color:var(--danger);border-color:var(--danger);">삭제</button>')+'<button class="btn btn-primary" id="saveBtn">저장</button></div>';
   document.getElementById('modalOverlay').hidden = false;
