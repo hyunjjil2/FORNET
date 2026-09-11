@@ -168,7 +168,11 @@ img{max-width:100%;}
 .trow.head{background:var(--surface-2); font-size:10.5px; font-weight:600; color:var(--ink-soft); letter-spacing:.3px; padding:7px 16px;}
 .trow.empty{color:var(--ink-soft); font-size:12.5px; padding:16px; grid-template-columns:1fr; min-width:0; justify-items:center;}
 .trow:not(.head):not(.empty):hover{background:var(--surface-2);}
-.trow.today{grid-template-columns:20px 38px 108px minmax(140px,1fr) 108px 66px 86px 172px 108px 34px;}
+.trow.today{grid-template-columns:20px 38px 100px minmax(130px,1fr) 100px 58px 100px 92px 92px 76px 150px 118px 34px; min-width:1180px;}
+.trow.today.head{padding:7px 16px;}
+.bl-cell{font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--ink-soft);}
+.date-badge-cell{display:flex; flex-direction:column; align-items:center; gap:2px;}
+.date-badge-cell .mono{font-size:10.5px; color:var(--ink-soft);}
 
 .check{
   width:20px; height:20px; border:1.5px solid var(--line-strong); border-radius:3px; background:var(--surface);
@@ -778,9 +782,13 @@ function itemFeedTable(list, opts){
       '</div>';
   }).join('');
 }
+var TODAY_HEAD = '<div class="trow today head">'+
+  '<span></span><span></span><span>관리번호</span><span>거래처명</span><span>루틴</span><span>담당자</span>'+
+  '<span>Line Booking No</span><span>House B/L No</span><span>Master B/L No</span><span>구분</span><span>항목</span><span>ETD</span><span></span>'+
+  '</div>';
 function todayTable(list, sectionId){
   if(list.length===0) return '<div class="trow empty">해당 항목 없음</div>';
-  return list.map(function(x){
+  var rows = list.map(function(x){
     var s=x.s, it=x.item;
     var d = (x.field) ? fmtDate(s[x.field]) : (x.type==='door' ? fmtDate(s.etaDoor) : null);
     var badge;
@@ -793,12 +801,16 @@ function todayTable(list, sectionId){
       '<span class="client-cell"><button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="'+escapeHtml(s.client||'')+'">'+escapeHtml(s.client||'-')+'</button>'+(s.note?'<div class="note-line" title="'+escapeHtml(s.note)+'">'+escapeHtml(s.note)+'</div>':'')+'</span>'+
       routePillHtml(s)+
       '<span class="mgr">'+escapeHtml(s.manager||'-')+'</span>'+
+      '<span class="bl-cell mono" title="'+escapeHtml(s.lineBookingNo||'')+'">'+escapeHtml(s.lineBookingNo||'-')+'</span>'+
+      '<span class="bl-cell mono" title="'+escapeHtml(s.hbl||'')+'">'+escapeHtml(s.hbl||'-')+'</span>'+
+      '<span class="bl-cell mono" title="'+escapeHtml(s.mbl||'')+'">'+escapeHtml(s.mbl||'-')+'</span>'+
       '<span class="type-tag '+x.type+'">'+TYPE_LABEL[x.type]+'</span>'+
       '<span class="item-label">'+escapeHtml(it.label)+(it.billing?'<span class="billing-tag">청구</span>':'')+'</span>'+
-      '<span>'+(d?('<span class="mono" style="font-size:11px;">'+d.date+(d.time?(' '+d.time):'')+'</span> '+badge):badge)+'</span>'+
+      '<span class="date-badge-cell">'+(d?('<span class="mono">'+d.date+(d.time?(' '+d.time):'')+'</span>'):'')+badge+'</span>'+
       '<button class="edit-btn" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="상세/수정"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M11 2l3 3-8 8-3.5.5.5-3.5z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg></button>'+
       '</div>';
   }).join('');
+  return TODAY_HEAD + rows;
 }
 function unassignedTable(list){
   if(list.length===0) return '<div class="trow empty">해당 건 없음</div>';
