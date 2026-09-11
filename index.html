@@ -115,6 +115,16 @@ img{max-width:100%;}
 }
 .chip.active{background:var(--ink); color:var(--paper); border-color:var(--ink);}
 .chip[disabled]{opacity:.4; cursor:not-allowed;}
+.chip.type-chip.active{background:var(--sc,var(--ink)); border-color:var(--sc,var(--ink));}
+
+.tab-row{display:flex; gap:6px; margin-bottom:16px; border-bottom:2px solid var(--ink); padding-bottom:0;}
+.tab-btn{
+  background:transparent; border:1px solid var(--line-strong); border-bottom:none; color:var(--ink-soft);
+  padding:10px 20px; font-size:14px; font-weight:600; border-radius:4px 4px 0 0; position:relative; top:2px;
+}
+.tab-btn:hover{color:var(--ink); background:var(--surface-2);}
+.tab-btn.active{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+.tab-count{font-family:"IBM Plex Mono",monospace; font-size:11.5px; margin-left:6px; opacity:.75;}
 
 .kpi-strip{display:grid; grid-template-columns:repeat(7,1fr); gap:10px; margin-bottom:24px;}
 .kpi{
@@ -158,6 +168,7 @@ img{max-width:100%;}
 .trow.head{background:var(--surface-2); font-size:10.5px; font-weight:600; color:var(--ink-soft); letter-spacing:.3px; padding:7px 16px;}
 .trow.empty{color:var(--ink-soft); font-size:12.5px; padding:16px; grid-template-columns:1fr; min-width:0; justify-items:center;}
 .trow:not(.head):not(.empty):hover{background:var(--surface-2);}
+.trow.today{grid-template-columns:20px 38px 108px minmax(140px,1fr) 108px 66px 86px 172px 108px 34px;}
 
 .check{
   width:20px; height:20px; border:1.5px solid var(--line-strong); border-radius:3px; background:var(--surface);
@@ -181,6 +192,10 @@ img{max-width:100%;}
 .flag-pill.door-pending{background:var(--warn-soft); color:var(--warn);}
 .flag-pill.door-done{background:var(--teal-soft); color:var(--teal);}
 .route-pill.lcl{background:var(--plum-soft); color:var(--plum);}
+.type-tag{font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:3px; white-space:nowrap; border:1px solid currentColor;}
+.type-tag.duesoon{color:var(--steel); background:var(--steel-soft); border-color:transparent;}
+.type-tag.billing{color:var(--brass); background:var(--brass-soft); border-color:transparent;}
+.type-tag.door{color:var(--warn); background:var(--warn-soft); border-color:transparent;}
 
 .ov-row{padding:8px 14px; min-width:0; align-items:stretch;}
 .ov-row.head{background:var(--surface-2); padding-top:9px; padding-bottom:9px;}
@@ -305,9 +320,11 @@ details.help[open] summary:before{content:"–";}
     </div>
   </div>
 
-  <div class="chip-row" id="chipRow"></div>
-
   <section class="kpi-strip" id="kpiStrip"></section>
+
+  <div class="tab-row" id="tabRow"></div>
+  <div class="chip-row" id="chipRow"></div>
+  <div class="chip-row" id="typeChipRow"></div>
   <section class="board" id="board"></section>
 
   <div class="foot">
@@ -503,6 +520,8 @@ var allShipments = [];   // [{id(managementNo 기준), managementNo, routeType, 
 var byId = {};
 var editingId = null;
 var activeFilter = 'ALL';
+var activeTab = 'TODAY';  // 'TODAY' | 'CHECKLIST' — 새로고침하면 항상 TODAY로 초기화 (in-memory only)
+var activeType = 'ALL';   // '오늘 할 일' 탭 내 타입 필터: ALL | duesoon | billing | door
 var pollTimer = null;
 var selection = {};  // sectionId -> { "id::itemKey": {id, item} } — 일괄 처리용 선택 상태
 function selKey(id,itemKey){ return id+'::'+itemKey; }
@@ -611,6 +630,21 @@ function feedDoorTracking(){
   out.sort(function(a,b){ var av=a.dd===null?9999:a.dd, bv=b.dd===null?9999:b.dd; return av-bv; });
   return out;
 }
+/* ================= "오늘 할 일" 통합 피드 (타입 태그: duesoon/billing/door) ================= */
+var TYPE_LABEL = {duesoon:'출항안내', billing:'청구대기', door:'도착확인'};
+function feedTodayAll(){
+  var out=[];
+  feedDueSoon().forEach(function(x){ out.push({type:'duesoon', s:x.s, item:x.item, dd:x.dd, field:x.field, sortKey:(x.dd===null?9999:x.dd)}); });
+  feedBilling().forEach(function(x){ out.push({type:'billing', s:x.s, item:x.item, aging:x.aging, sortKey:-(x.aging===null?-9999:x.aging)}); });
+  feedDoorTracking().forEach(function(x){ out.push({type:'door', s:x.s, item:{key:'doorArrival', label:'도착 확인·정산 완료'}, dd:x.dd, sortKey:(x.dd===null?9999:x.dd)}); });
+  return out;
+}
+function feedToday(){
+  var list = feedTodayAll();
+  if(activeType!=='ALL') list = list.filter(function(x){return x.type===activeType;});
+  list.sort(function(a,b){ return a.sortKey-b.sortKey; });
+  return list;
+}
 
 /* ================= rendering (아티팩트 버전과 동일 로직) ================= */
 function renderChips(){
@@ -622,26 +656,58 @@ function renderChips(){
     btn.addEventListener('click', function(){ activeFilter=btn.dataset.chip; renderChips(); renderBoard(); renderKpis(); });
   });
 }
+var TYPE_DEFS = [
+  {key:'ALL', label:'전체'},
+  {key:'duesoon', label:'출항안내', color:'steel'},
+  {key:'billing', label:'청구대기', color:'brass'},
+  {key:'door', label:'도착확인', color:'warn'}
+];
+function renderTypeChips(){
+  var row = document.getElementById('typeChipRow');
+  if(activeTab!=='TODAY'){ row.innerHTML=''; row.style.display='none'; return; }
+  row.style.display='';
+  row.innerHTML = TYPE_DEFS.map(function(t){
+    var style = t.color ? ' style="--sc:var(--'+t.color+')"' : '';
+    return '<button class="chip type-chip'+(activeType===t.key?' active':'')+'" data-type-chip="'+t.key+'"'+style+'>'+t.label+'</button>';
+  }).join('');
+  document.querySelectorAll('[data-type-chip]').forEach(function(btn){
+    btn.addEventListener('click', function(){ activeType=btn.dataset.typeChip; renderTypeChips(); renderBoard(); });
+  });
+}
+function renderTabRow(){
+  var tabs=[
+    {key:'TODAY', label:'오늘 할 일', count: feedTodayAll().length + feedUnassigned().length},
+    {key:'CHECKLIST', label:'체크리스트 보드', count: checklistOverviewCount()}
+  ];
+  document.getElementById('tabRow').innerHTML = tabs.map(function(t){
+    return '<button class="tab-btn'+(activeTab===t.key?' active':'')+'" data-tab="'+t.key+'">'+t.label+'<span class="tab-count mono">'+t.count+'</span></button>';
+  }).join('');
+  document.querySelectorAll('[data-tab]').forEach(function(btn){
+    btn.addEventListener('click', function(){ if(activeTab===btn.dataset.tab) return; activeTab=btn.dataset.tab; renderTypeChips(); renderTabRow(); renderBoard(); });
+  });
+}
 function renderKpis(){
   var kpis=[
     {label:'전체 진행중', value: allShipments.filter(function(s){return statusOf(s)==='active' && matchesMyClients(s);}).length, color:'ink'},
-    {label:'루틴 미지정', value: feedUnassigned().length, color:'danger', target:'sec-unassigned'},
-    {label:'출항안내', value: feedDueSoon().length, color:'steel', target:'sec-duesoon'},
-    {label:'체크리스트 현황판', value: checklistOverviewCount(), color:'plum', target:'sec-checklist'},
-    {label:'청구 대기 항목', value: feedBilling().length, color:'brass', target:'sec-billing'},
-    {label:'도착 추적', value: feedDoorTracking().length, color:'warn', target:'sec-doortracking'},
+    {label:'루틴 미지정', value: feedUnassigned().length, color:'danger', goto:{tab:'TODAY', type:'ALL', target:'sec-unassigned', forceAllRoute:true}},
+    {label:'출항안내', value: feedDueSoon().length, color:'steel', goto:{tab:'TODAY', type:'duesoon', target:'sec-today'}},
+    {label:'체크리스트 보드', value: checklistOverviewCount(), color:'plum', goto:{tab:'CHECKLIST', target:'sec-checklist'}},
+    {label:'청구 대기 항목', value: feedBilling().length, color:'brass', goto:{tab:'TODAY', type:'billing', target:'sec-today'}},
+    {label:'도착 추적', value: feedDoorTracking().length, color:'warn', goto:{tab:'TODAY', type:'door', target:'sec-today'}},
     {label:'완료', value: allShipments.filter(function(s){return statusOf(s)==='done' && matchesMyClients(s);}).length, color:'slate'}
   ];
-  document.getElementById('kpiStrip').innerHTML = kpis.map(function(k){
+  document.getElementById('kpiStrip').innerHTML = kpis.map(function(k,i){
     var style = k.color==='ink' ? '' : ('style="--kc:var(--'+k.color+')"');
-    var tag = k.target ? 'button' : 'div';
-    return '<'+tag+' class="kpi'+(k.target?' clickable':'')+'" '+style+(k.target?' data-goto="'+k.target+'"':'')+'><div class="num mono">'+k.value+'</div><div class="lbl">'+k.label+'</div></'+tag+'>';
+    var tag = k.goto ? 'button' : 'div';
+    return '<'+tag+' class="kpi'+(k.goto?' clickable':'')+'" '+style+(k.goto?' data-goto-idx="'+i+'"':'')+'><div class="num mono">'+k.value+'</div><div class="lbl">'+k.label+'</div></'+tag+'>';
   }).join('');
-  document.querySelectorAll('[data-goto]').forEach(function(btn){
+  document.querySelectorAll('[data-goto-idx]').forEach(function(btn){
     btn.addEventListener('click', function(){
-      var id = btn.dataset.goto;
-      if(id==='sec-unassigned' && activeFilter!=='ALL'){ activeFilter='ALL'; renderChips(); renderBoard(); }
-      goToSection(id);
+      var g = kpis[+btn.dataset.gotoIdx].goto; if(!g) return;
+      if(g.forceAllRoute && activeFilter!=='ALL'){ activeFilter='ALL'; renderChips(); }
+      activeTab = g.tab; if(g.type) activeType = g.type;
+      renderTabRow(); renderTypeChips(); renderBoard();
+      goToSection(g.target);
     });
   });
 }
@@ -656,7 +722,7 @@ function goToSection(id){
    사용자가 이번 화면에서 직접 펼치거나 접은 것은 sectionCollapsedOverride에 기록되어 그 동안은 유지되지만,
    실제로 페이지를 새로고침하면 이 값도 초기화되어 다시 기본값으로 돌아감. */
 var sectionCollapsedOverride = {};
-function defaultSectionCollapsed(id){ return id!=='sec-duesoon' && id!=='sec-search'; }
+function defaultSectionCollapsed(id){ return id!=='sec-today' && id!=='sec-search'; }
 function routePillHtml(s){
   var lcl = isLclRoute(s.routeType);
   var doorBadge = '';
@@ -712,6 +778,28 @@ function itemFeedTable(list, opts){
       '</div>';
   }).join('');
 }
+function todayTable(list, sectionId){
+  if(list.length===0) return '<div class="trow empty">해당 항목 없음</div>';
+  return list.map(function(x){
+    var s=x.s, it=x.item;
+    var d = (x.field) ? fmtDate(s[x.field]) : (x.type==='door' ? fmtDate(s.etaDoor) : null);
+    var badge;
+    if(x.type==='billing'){ badge = ddayBadge(x.aging,{aging:true}); }
+    else { badge = ddayBadge(x.dd,{}); }
+    return '<div class="trow today">'+
+      selectCbHtml(sectionId, s.id, it.key)+
+      '<button class="check" data-act="toggle" data-id="'+escapeHtml(s.id)+'" data-item="'+it.key+'" title="'+escapeHtml(it.label)+' 완료 처리"><svg width="12" height="12" viewBox="0 0 16 16"><path d="M2 8l4 4 8-8" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'+
+      '<button class="mgmtno mono" data-act="edit" data-id="'+escapeHtml(s.id)+'">'+escapeHtml(s.managementNo||s.id)+'</button>'+
+      '<span class="client-cell"><button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="'+escapeHtml(s.client||'')+'">'+escapeHtml(s.client||'-')+'</button>'+(s.note?'<div class="note-line" title="'+escapeHtml(s.note)+'">'+escapeHtml(s.note)+'</div>':'')+'</span>'+
+      routePillHtml(s)+
+      '<span class="mgr">'+escapeHtml(s.manager||'-')+'</span>'+
+      '<span class="type-tag '+x.type+'">'+TYPE_LABEL[x.type]+'</span>'+
+      '<span class="item-label">'+escapeHtml(it.label)+(it.billing?'<span class="billing-tag">청구</span>':'')+'</span>'+
+      '<span>'+(d?('<span class="mono" style="font-size:11px;">'+d.date+(d.time?(' '+d.time):'')+'</span> '+badge):badge)+'</span>'+
+      '<button class="edit-btn" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="상세/수정"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M11 2l3 3-8 8-3.5.5.5-3.5z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg></button>'+
+      '</div>';
+  }).join('');
+}
 function unassignedTable(list){
   if(list.length===0) return '<div class="trow empty">해당 건 없음</div>';
   return list.map(function(s){
@@ -745,31 +833,8 @@ function searchResultTable(list){
   }).join('');
   return head + rows;
 }
-function renderBoard(){
-  var q=(document.getElementById('searchInput').value||'').trim().toLowerCase();
-  var board=document.getElementById('board');
-  var sections=[];
-  if(q){
-    var results = searchResults(q);
-    sections.push({id:'sec-search', tag:'Q', title:'검색 결과', sub:'관리번호(FILE No) · Line Booking No · House B/L No · Master B/L No · 거래처 · 담당자 — 상태(완료·캔슬 포함) 전체에서 검색', color:'teal', body:searchResultTable(results), count:results.length});
-  }
-  if(activeFilter==='ALL'){
-    var unassigned=feedUnassigned().filter(function(s){return matchesSearch(s,q);});
-    sections.push({id:'sec-unassigned', tag:'!', title:'루틴 미지정', sub:'업로드 시 루틴을 인식하지 못했거나, 아직 지정하지 않은 건 · "전체" 탭에서만 표시됨', color:'danger', alert:true, body:unassignedTable(unassigned), count:unassigned.length});
-  }
-  var due=feedDueSoon().filter(function(x){return matchesSearch(x.s,q);});
-  sections.push({id:'sec-duesoon', tag:'01', title:'출항안내', sub:'날짜가 정해진 항목 중 오늘 기준 7일 이내 · 경과분 포함', color:'steel', body:itemFeedTable(due,{sectionId:'sec-duesoon'}), count:due.length, bulk:{items:due.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
-  if(!q){
-    var ckRoutes = overviewRoutesToShow();
-    var ckCount = 0; ckRoutes.forEach(function(rt){ ckCount += overviewShipmentsFor(rt).length; });
-    sections.push({id:'sec-checklist', tag:'02', title:'체크리스트 현황판', sub:'루틴별 진행 상황을 한눈에 · 원을 클릭하면 바로 체크 · 비고는 칸을 클릭해 크게 열어서 수정', color:'plum', raw:true, body:ckRoutes.map(overviewGroupHtml).join(''), count:ckCount});
-  }
-  var billing=feedBilling().filter(function(x){return matchesSearch(x.s,q);});
-  sections.push({id:'sec-billing', tag:'03', title:'청구 대기', sub:'인보이스·계산서 등 청구 항목 · ETD 기준 경과일 30일↑ 강조, 60일↑ 더 진하게', color:'brass', body:itemFeedTable(billing,{aging:true,sectionId:'sec-billing'}), count:billing.length, bulk:{items:billing.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
-  var doorList=feedDoorTracking().filter(function(x){return matchesSearch(x.s,q);});
-  sections.push({id:'sec-doortracking', tag:'04', title:'도착 추적', sub:'Door 배송 해당 건 중 최종 도착·정산 확인이 아직 안 된 건 · ETA(DOOR) 임박 순', color:'warn', body:doorTrackingTable(doorList,'sec-doortracking'), count:doorList.length, bulk:{items:doorList.map(function(x){return {id:x.s.id,item:'doorArrival',managementNo:x.s.managementNo};})}});
-
-  var VARS={danger:['--danger','--danger-soft'],steel:['--steel','--steel-soft'],teal:['--teal','--teal-soft'],plum:['--plum','--plum-soft'],slate:['--slate','--slate-soft'],brass:['--brass','--brass-soft'],warn:['--warn','--warn-soft']};
+var VARS={danger:['--danger','--danger-soft'],steel:['--steel','--steel-soft'],teal:['--teal','--teal-soft'],plum:['--plum','--plum-soft'],slate:['--slate','--slate-soft'],brass:['--brass','--brass-soft'],warn:['--warn','--warn-soft']};
+function renderSections(board, sections){
   var CHEVRON = CHEVRON_SVG;
   board.innerHTML = sections.map(function(sec){
     var vars=VARS[sec.color]; var style='style="--sc:var('+vars[0]+');--sc-soft:var('+vars[1]+')"';
@@ -792,6 +857,40 @@ function renderBoard(){
   wireBoardEvents();
   sections.forEach(function(sec){ if(sec.bulk) wireBulkBar(sec.id, sec.bulk.items); });
   if(document.getElementById('sec-checklist')) wireChecklistSection();
+}
+function renderTodayTab(board, q){
+  var sections=[];
+  if(q){
+    var results = searchResults(q);
+    sections.push({id:'sec-search', tag:'Q', title:'검색 결과', sub:'관리번호(FILE No) · Line Booking No · House B/L No · Master B/L No · 거래처 · 담당자 — 상태(완료·캔슬 포함) 전체에서 검색', color:'teal', body:searchResultTable(results), count:results.length});
+  }
+  if(activeFilter==='ALL'){
+    var unassigned=feedUnassigned().filter(function(s){return matchesSearch(s,q);});
+    sections.push({id:'sec-unassigned', tag:'!', title:'루틴 미지정', sub:'업로드 시 루틴을 인식하지 못했거나, 아직 지정하지 않은 건 · "전체" 탭에서만 표시됨', color:'danger', alert:true, body:unassignedTable(unassigned), count:unassigned.length});
+  }
+  var today=feedToday().filter(function(x){return matchesSearch(x.s,q);});
+  var typeLbl = activeType==='ALL' ? '출항안내·청구대기·도착확인 통합' : TYPE_LABEL[activeType];
+  sections.push({id:'sec-today', tag:'01', title:'오늘 할 일', sub:typeLbl+' · 체크박스로 여러 건을 한 번에 선택해 일괄 완료 처리 가능', color:'steel', body:todayTable(today,'sec-today'), count:today.length, bulk:{items:today.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
+  renderSections(board, sections);
+}
+function renderChecklistTab(board, q){
+  var sections=[];
+  if(q){
+    var results = searchResults(q);
+    sections.push({id:'sec-search', tag:'Q', title:'검색 결과', sub:'관리번호(FILE No) · Line Booking No · House B/L No · Master B/L No · 거래처 · 담당자 — 상태(완료·캔슬 포함) 전체에서 검색', color:'teal', body:searchResultTable(results), count:results.length});
+  }
+  if(!q){
+    var ckRoutes = overviewRoutesToShow();
+    var ckCount = 0; ckRoutes.forEach(function(rt){ ckCount += overviewShipmentsFor(rt).length; });
+    sections.push({id:'sec-checklist', tag:'02', title:'체크리스트 보드', sub:'루틴별 진행 상황을 한눈에 · 원을 클릭하면 바로 체크 · 비고는 칸을 클릭해 크게 열어서 수정 · 주간 점검·인수인계용', color:'plum', raw:true, body:ckRoutes.map(overviewGroupHtml).join(''), count:ckCount});
+  }
+  renderSections(board, sections);
+}
+function renderBoard(){
+  var q=(document.getElementById('searchInput').value||'').trim().toLowerCase();
+  var board=document.getElementById('board');
+  if(activeTab==='TODAY') renderTodayTab(board, q);
+  else renderChecklistTab(board, q);
 }
 
 /* ================= 일괄 선택 처리 ================= */
@@ -1012,7 +1111,7 @@ function saveRemarkFromEditor(){
   renderAll();
 }
 
-function renderAll(){ renderMyClientsToggle(); renderKpis(); renderBoard(); renderArchive(); renderRouteDocs(); }
+function renderAll(){ renderMyClientsToggle(); renderKpis(); renderTabRow(); renderTypeChips(); renderBoard(); renderArchive(); renderRouteDocs(); }
 function wireBoardEvents(){
   document.querySelectorAll('[data-act="toggle"]').forEach(function(btn){
     btn.addEventListener('click', function(){
