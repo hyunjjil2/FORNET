@@ -182,27 +182,30 @@ img{max-width:100%;}
 .flag-pill.door-done{background:var(--teal-soft); color:var(--teal);}
 .route-pill.lcl{background:var(--plum-soft); color:var(--plum);}
 
-.ov-heading{margin-bottom:10px;}
-.ov-heading h2{font-size:19px; font-weight:600;}
-.ov-heading .sub{font-size:12px; color:var(--ink-soft); margin-top:2px;}
-.ov-row{padding:6px 14px; min-width:0;}
-.ov-row.head{background:var(--surface-2);}
-.ov-head-lbl{font-size:9.5px; font-weight:700; color:var(--ink-soft); text-align:center; line-height:1.2; white-space:normal; letter-spacing:0;}
-.ov-head-lbl.door{color:var(--warn);}
+.ov-row{padding:8px 14px; min-width:0; align-items:stretch;}
+.ov-row.head{background:var(--surface-2); padding-top:9px; padding-bottom:9px;}
+.ov-head-lbl{font-size:11.5px; font-weight:700; color:var(--ink-soft); text-align:center; line-height:1.25; white-space:normal; letter-spacing:0; align-self:center;}
+.ov-head-lbl.door, .ov-head-lbl.lcl{color:var(--warn);}
+.ov-head-lbl.lcl{color:var(--plum);}
+.ov-cell{font-size:12.5px; white-space:normal; word-break:break-word; overflow-wrap:break-word; line-height:1.3; align-self:center;}
 .stage-circle{
-  width:18px; height:18px; border-radius:50%; border:2px solid var(--line-strong); background:var(--surface);
-  padding:0; margin:0 auto; display:block; flex:none; transition:background .12s, border-color .12s;
+  width:20px; height:20px; border-radius:50%; border:2px solid var(--line-strong); background:var(--surface);
+  padding:0; margin:auto; display:block; flex:none; transition:background .12s, border-color .12s;
 }
 .stage-circle:hover{border-color:var(--teal);}
 .stage-circle.done, .stage-circle.flash{background:var(--teal); border-color:var(--teal);}
 .stage-circle.warnring{border-color:var(--warn);}
-.remark-input{
-  border:1px solid transparent; background:transparent; color:var(--ink); font-size:12px;
-  padding:4px 6px; border-radius:2px; width:100%;
+.stage-cell{display:flex; align-items:center; justify-content:center;}
+.remark-cell{
+  border:1px solid transparent; background:transparent; color:var(--ink); font-size:12.5px;
+  padding:5px 7px; border-radius:2px; width:100%; text-align:left; line-height:1.35;
+  display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; align-self:center;
 }
-.remark-input:hover{border-color:var(--line);}
-.remark-input:focus{border-color:var(--sc,var(--ink)); background:var(--surface); outline:none;}
-.remark-input.saved{border-color:var(--teal);}
+.remark-cell:hover{border-color:var(--line); background:var(--surface);}
+.remark-cell.placeholder{color:var(--ink-soft); font-style:italic;}
+.remark-cell.saved{border-color:var(--teal);}
+.ov-row .client-name{white-space:normal; overflow:visible; text-overflow:clip; word-break:break-word; font-size:13px;}
+.ov-row .mgmtno{white-space:normal; word-break:break-word;}
 .mgmtno{font-size:12px; font-weight:600; cursor:pointer; background:none; border:none; color:var(--ink); text-align:left; padding:0;}
 .mgmtno:hover{text-decoration:underline;}
 .client-cell{min-width:0;}
@@ -304,12 +307,6 @@ details.help[open] summary:before{content:"–";}
 
   <div class="chip-row" id="chipRow"></div>
 
-  <div class="ov-heading">
-    <h2 class="display">체크리스트 현황판</h2>
-    <div class="sub">루틴별 진행 상황을 한눈에 · 원을 클릭하면 바로 체크됩니다 · 비고는 칸을 클릭해 바로 입력</div>
-  </div>
-  <section class="board" id="overviewBoard" style="margin-bottom:24px;"></section>
-
   <section class="kpi-strip" id="kpiStrip"></section>
   <section class="board" id="board"></section>
 
@@ -340,6 +337,13 @@ details.help[open] summary:before{content:"–";}
 <input type="file" id="fileInput" hidden accept=".xlsx,.xls,.csv">
 <div class="modal-overlay" id="modalOverlay" hidden>
   <div class="modal" id="modalContent"></div>
+</div>
+<div class="modal-overlay" id="remarkOverlay" hidden>
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-head"><h3>비고 수정</h3><button class="modal-close" id="remarkCloseBtn">&times;</button></div>
+    <div class="modal-body"><textarea id="remarkTextarea" style="width:100%;min-height:160px;border:1px solid var(--line-strong);border-radius:2px;padding:10px;background:var(--surface);color:var(--ink);font-size:13.5px;line-height:1.6;"></textarea></div>
+    <div class="modal-foot"><span></span><button class="btn btn-primary" id="remarkSaveBtn">저장</button></div>
+  </div>
 </div>
 <div class="toast-stack" id="toastStack"></div>
 
@@ -585,16 +589,6 @@ function feedDueSoon(){
   out.sort(function(a,b){return a.dd-b.dd;});
   return out;
 }
-function feedInProgress(){
-  var out=[];
-  activeShipments().forEach(function(s){
-    if(!matchesFilter(s) || !matchesMyClients(s)) return;
-    var chk=s.checklist||{};
-    relevantItems(s).forEach(function(it){ if(it.anchor||it.billing||chk[it.key]) return; out.push({s:s,item:it}); });
-  });
-  out.sort(function(a,b){ var ad=toDate(a.s.etd), bd=toDate(b.s.etd); if(!ad&&!bd) return 0; if(!ad) return 1; if(!bd) return -1; return ad-bd; });
-  return out;
-}
 function feedBilling(){
   var out=[];
   activeShipments().forEach(function(s){
@@ -625,15 +619,15 @@ function renderChips(){
     return '<button class="chip'+(activeFilter===c.key?' active':'')+'" data-chip="'+c.key+'" '+(c.disabled?'disabled':'')+'>'+c.label+'</button>';
   }).join('');
   document.querySelectorAll('[data-chip]').forEach(function(btn){
-    btn.addEventListener('click', function(){ activeFilter=btn.dataset.chip; renderChips(); renderOverview(); renderBoard(); renderKpis(); });
+    btn.addEventListener('click', function(){ activeFilter=btn.dataset.chip; renderChips(); renderBoard(); renderKpis(); });
   });
 }
 function renderKpis(){
   var kpis=[
     {label:'전체 진행중', value: allShipments.filter(function(s){return statusOf(s)==='active' && matchesMyClients(s);}).length, color:'ink'},
     {label:'루틴 미지정', value: feedUnassigned().length, color:'danger', target:'sec-unassigned'},
-    {label:'마감 임박 항목', value: feedDueSoon().length, color:'steel', target:'sec-duesoon'},
-    {label:'진행 필요 항목', value: feedInProgress().length, color:'plum', target:'sec-inprogress'},
+    {label:'출항안내', value: feedDueSoon().length, color:'steel', target:'sec-duesoon'},
+    {label:'체크리스트 현황판', value: checklistOverviewCount(), color:'plum', target:'sec-checklist'},
     {label:'청구 대기 항목', value: feedBilling().length, color:'brass', target:'sec-billing'},
     {label:'도착 추적', value: feedDoorTracking().length, color:'warn', target:'sec-doortracking'},
     {label:'완료', value: allShipments.filter(function(s){return statusOf(s)==='done' && matchesMyClients(s);}).length, color:'slate'}
@@ -646,7 +640,7 @@ function renderKpis(){
   document.querySelectorAll('[data-goto]').forEach(function(btn){
     btn.addEventListener('click', function(){
       var id = btn.dataset.goto;
-      if(id==='sec-unassigned' && activeFilter!=='ALL'){ activeFilter='ALL'; renderChips(); renderOverview(); renderBoard(); }
+      if(id==='sec-unassigned' && activeFilter!=='ALL'){ activeFilter='ALL'; renderChips(); renderBoard(); }
       goToSection(id);
     });
   });
@@ -759,9 +753,12 @@ function renderBoard(){
     sections.push({id:'sec-unassigned', tag:'!', title:'루틴 미지정', sub:'업로드 시 루틴을 인식하지 못했거나, 아직 지정하지 않은 건 · "전체" 탭에서만 표시됨', color:'danger', alert:true, body:unassignedTable(unassigned), count:unassigned.length});
   }
   var due=feedDueSoon().filter(function(x){return matchesSearch(x.s,q);});
-  sections.push({id:'sec-duesoon', tag:'01', title:'마감 임박', sub:'날짜가 정해진 항목 중 오늘 기준 7일 이내 · 경과분 포함', color:'steel', body:itemFeedTable(due,{sectionId:'sec-duesoon'}), count:due.length, bulk:{items:due.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
-  var prog=feedInProgress().filter(function(x){return matchesSearch(x.s,q);});
-  sections.push({id:'sec-inprogress', tag:'02', title:'진행 필요 항목', sub:'날짜 구분 없이 아직 체크되지 않은 실무 항목 · ETD 빠른 순', color:'plum', body:itemFeedTable(prog,{sectionId:'sec-inprogress'}), count:prog.length, bulk:{items:prog.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
+  sections.push({id:'sec-duesoon', tag:'01', title:'출항안내', sub:'날짜가 정해진 항목 중 오늘 기준 7일 이내 · 경과분 포함', color:'steel', body:itemFeedTable(due,{sectionId:'sec-duesoon'}), count:due.length, bulk:{items:due.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
+  if(!q){
+    var ckRoutes = overviewRoutesToShow();
+    var ckCount = 0; ckRoutes.forEach(function(rt){ ckCount += overviewShipmentsFor(rt).length; });
+    sections.push({id:'sec-checklist', tag:'02', title:'체크리스트 현황판', sub:'루틴별 진행 상황을 한눈에 · 원을 클릭하면 바로 체크 · 비고는 칸을 클릭해 크게 열어서 수정', color:'plum', raw:true, body:ckRoutes.map(overviewGroupHtml).join(''), count:ckCount});
+  }
   var billing=feedBilling().filter(function(x){return matchesSearch(x.s,q);});
   sections.push({id:'sec-billing', tag:'03', title:'청구 대기', sub:'인보이스·계산서 등 청구 항목 · ETD 기준 경과일 30일↑ 강조, 60일↑ 더 진하게', color:'brass', body:itemFeedTable(billing,{aging:true,sectionId:'sec-billing'}), count:billing.length, bulk:{items:billing.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
   var doorList=feedDoorTracking().filter(function(x){return matchesSearch(x.s,q);});
@@ -773,7 +770,7 @@ function renderBoard(){
     var vars=VARS[sec.color]; var style='style="--sc:var('+vars[0]+');--sc-soft:var('+vars[1]+')"';
     var collapsed = false; try{ collapsed = localStorage.getItem('fw_collapsed_'+sec.id)==='1'; }catch(e){}
     var bulkBar = sec.bulk ? bulkBarHtml(sec.id, sec.bulk.items) : '';
-    return '<div class="section'+(sec.alert&&sec.count>0?' alert':'')+(collapsed?' collapsed':'')+'" id="'+sec.id+'">'+
+    return '<div class="section'+(sec.alert&&sec.count>0?' alert':'')+(collapsed?' collapsed':'')+(sec.raw?' section-raw':'')+'" id="'+sec.id+'">'+
       '<div class="section-head" '+style+' data-toggle="'+sec.id+'"><span class="sec-tag">'+sec.tag+'</span>'+
       '<div class="sec-titles"><h2>'+sec.title+'</h2><div class="sub">'+sec.sub+'</div></div>'+
       '<div class="sec-count">'+sec.count+'<span class="of">건</span></div>'+CHEVRON+'</div>'+
@@ -789,6 +786,7 @@ function renderBoard(){
   });
   wireBoardEvents();
   sections.forEach(function(sec){ if(sec.bulk) wireBulkBar(sec.id, sec.bulk.items); });
+  if(document.getElementById('sec-checklist')) wireChecklistSection();
 }
 
 /* ================= 일괄 선택 처리 ================= */
@@ -889,7 +887,8 @@ function renderMyClientsToggle(){
   btn.title = showMyClientsOnly ? '클릭하면 전체 담당자 건도 함께 봅니다' : '클릭하면 내 거래처 건만 봅니다';
   btn.classList.toggle('btn-primary', showMyClientsOnly);
 }
-/* ================= 체크리스트 현황판 (한눈에 보기) ================= */
+/* ================= 체크리스트 현황판 (한눈에 보기) — 섹션 02 안에 루틴별로 표시 ================= */
+var ovCollapsed = {};  // routeType -> true/false, 사용자가 이번 화면에서 직접 접었다 편 것만 기록 (새로고침하면 초기화)
 function overviewRoutesToShow(){
   return activeFilter==='ALL' ? ROUTE_ORDER.slice() : [activeFilter];
 }
@@ -898,79 +897,117 @@ function overviewShipmentsFor(routeType){
     return s.routeType===routeType && !s.cancelled && matchesMyClients(s) && statusOf(s)!=='done';
   }).sort(function(a,b){ var ad=toDate(a.etd)||toDate(a.etaPort), bd=toDate(b.etd)||toDate(b.etaPort); if(!ad&&!bd) return 0; if(!ad) return 1; if(!bd) return -1; return ad-bd; });
 }
+function checklistOverviewCount(){
+  var total=0; overviewRoutesToShow().forEach(function(rt){ total += overviewShipmentsFor(rt).length; });
+  return total;
+}
 function overviewGridCols(n){
-  return '92px minmax(120px,1fr) 96px 96px 44px ' + new Array(n).fill('50px').join(' ') + ' minmax(160px,1fr)';
+  return '96px minmax(130px,1fr) 108px 108px 46px 46px ' + new Array(n).fill('58px').join(' ') + ' minmax(180px,1fr)';
 }
 function stageCircleCell(s, it){
   var chk=s.checklist||{}; var done=!!chk[it.key];
-  return '<button class="stage-circle'+(done?' done':'')+'" data-act="ovtoggle" data-id="'+escapeHtml(s.id)+'" data-item="'+it.key+'" title="'+escapeHtml(it.label)+(done?' — 완료 (클릭 시 해제 불가, 상세에서 수정)':' — 클릭하면 완료 처리')+'" '+(done?'disabled':'')+'></button>';
+  return '<span class="stage-cell"><button class="stage-circle'+(done?' done':'')+'" data-act="ovtoggle" data-id="'+escapeHtml(s.id)+'" data-item="'+it.key+'" title="'+escapeHtml(it.label)+(done?' — 완료 (해제는 상세에서)':' — 클릭하면 완료 처리')+'" '+(done?'disabled':'')+'></button></span>';
 }
 function doorFlagCellOv(s){
-  if(!s.doorEligible) return '<span class="mono" style="color:var(--ink-soft);font-size:11px;display:block;text-align:center;">–</span>';
+  if(!s.doorEligible) return '<span class="ov-cell mono" style="color:var(--ink-soft);text-align:center;">–</span>';
   var done = !!(s.checklist||{}).doorArrival;
-  return '<button class="stage-circle'+(done?' done':' warnring')+'" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="Door 배송'+(done?' — 도착·정산 완료':' — 도착 추적 중 (클릭해서 상세 열기)')+'"></button>';
+  return '<span class="stage-cell"><button class="stage-circle'+(done?' done':' warnring')+'" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="Door 배송'+(done?' — 도착·정산 완료':' — 도착 추적 중 (클릭해서 상세 열기)')+'"></button></span>';
+}
+function lclFlagCellOv(s){
+  if(!isSeaRoute(s.routeType)) return '<span class="ov-cell mono" style="color:var(--ink-soft);text-align:center;">–</span>';
+  var isLcl = isLclRoute(s.routeType);
+  return '<span class="stage-cell"><button class="stage-circle'+(isLcl?' done':'')+'" data-act="ovlcl" data-id="'+escapeHtml(s.id)+'" title="'+(isLcl?'LCL(혼적) 건 — 클릭하면 FCL로 전환':'FCL 건 — 클릭하면 LCL(혼적)로 전환')+'"></button></span>';
+}
+function remarkCellHtml(s){
+  var val = s.note||'';
+  return '<button class="remark-cell'+(val?'':' placeholder')+'" data-remark-id="'+escapeHtml(s.id)+'" title="클릭해서 크게 보기·수정">'+escapeHtml(val||'비고 입력…')+'</button>';
 }
 function overviewRowHtml(s, items){
   var cells = '<button class="mgmtno mono" data-act="edit" data-id="'+escapeHtml(s.id)+'">'+escapeHtml(s.managementNo||s.id)+'</button>'+
-    '<button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="'+escapeHtml(s.client||'')+'">'+escapeHtml(s.client||'-')+'</button>'+
-    '<span class="mono" style="font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escapeHtml(s.hbl||'-')+'</span>'+
-    '<span class="mono" style="font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escapeHtml(s.mbl||'-')+'</span>'+
+    '<button class="client-name ov-cell" style="font-weight:600;" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="'+escapeHtml(s.client||'')+'">'+escapeHtml(s.client||'-')+'</button>'+
+    '<span class="ov-cell mono">'+escapeHtml(s.hbl||'-')+'</span>'+
+    '<span class="ov-cell mono">'+escapeHtml(s.mbl||'-')+'</span>'+
+    lclFlagCellOv(s)+
     doorFlagCellOv(s)+
     items.map(function(it){ return stageCircleCell(s, it); }).join('')+
-    '<input type="text" class="remark-input" data-remark-id="'+escapeHtml(s.id)+'" value="'+escapeHtml(s.note||'')+'" placeholder="비고 입력…">';
-  return '<div class="trow ov-row" style="grid-template-columns:'+overviewGridCols(items.length)+';min-width:'+(600+items.length*50)+'px;">'+cells+'</div>';
+    remarkCellHtml(s);
+  return '<div class="trow ov-row" style="grid-template-columns:'+overviewGridCols(items.length)+';min-width:'+(660+items.length*58)+'px;">'+cells+'</div>';
 }
 function overviewGroupHtml(routeType){
   var route = ROUTES[routeType]; if(!route) return '';
   var items = route.items;
   var list = overviewShipmentsFor(routeType);
-  var headCells = '<span class="ov-head-lbl" style="text-align:left;">관리번호</span><span class="ov-head-lbl" style="text-align:left;">거래처명</span><span class="ov-head-lbl">House B/L</span><span class="ov-head-lbl">Master B/L</span><span class="ov-head-lbl door">DOOR</span>'+
-    items.map(function(it){ return '<span class="ov-head-lbl" title="'+escapeHtml(it.label)+(it.billing?' (청구)':'')+'">'+escapeHtml(it.label)+'</span>'; }).join('')+
-    '<span>비고</span>';
-  var headRow = '<div class="trow ov-row head" style="grid-template-columns:'+overviewGridCols(items.length)+';min-width:'+(600+items.length*50)+'px;">'+headCells+'</div>';
+  var headCells = '<span class="ov-head-lbl" style="text-align:left;">관리번호</span><span class="ov-head-lbl" style="text-align:left;">거래처명</span><span class="ov-head-lbl">House B/L</span><span class="ov-head-lbl">Master B/L</span><span class="ov-head-lbl lcl">LCL</span><span class="ov-head-lbl door">DOOR</span>'+
+    items.map(function(it){ return '<span class="ov-head-lbl" title="'+escapeHtml(it.label)+(it.billing?' (청구)':'')+'">'+escapeHtml(it.label)+(it.billing?'<br><span style="color:var(--brass);">(청구)</span>':'')+'</span>'; }).join('')+
+    '<span class="ov-head-lbl" style="text-align:left;">비고</span>';
+  var headRow = '<div class="trow ov-row head" style="grid-template-columns:'+overviewGridCols(items.length)+';min-width:'+(660+items.length*58)+'px;">'+headCells+'</div>';
   var bodyRows = list.length ? list.map(function(s){ return overviewRowHtml(s, items); }).join('') : '<div class="trow empty">진행중인 건 없음</div>';
-  var collapsed=false; try{ collapsed = localStorage.getItem('fw_ovcollapsed_'+routeType)==='1'; }catch(e){}
-  return '<div class="section'+(collapsed?' collapsed':'')+'" id="ov-'+routeType+'">'+
+  var collapsed = ovCollapsed.hasOwnProperty(routeType) ? ovCollapsed[routeType] : (activeFilter==='ALL');
+  return '<div class="section ov-group'+(collapsed?' collapsed':'')+'" id="ov-'+routeType+'">'+
     '<div class="section-head" data-ovtoggle="'+routeType+'"><span class="sec-tag">'+escapeHtml(route.label.slice(0,2))+'</span>'+
     '<div class="sec-titles"><h2>'+escapeHtml(route.label)+(isLclRoute(routeType)?' (혼적)':'')+'</h2><div class="sub">체크리스트 진행 상황 · 비고</div></div>'+
     '<div class="sec-count">'+list.length+'<span class="of">건</span></div>'+CHEVRON_SVG+'</div>'+
     '<div class="table-scroll">'+headRow+bodyRows+'</div></div>';
 }
-function renderOverview(){
-  var routes = overviewRoutesToShow();
-  document.getElementById('overviewBoard').innerHTML = routes.map(overviewGroupHtml).join('');
-  document.querySelectorAll('#overviewBoard [data-ovtoggle]').forEach(function(head){
+function wireChecklistSection(){
+  document.querySelectorAll('#sec-checklist [data-ovtoggle]').forEach(function(head){
     head.addEventListener('click', function(){
       var rk = head.dataset.ovtoggle;
       var sec = document.getElementById('ov-'+rk);
-      var nowCollapsed = sec.classList.toggle('collapsed');
-      try{ localStorage.setItem('fw_ovcollapsed_'+rk, nowCollapsed?'1':'0'); }catch(e){}
+      ovCollapsed[rk] = sec.classList.toggle('collapsed');
     });
   });
-  document.querySelectorAll('#overviewBoard [data-act="ovtoggle"]').forEach(function(btn){
+  document.querySelectorAll('#sec-checklist [data-act="ovtoggle"]').forEach(function(btn){
     btn.addEventListener('click', function(){
       if(btn.disabled || btn.classList.contains('flash')) return;
       btn.classList.add('flash'); btn.disabled = true;
       setTimeout(function(){ toggleItem(btn.dataset.id, btn.dataset.item); }, 280);
     });
   });
-  document.querySelectorAll('#overviewBoard [data-act="edit"]').forEach(function(el){ el.addEventListener('click', function(){ openModal(el.dataset.id); }); });
-  document.querySelectorAll('#overviewBoard .remark-input').forEach(function(inp){
-    inp.addEventListener('change', function(){ saveRemark(inp.dataset.remarkId, inp.value, inp); });
-    inp.addEventListener('keydown', function(e){ if(e.key==='Enter') inp.blur(); });
+  document.querySelectorAll('#sec-checklist [data-act="ovlcl"]').forEach(function(btn){
+    btn.addEventListener('click', function(){ toggleLclFlag(btn.dataset.id); });
+  });
+  document.querySelectorAll('#sec-checklist .remark-cell').forEach(function(btn){
+    btn.addEventListener('click', function(){ openRemarkEditor(btn.dataset.remarkId); });
   });
 }
-function saveRemark(id, value, inputEl){
+async function toggleLclFlag(id){
+  var s = byId[id]; if(!s || !isSeaRoute(s.routeType)) return;
+  var sib = LCL_SIBLING[s.routeType]; if(!sib) return;
+  var prevRt = s.routeType;
+  s.routeType = sib; renderAll();
+  try{
+    await apiPost({action:'upsertOne', id: s.managementNo, data: {'루틴': sib}});
+    toast('"'+(s.managementNo||id)+'" LCL/FCL 상태를 변경했습니다.');
+    refreshFromServer(true);
+  }catch(e){ s.routeType = prevRt; renderAll(); toast('변경 실패: '+e.message, {err:true}); }
+}
+function saveRemark(id, value){
   var s = byId[id]; if(!s) return;
   var prev = s.note; s.note = value;
   apiPost({action:'upsertOne', id: s.managementNo, data: {'특이사항': value}})
-    .then(function(){
-      if(inputEl){ inputEl.classList.add('saved'); setTimeout(function(){ inputEl.classList.remove('saved'); }, 900); }
-    })
-    .catch(function(e){ s.note = prev; toast('비고 저장 실패: '+e.message, {err:true}); });
+    .catch(function(e){ s.note = prev; renderAll(); toast('비고 저장 실패: '+e.message, {err:true}); });
+}
+/* ================= 비고 팝업 편집기 ================= */
+var remarkEditId = null;
+function openRemarkEditor(id){
+  var s = byId[id]; if(!s) return;
+  remarkEditId = id;
+  document.getElementById('remarkTextarea').value = s.note||'';
+  document.getElementById('remarkOverlay').hidden = false;
+  document.getElementById('remarkTextarea').focus();
+}
+function closeRemarkEditor(){ document.getElementById('remarkOverlay').hidden = true; remarkEditId = null; }
+function saveRemarkFromEditor(){
+  if(!remarkEditId) return;
+  var v = document.getElementById('remarkTextarea').value;
+  var s = byId[remarkEditId]; if(s) s.note = v;
+  saveRemark(remarkEditId, v);
+  closeRemarkEditor();
+  renderAll();
 }
 
-function renderAll(){ renderMyClientsToggle(); renderOverview(); renderKpis(); renderBoard(); renderArchive(); renderRouteDocs(); }
+function renderAll(){ renderMyClientsToggle(); renderKpis(); renderBoard(); renderArchive(); renderRouteDocs(); }
 function wireBoardEvents(){
   document.querySelectorAll('[data-act="toggle"]').forEach(function(btn){
     btn.addEventListener('click', function(){
@@ -1294,7 +1331,7 @@ function openMyClientsModal(){
   document.getElementById('modalContent').innerHTML =
     '<div class="modal-head"><h3>내 거래처 관리</h3><button class="modal-close" id="mcCloseBtn">&times;</button></div>'+
     '<div class="modal-body">'+
-    '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;">체크한 거래처 코드만 "내 거래처만 보기" 상태에서 대시보드 메인 화면(KPI·마감임박·진행필요·청구대기·도착추적·루틴미지정)에 표시됩니다. 검색과 전체 건 목록은 항상 전체가 보입니다.</div>'+
+    '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;">체크한 거래처 코드만 "내 거래처만 보기" 상태에서 대시보드 메인 화면(KPI·출항안내·체크리스트 현황판·청구대기·도착추적·루틴미지정)에 표시됩니다. 검색과 전체 건 목록은 항상 전체가 보입니다.</div>'+
     '<input class="search" id="mcSearch" type="search" placeholder="거래처명·코드로 찾기" style="width:100%;margin-bottom:10px;">'+
     '<div id="mcList" style="max-height:280px;overflow-y:auto;">'+renderRows('')+'</div>'+
     '<div style="display:flex;gap:8px;margin-top:12px;">'+
@@ -1354,6 +1391,9 @@ document.getElementById('addBtn').addEventListener('click', function(){ openModa
 document.getElementById('csvTemplateBtn').addEventListener('click', downloadCsvTemplate);
 document.getElementById('searchInput').addEventListener('input', renderBoard);
 document.getElementById('modalOverlay').addEventListener('click', function(e){ if(e.target===this) closeModal(); });
+document.getElementById('remarkOverlay').addEventListener('click', function(e){ if(e.target===this) closeRemarkEditor(); });
+document.getElementById('remarkCloseBtn').addEventListener('click', closeRemarkEditor);
+document.getElementById('remarkSaveBtn').addEventListener('click', saveRemarkFromEditor);
 document.getElementById('myClientsToggleBtn').addEventListener('click', function(){
   showMyClientsOnly = !showMyClientsOnly; saveMyOnlyPref(showMyClientsOnly); renderAll();
 });
