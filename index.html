@@ -1099,6 +1099,10 @@ function overviewItemChipsHtml(routeType, items, allList){
   var resetBtn = filterKey ? '<button class="chip ov-item-chip-reset" data-ov-item-reset="'+routeType+'">전체 보기</button>' : '';
   return '<div class="ov-item-chips"><span class="ov-item-chips-label">항목별 미완료 확인:</span>'+chips+resetBtn+'</div>';
 }
+/* "항목별 미완료 확인" 버튼 행 = 루틴별 업무구분탭. 각 루틴마다 업무구분(체크리스트 항목)이 서로 다르고
+   겹치지 않는 것도 있으므로(예: "실화주 신고"는 해상수입LCL에만 있음), 공통되는 것만 추리지 않고
+   해당 루틴의 항목을 전부 그대로 보여줌 — 전역 업무구분탭(activeType, 전체/출항안내/청구대기/도착확인)의
+   영향을 받지 않음. */
 function overviewGroupHtml(routeType){
   var route = ROUTES[routeType]; if(!route) return '';
   var items = route.items;
