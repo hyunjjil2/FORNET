@@ -237,17 +237,9 @@ img{max-width:100%;}
   padding:0; margin:auto; display:block; flex:none; transition:background .12s, border-color .12s;
 }
 .stage-circle:hover{border-color:var(--teal);}
-.stage-circle.done{background:var(--teal); border-color:var(--teal);}
+.stage-circle.done, .stage-circle.flash{background:var(--teal); border-color:var(--teal);}
 .stage-circle.warnring{border-color:var(--warn);}
 .stage-cell{display:flex; align-items:center; justify-content:center;}
-/* 체크리스트보드 원 버튼 3단계 상태: 미완료(필요·빨강) → 완료(초록) → 해당없음(회색) → 다시 미완료로 순환.
-   "해당없음"은 이 건에서는 이 항목을 애초에 진행할 필요가 없다는 뜻으로, "완료"와 다르게 회색으로 구분되고
-   오늘 할 일에서 완전히 제외됨. */
-.stage-circle.st-todo{background:var(--danger-soft); border-color:var(--danger);}
-.stage-circle.st-done{background:var(--teal); border-color:var(--teal);}
-.stage-circle.st-na{background:var(--line); border-color:var(--line-strong);}
-@keyframes stageFlash{0%{transform:scale(1);} 45%{transform:scale(1.35);} 100%{transform:scale(1);}}
-.stage-circle.flash{animation:stageFlash .22s ease-out;}
 /* 체크리스트보드 표 안의 LCL YES/NO 선택 — 상세모달과 동일하게 드롭다운으로, 실수로 스치듯
    클릭해도 값이 안 바뀌고 명시적으로 선택해야만 바뀜. 기본은 NO, YES를 고를 때만 전환됨. */
 .ov-yn-select{border:1px solid var(--line-strong); border-radius:2px; padding:3px 18px 3px 7px; background:var(--surface); color:var(--ink-soft); font-size:11px; font-weight:700;}
@@ -323,8 +315,6 @@ details.help[open] summary:before{content:"–";}
 .checklist-item .n{font-family:"IBM Plex Mono",monospace; font-size:10.5px; color:var(--ink-soft); width:16px; flex:none;}
 .checklist-item span.lbl{font-size:13px;}
 .checklist-item .billing-tag{font-size:9.5px; color:var(--brass); border:1px solid var(--brass); border-radius:2px; padding:0 4px; margin-left:6px; font-weight:700;}
-.checklist-item.na{opacity:.7;}
-.checklist-item .na-tag{font-size:9.5px; color:var(--ink-soft); border:1px solid var(--line-strong); border-radius:2px; padding:0 4px; margin-left:6px; font-weight:700;}
 .modal-foot{display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-top:1px solid var(--line);}
 
 /* 항목명 설정 모달 */
@@ -1221,16 +1211,16 @@ function overviewGridCols(n){
 /* 체크리스트보드의 항목 상태는 3단계: 미완료(기본, 빨강) → 완료(초록) → 해당없음(회색) → (다시 미완료로 순환).
    "해당없음"은 이 건에서는 애초에 진행할 필요가 없는 항목(예: 이 화주는 우리가 배차를 안 함)이라는 뜻으로,
    "완료"와 다르게 처리되어 오늘 할 일에서 완전히 제외됨 — 매번 필요 없는 건까지 완료 처리하듯 눌러줄 필요가 없어짐. */
-function chkState(chk, key){ var v = chk[key]; if(v===true) return 'done'; if(v==='na') return 'na'; return 'todo'; }
 function stageCircleCell(s, it){
-  var chk=s.checklist||{}; var state = chkState(chk, it.key);
-  var titleMap = {todo:' — 미완료(필요) · 클릭하면 완료로 변경', done:' — 완료 · 클릭하면 해당없음으로 변경', na:' — 해당없음(진행 불필요) · 클릭하면 다시 미완료로 변경'};
-  return '<span class="stage-cell"><button class="stage-circle st-'+state+'" data-act="ovcycle" data-id="'+escapeHtml(s.id)+'" data-item="'+it.key+'" title="'+escapeHtml(it.label)+titleMap[state]+'"></button></span>';
+  var chk=s.checklist||{}; var done=!!chk[it.key];
+  return '<span class="stage-cell"><button class="stage-circle'+(done?' done':'')+'" data-act="ovtoggle" data-id="'+escapeHtml(s.id)+'" data-item="'+it.key+'" title="'+escapeHtml(it.label)+(done?' — 완료 (해제는 상세에서)':' — 클릭하면 완료 처리')+'" '+(done?'disabled':'')+'></button></span>';
 }
 function doorFlagCellOv(s){
-  if(!s.doorEligible) return '<span class="ov-cell mono" style="color:var(--ink-soft);text-align:center;">–</span>';
-  var done = !!(s.checklist||{}).doorArrival;
-  return '<span class="stage-cell"><button class="stage-circle'+(done?' done':' warnring')+'" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="Door 배송'+(done?' — 도착·정산 완료':' — 도착 추적 중 (클릭해서 상세 열기)')+'"></button></span>';
+  var isYes = !!s.doorEligible;
+  return '<span class="stage-cell"><select class="ov-yn-select'+(isYes?' yn-yes':'')+'" data-act="ovdoor" data-id="'+escapeHtml(s.id)+'" title="YES 선택 시 Door 배송 대상으로 지정 — 최종 도착·정산 확인용 도착 추적 목록에 표시됨">'+
+    '<option value="no" '+(!isYes?'selected':'')+'>NO</option>'+
+    '<option value="yes" '+(isYes?'selected':'')+'>YES</option>'+
+  '</select></span>';
 }
 function lclFlagCellOv(s){
   if(!isSeaRoute(s.routeType)) return '<span class="ov-cell mono" style="color:var(--ink-soft);text-align:center;">–</span>';
@@ -1257,13 +1247,13 @@ function overviewRowHtml(s, items){
 }
 function overviewItemChipsHtml(routeType, items, allList){
   var filterKey = ovItemFilter[routeType];
+  var allBtn = '<button class="chip ov-item-chip-reset'+(!filterKey?' active':'')+'" data-ov-item-reset="'+routeType+'">전체 보기</button>';
   var chips = items.map(function(it){
     var pending = allList.filter(function(s){ return !(s.checklist||{})[it.key]; }).length;
     var active = filterKey===it.key;
     return '<button class="chip ov-item-chip'+(active?' active':'')+'" data-ov-item-filter="'+routeType+'" data-item-key="'+it.key+'" title="'+escapeHtml(it.label)+' 미완료 건만 보기">'+escapeHtml(it.label)+(it.billing?' [청구]':'')+'<span class="ov-item-chip-count">'+pending+'</span></button>';
   }).join('');
-  var resetBtn = filterKey ? '<button class="chip ov-item-chip-reset" data-ov-item-reset="'+routeType+'">전체 보기</button>' : '';
-  return '<div class="ov-item-chips"><span class="ov-item-chips-label">항목별 미완료 확인:</span>'+chips+resetBtn+'</div>';
+  return '<div class="ov-item-chips"><span class="ov-item-chips-label">항목별 미완료 확인:</span>'+allBtn+chips+'</div>';
 }
 /* "항목별 미완료 확인" 버튼 행 = 루틴별 업무구분탭. 각 루틴마다 업무구분(체크리스트 항목)이 서로 다르고
    겹치지 않는 것도 있으므로(예: "실화주 신고"는 해상수입LCL에만 있음), 공통되는 것만 추리지 않고
@@ -1310,12 +1300,11 @@ function wireChecklistSection(){
       renderBoard();
     });
   });
-  document.querySelectorAll('#sec-checklist [data-act="ovcycle"]').forEach(function(btn){
+  document.querySelectorAll('#sec-checklist [data-act="ovtoggle"]').forEach(function(btn){
     btn.addEventListener('click', function(){
-      if(btn.classList.contains('flash')) return;
-      btn.classList.add('flash');
-      setTimeout(function(){ btn.classList.remove('flash'); }, 220);
-      cycleItemState(btn.dataset.id, btn.dataset.item);
+      if(btn.disabled || btn.classList.contains('flash')) return;
+      btn.classList.add('flash'); btn.disabled = true;
+      setTimeout(function(){ toggleItem(btn.dataset.id, btn.dataset.item); }, 280);
     });
   });
   document.querySelectorAll('#sec-checklist [data-act="ovlcl"]').forEach(function(sel){
@@ -1323,6 +1312,13 @@ function wireChecklistSection(){
     sel.addEventListener('change', function(){
       sel.classList.toggle('yn-yes', sel.value==='yes');
       toggleLclFlag(sel.dataset.id, sel.value==='yes');
+    });
+  });
+  document.querySelectorAll('#sec-checklist [data-act="ovdoor"]').forEach(function(sel){
+    sel.addEventListener('click', function(e){ e.stopPropagation(); });
+    sel.addEventListener('change', function(){
+      sel.classList.toggle('yn-yes', sel.value==='yes');
+      toggleDoorEligible(sel.dataset.id, sel.value==='yes');
     });
   });
   document.querySelectorAll('#sec-checklist .remark-cell').forEach(function(btn){
@@ -1341,6 +1337,17 @@ async function toggleLclFlag(id, wantsLcl){
     toast('"'+(s.managementNo||id)+'" LCL/FCL 상태를 변경했습니다.');
     refreshFromServer(true);
   }catch(e){ s.routeType = prevRt; renderAll(); toast('변경 실패: '+e.message, {err:true}); }
+}
+async function toggleDoorEligible(id, wantsYes){
+  var s = byId[id]; if(!s) return;
+  if(wantsYes===!!s.doorEligible) return; // 이미 원하는 상태면 아무것도 하지 않음
+  var prev = s.doorEligible;
+  s.doorEligible = wantsYes; renderAll();
+  try{
+    await apiPost({action:'upsertOne', id: s.managementNo, data: {'Door배송': wantsYes}});
+    toast('"'+(s.managementNo||id)+'" Door 배송 해당 여부를 변경했습니다.');
+    refreshFromServer(true);
+  }catch(e){ s.doorEligible = prev; renderAll(); toast('변경 실패: '+e.message, {err:true}); }
 }
 function saveRemark(id, value){
   var s = byId[id]; if(!s) return;
@@ -1475,26 +1482,6 @@ function toggleItem(id, itemKey){
     })
     .catch(function(e){ s.checklist=prevChecklist; renderAll(); toast('저장 실패: '+e.message, {err:true}); });
 }
-/* 체크리스트보드 원 버튼 전용 3단계 순환: 미완료 → 완료 → 해당없음 → 미완료. "해당없음"은 시트에 문자열
-   "NA"로 저장되고(백엔드 chkWriteValue_ 참고), 미완료로 되돌아갈 때는 false로 저장됨. */
-function cycleItemState(id, itemKey){
-  var s = byId[id]; if(!s) return;
-  var prevChecklist = Object.assign({}, s.checklist||{});
-  var cur = chkState(prevChecklist, itemKey);
-  var next = cur==='todo' ? true : (cur==='done' ? 'na' : false);
-  var label = next===true ? '완료' : (next==='na' ? '해당없음' : '미완료');
-  var newChecklist = Object.assign({}, prevChecklist); newChecklist[itemKey] = next;
-  s.checklist = newChecklist; renderAll(); // 낙관적 갱신
-  apiPost({action:'toggleItem', managementNo:s.managementNo, itemKey:itemKey, value:next})
-    .then(function(){
-      toast('"'+(s.managementNo||id)+'" 항목을 "'+label+'"(으)로 변경', {undo:function(){
-        s.checklist = prevChecklist; renderAll();
-        apiPost({action:'toggleItem', managementNo:s.managementNo, itemKey:itemKey, value:(prevChecklist[itemKey]===true?true:(prevChecklist[itemKey]==='na'?'na':false))}).catch(function(){});
-      }});
-    })
-    .catch(function(e){ s.checklist=prevChecklist; renderAll(); toast('저장 실패: '+e.message, {err:true}); });
-}
-
 /* ================= modal ================= */
 var INFO_FIELDS = [
   {k:'managementNo', label:'관리번호', type:'text', req:true},
@@ -1525,8 +1512,7 @@ function modalChecklistHtml(routeType, billingOnly, checklist){
   if(items.length===0) return '<div style="color:var(--ink-soft);font-size:12.5px;">해당 조건의 체크 항목이 없습니다.</div>';
   var chk = checklist||{};
   return items.map(function(it,i){
-    var isNa = chk[it.key]==='na';
-    return '<label class="checklist-item'+(isNa?' na':'')+'"><span class="n">'+(i+1)+'</span><input type="checkbox" data-chk="'+it.key+'" data-prev="'+(isNa?'na':(chk[it.key]?'true':'false'))+'" '+(chk[it.key]?'checked':'')+'><span class="lbl">'+escapeHtml(it.label)+(it.billing?'<span class="billing-tag">청구</span>':'')+(isNa?'<span class="na-tag">해당없음 — 체크리스트보드에서 지정됨</span>':'')+'</span></label>';
+    return '<label class="checklist-item"><span class="n">'+(i+1)+'</span><input type="checkbox" data-chk="'+it.key+'" '+(chk[it.key]?'checked':'')+'><span class="lbl">'+escapeHtml(it.label)+(it.billing?'<span class="billing-tag">청구</span>':'')+'</span></label>';
   }).join('');
 }
 function refreshModalChecklist(){
@@ -1539,8 +1525,7 @@ function doorAreaHtml(doorEligible, checklist){
   if(!doorEligible) return '';
   var chk = checklist||{};
   return '<div class="checklist-block"><h4>도착 추적</h4>'+GLOBAL_CHECK_ITEMS.map(function(it){
-    var isNa = chk[it.key]==='na';
-    return '<label class="checklist-item'+(isNa?' na':'')+'"><span class="n">•</span><input type="checkbox" data-chk="'+it.key+'" data-prev="'+(isNa?'na':(chk[it.key]?'true':'false'))+'" '+(chk[it.key]?'checked':'')+'><span class="lbl">'+escapeHtml(it.label)+(isNa?'<span class="na-tag">해당없음</span>':'')+'</span></label>';
+    return '<label class="checklist-item"><span class="n">•</span><input type="checkbox" data-chk="'+it.key+'" '+(chk[it.key]?'checked':'')+'><span class="lbl">'+escapeHtml(it.label)+'</span></label>';
   }).join('')+'</div>';
 }
 function refreshDoorArea(){
@@ -1629,16 +1614,8 @@ async function saveModal(){
   s.routeType = document.getElementById('fld_routeType').value || '';
   s.billingOnly = document.getElementById('fld_billingOnly').checked;
   s.doorEligible = document.getElementById('fld_doorEligible').value==='yes';
-  // 체크박스는 예/아니오만 다룰 수 있어서, 사용자가 실제로 손대지 않은 항목은 원래 값을 그대로 보존함
-  // (체크리스트보드에서 "해당없음(NA)"으로 지정해둔 항목이 모달을 열었다 저장만 해도 "완료"로
-  // 둔갑해버리는 걸 방지 — 체크박스 겉모습은 켜져 있어도 실제로 클릭해서 바꾸지 않았다면 NA 유지).
   var checklist = {};
-  document.querySelectorAll('#checklistArea [data-chk], #doorArea [data-chk]').forEach(function(el){
-    var prev = el.dataset.prev; // 'na' | 'true' | 'false'
-    var prevChecked = prev==='false' ? false : true; // 'na'와 'true'는 렌더링 시 둘 다 checked 상태였음
-    if(el.checked===prevChecked){ checklist[el.dataset.chk] = (prev==='na') ? 'na' : prevChecked; }
-    else{ checklist[el.dataset.chk] = el.checked; }
-  });
+  document.querySelectorAll('#checklistArea [data-chk], #doorArea [data-chk]').forEach(function(el){ checklist[el.dataset.chk] = el.checked; });
   s.checklist = checklist;
   if(!s.managementNo){ toast('관리번호를 입력해 주세요.', {err:true}); return; }
   s.id = s.managementNo;
