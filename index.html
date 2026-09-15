@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+KR:wght@500;700&display=swap">
 <style>
 :root{
-  --ink:#12182A; --ink-soft:#4B5164; --paper:#F1F1EC; --surface:#FFFFFF; --surface-2:#FBFAF6;
+  --ink:#12182A; --ink-soft:#4B5164; --paper:#F1F1EC; --paper-rgb:241,241,236; --surface:#FFFFFF; --surface-2:#FBFAF6;
   --line:#DEDCD1; --line-strong:#C7C4B5;
   --brass:#A9762A; --brass-soft:#E9D9B8;
   --teal:#1F6B68; --teal-soft:#D7E8E6;
@@ -22,7 +22,7 @@
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --ink:#ECE9DF; --ink-soft:#ADA79A; --paper:#14181B; --surface:#1B2024; --surface-2:#20262A;
+    --ink:#ECE9DF; --ink-soft:#ADA79A; --paper:#14181B; --paper-rgb:20,24,27; --surface:#1B2024; --surface-2:#20262A;
     --line:#333A3E; --line-strong:#454D52;
     --brass:#D6A54A; --brass-soft:#3B321F;
     --teal:#4BA6A0; --teal-soft:#1B302E;
@@ -36,7 +36,7 @@
   }
 }
 :root[data-theme="dark"]{
-  --ink:#ECE9DF; --ink-soft:#ADA79A; --paper:#14181B; --surface:#1B2024; --surface-2:#20262A;
+  --ink:#ECE9DF; --ink-soft:#ADA79A; --paper:#14181B; --paper-rgb:20,24,27; --surface:#1B2024; --surface-2:#20262A;
   --line:#333A3E; --line-strong:#454D52;
   --brass:#D6A54A; --brass-soft:#3B321F;
   --teal:#4BA6A0; --teal-soft:#1B302E;
@@ -254,11 +254,11 @@ img{max-width:100%;}
 .remark-cell.saved{border-color:var(--teal);}
 .ov-row .client-name{white-space:normal; overflow:visible; text-overflow:clip; word-break:break-word; font-size:13px;}
 .ov-row .mgmtno{white-space:normal; word-break:break-word;}
-.mgmtno{font-size:12px; font-weight:600; cursor:pointer; background:none; border:none; color:var(--ink); text-align:left; padding:0;}
-.mgmtno:hover{text-decoration:underline;}
+.mgmtno{font-size:12px; font-weight:600; cursor:default; background:none; border:none; color:var(--ink); text-align:left; padding:0; display:inline-block;}
 .client-cell{min-width:0;}
 .client-name{font-weight:600; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; background:none; border:none; padding:0; text-align:left; color:var(--ink); display:block; width:100%;}
 .note-line{font-size:12.5px; color:var(--ink); font-weight:600; font-style:normal; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px;}
+.route-pill-wrap{display:flex; flex-wrap:wrap; align-items:center; gap:4px; min-width:0;}
 .route-pill{font-size:10.5px; font-weight:600; padding:2px 7px; border-radius:20px; background:var(--slate-soft); color:var(--slate); white-space:nowrap;}
 .mgr{font-size:12px; color:var(--ink-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .item-label{font-size:12.5px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
@@ -285,7 +285,7 @@ details.help[open] summary:before{content:"–";}
 .route-doc b{color:var(--ink);}
 .archive-table .trow{grid-template-columns:100px minmax(140px,1fr) 108px 90px 100px 34px;}
 
-.modal-overlay{position:fixed; inset:0; background:rgba(18,20,16,.45); display:flex; align-items:flex-start; justify-content:center; padding:5vh 16px; z-index:50; overflow-y:auto;}
+.modal-overlay{position:fixed; inset:0; background:rgba(var(--paper-rgb),.78); display:flex; align-items:flex-start; justify-content:center; padding:5vh 16px; z-index:50; overflow-y:auto;}
 .modal-overlay[hidden]{display:none;}
 .modal{background:var(--surface); border-radius:5px; width:100%; max-width:680px; box-shadow:0 20px 60px rgba(0,0,0,.3); border:1px solid var(--line);}
 .modal-head{display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--line);}
@@ -900,7 +900,11 @@ function routePillHtml(s){
     var done = !!(s.checklist||{}).doorArrival;
     doorBadge = '<span class="flag-pill '+(done?'door-done':'door-pending')+'">DOOR'+(done?' 완료':'')+'</span>';
   }
-  return '<span class="route-pill'+(lcl?' lcl':'')+'">'+escapeHtml((ROUTES[s.routeType]||{}).label||'-')+(s.billingOnly?' · 청구전용':'')+'</span>'+doorBadge;
+  // route-pill과 DOOR 배지를 하나의 래퍼로 감싸서 그리드 셀 1칸을 항상 유지
+  // (감싸지 않으면 DOOR 건은 자식 요소가 1개 더 생겨 이후 열들이 한 칸씩 밀림)
+  return '<span class="route-pill-wrap">'+
+    '<span class="route-pill'+(lcl?' lcl':'')+'">'+escapeHtml((ROUTES[s.routeType]||{}).label||'-')+(s.billingOnly?' · 청구전용':'')+'</span>'+doorBadge+
+    '</span>';
 }
 function selectCbHtml(sectionId, id, itemKey){
   var checked = !!getSel(sectionId)[selKey(id,itemKey)];
@@ -915,7 +919,7 @@ function doorTrackingTable(list, sectionId){
     return '<div class="trow">'+
       selectCbHtml(sectionId, s.id, 'doorArrival')+
       '<button class="check" data-act="toggle" data-id="'+escapeHtml(s.id)+'" data-item="doorArrival" title="도착 확인·정산 완료 처리"><svg width="12" height="12" viewBox="0 0 16 16"><path d="M2 8l4 4 8-8" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'+
-      '<button class="mgmtno mono" data-act="edit" data-id="'+escapeHtml(s.id)+'">'+escapeHtml(s.managementNo||s.id)+'</button>'+
+      '<span class="mgmtno mono">'+escapeHtml(s.managementNo||s.id)+'</span>'+
       '<span class="client-cell"><button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="'+escapeHtml(s.client||'')+'">'+escapeHtml(s.client||'-')+'</button>'+(s.note?'<div class="note-line" title="'+escapeHtml(s.note)+'">'+escapeHtml(s.note)+'</div>':'')+'</span>'+
       '<span class="route-pill">'+escapeHtml((ROUTES[s.routeType]||{}).label||'-')+(s.billingOnly?' · 청구전용':'')+'</span>'+
       '<span class="mgr">'+escapeHtml(s.manager||'-')+'</span>'+
@@ -938,7 +942,7 @@ function itemFeedTable(list, opts){
     return '<div class="trow">'+
       selectCbHtml(opts.sectionId, s.id, it.key)+
       '<button class="check" data-act="toggle" data-id="'+escapeHtml(s.id)+'" data-item="'+it.key+'" title="'+escapeHtml(it.label)+' 완료 처리"><svg width="12" height="12" viewBox="0 0 16 16"><path d="M2 8l4 4 8-8" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'+
-      '<button class="mgmtno mono" data-act="edit" data-id="'+escapeHtml(s.id)+'">'+escapeHtml(s.managementNo||s.id)+'</button>'+
+      '<span class="mgmtno mono">'+escapeHtml(s.managementNo||s.id)+'</span>'+
       '<span class="client-cell"><button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="'+escapeHtml(s.client||'')+'">'+escapeHtml(s.client||'-')+'</button>'+(s.note?'<div class="note-line" title="'+escapeHtml(s.note)+'">'+escapeHtml(s.note)+'</div>':'')+'</span>'+
       routePillHtml(s)+
       '<span class="mgr">'+escapeHtml(s.manager||'-')+'</span>'+
@@ -963,7 +967,7 @@ function todayTable(list, sectionId){
     return '<div class="trow today">'+
       selectCbHtml(sectionId, s.id, it.key)+
       '<button class="check" data-act="toggle" data-id="'+escapeHtml(s.id)+'" data-item="'+it.key+'" title="'+escapeHtml(it.label)+' 완료 처리"><svg width="12" height="12" viewBox="0 0 16 16"><path d="M2 8l4 4 8-8" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'+
-      '<button class="mgmtno mono" data-act="edit" data-id="'+escapeHtml(s.id)+'">'+escapeHtml(s.managementNo||s.id)+'</button>'+
+      '<span class="mgmtno mono">'+escapeHtml(s.managementNo||s.id)+'</span>'+
       '<span class="client-cell"><button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="'+escapeHtml(s.client||'')+'">'+escapeHtml(s.client||'-')+'</button>'+(s.note?'<div class="note-line" title="'+escapeHtml(s.note)+'">'+escapeHtml(s.note)+'</div>':'')+'</span>'+
       routePillHtml(s)+
       '<span class="mgr">'+escapeHtml(s.manager||'-')+'</span>'+
@@ -982,7 +986,7 @@ function unassignedTable(list){
   if(list.length===0) return '<div class="trow empty">해당 건 없음</div>';
   return list.map(function(s){
     return '<div class="trow" style="grid-template-columns:118px minmax(140px,1fr) 66px 172px 1fr;min-width:640px;">'+
-      '<button class="mgmtno mono" data-act="edit" data-id="'+escapeHtml(s.id)+'">'+escapeHtml(s.managementNo||s.id)+'</button>'+
+      '<span class="mgmtno mono">'+escapeHtml(s.managementNo||s.id)+'</span>'+
       '<button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'">'+escapeHtml(s.client||'-')+'</button>'+
       '<span class="mgr">'+escapeHtml(s.manager||'-')+'</span>'+
       '<span class="mgr">'+escapeHtml(s.service||'-')+' / '+escapeHtml(s.tradeType||'-')+'</span>'+
@@ -998,7 +1002,7 @@ function searchResultTable(list){
   var rows = list.map(function(s){
     var st=statusOf(s); var stLabel={active:'진행중',done:'완료',cancelled:'캔슬',unassigned:'루틴 미지정'}[st];
     return '<div class="trow" style="grid-template-columns:'+SEARCH_COLS+';min-width:1000px;">'+
-      '<button class="mgmtno mono" data-act="edit" data-id="'+escapeHtml(s.id)+'">'+escapeHtml(s.managementNo||s.id)+'</button>'+
+      '<span class="mgmtno mono">'+escapeHtml(s.managementNo||s.id)+'</span>'+
       '<button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'">'+escapeHtml(s.client||'-')+'</button>'+
       routePillHtml(s)+
       '<span class="mgr">'+stLabel+'</span>'+
@@ -1194,7 +1198,16 @@ function renderMyClientsToggle(){
 var ovCollapsed = {};  // routeType -> true/false, 사용자가 이번 화면에서 직접 접었다 편 것만 기록 (새로고침하면 초기화)
 var ovItemFilter = {}; // routeType -> itemKey — 클릭한 항목(예: 마감빌)이 아직 완료되지 않은 건만 걸러서 보여줌 (새로고침하면 초기화)
 function overviewRoutesToShow(){
-  return activeFilter==='ALL' ? ROUTE_ORDER.slice() : [activeFilter];
+  var routes = activeFilter==='ALL' ? ROUTE_ORDER.slice() : [activeFilter];
+  // 특정 항목(예: 부킹확정)으로 필터링 중일 때는, 그 루틴에 해당 항목 미완료 건이 하나도 없으면
+  // "0건" 빈 패널을 보여주는 대신 그 루틴 자체를 목록에서 숨김 — 전역 업무구분탭에서 여러 루틴에 걸친
+  // 항목을 클릭했을 때 필요 없는 루틴들까지 줄줄이 나오는 것을 방지.
+  return routes.filter(function(rt){
+    var filterKey = ovItemFilter[rt];
+    if(!filterKey) return true;
+    var allList = overviewShipmentsFor(rt);
+    return allList.some(function(s){ return !(s.checklist||{})[filterKey]; });
+  });
 }
 function overviewShipmentsFor(routeType){
   return allShipments.filter(function(s){
@@ -1235,7 +1248,7 @@ function remarkCellHtml(s){
   return '<button class="remark-cell'+(val?'':' placeholder')+'" data-remark-id="'+escapeHtml(s.id)+'" title="클릭해서 크게 보기·수정">'+escapeHtml(val||'비고 입력…')+'</button>';
 }
 function overviewRowHtml(s, items){
-  var cells = '<button class="mgmtno mono" data-act="edit" data-id="'+escapeHtml(s.id)+'">'+escapeHtml(s.managementNo||s.id)+'</button>'+
+  var cells = '<span class="mgmtno mono">'+escapeHtml(s.managementNo||s.id)+'</span>'+
     '<button class="client-name ov-cell" style="font-weight:600;" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="'+escapeHtml(s.client||'')+'">'+escapeHtml(s.client||'-')+'</button>'+
     '<span class="ov-cell mono" title="'+escapeHtml(s.hbl||'')+'">'+escapeHtml(s.hbl||'-')+'</span>'+
     '<span class="ov-cell mono" title="'+escapeHtml(s.mbl||'')+'">'+escapeHtml(s.mbl||'-')+'</span>'+
@@ -1408,6 +1421,10 @@ function sheetRowToShipment(row){
     s[f] = row[h]!==undefined ? row[h] : (f==='billingOnly'||f==='cancelled' ? false : '');
   });
   s.id = s.managementNo;
+  // 관리번호가 "-X숫자"로 끝나면 시트에 저장된 값과 무관하게 항상 청구전용으로 자동 보정.
+  // (기존 건의 관리번호를 나중에 -X01 등으로 바꾼 경우, 시트의 청구전용 값이 갱신되지
+  // 않아 체크리스트에 전체 항목이 표시되는 불일치를 방지)
+  if(isBillingOnlyByNo(s.managementNo)) s.billingOnly = true;
   return s;
 }
 function shipmentToSheetData(s){
