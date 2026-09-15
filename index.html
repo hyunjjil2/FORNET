@@ -1408,6 +1408,7 @@ function openModal(id){
 function closeModal(){ document.getElementById('modalOverlay').hidden = true; editingId = null; }
 
 async function saveModal(){
+  var isNew = !editingId;
   var s = editingId ? Object.assign({}, byId[editingId]) : {checklist:{}};
   document.querySelectorAll('#modalContent .field-grid [data-k]').forEach(function(el){
     var k=el.dataset.k, v=el.value;
@@ -1422,14 +1423,58 @@ async function saveModal(){
   s.checklist = checklist;
   if(!s.managementNo){ toast('관리번호를 입력해 주세요.', {err:true}); return; }
   s.id = s.managementNo;
+
+  var saveBtn = document.getElementById('saveBtn');
+  if(saveBtn){ saveBtn.disabled = true; saveBtn.textContent = '저장 중…'; }
+
+  // 관리번호(FILE No) 자체를 바꾸는 경우는 드물고 로컬 키 처리가 복잡해지므로, 이 경우만
+  // 기존처럼 서버 응답을 기다린 뒤 반영. 그 외(대부분의 일반 수정)는 화면에 즉시 반영한 뒤
+  // 백그라운드로 저장 — "저장 누르고 한참 기다려야 반영되는" 느낌을 없앰.
+  var managementNoChanged = !isNew && s.managementNo !== editingId;
+  var savingId = editingId; // closeModal()이 editingId를 null로 초기화하므로 API 호출 전에 값을 따로 보관
+
+  if(isNew || !managementNoChanged){
+    var targetId = savingId || s.id;
+    var prevSnapshot = (!isNew && byId[targetId]) ? Object.assign({}, byId[targetId]) : null;
+    byId[targetId] = s;
+    if(isNew){
+      allShipments.push(s);
+    } else {
+      var idx = allShipments.findIndex(function(x){ return x.id===targetId; });
+      if(idx>=0) allShipments[idx] = s; else allShipments.push(s);
+    }
+    closeModal();
+    renderAll();
+    try{
+      var data = shipmentToSheetData(s);
+      data.checklist = checklist;
+      await apiPost({action:'upsertOne', id: savingId, data: data});
+      toast('저장했습니다.');
+      refreshFromServer(true);
+    }catch(e){
+      if(isNew){
+        allShipments = allShipments.filter(function(x){ return x.id!==targetId; });
+        delete byId[targetId];
+      } else if(prevSnapshot){
+        byId[targetId] = prevSnapshot;
+        var idx2 = allShipments.findIndex(function(x){ return x.id===targetId; });
+        if(idx2>=0) allShipments[idx2] = prevSnapshot;
+      }
+      renderAll();
+      toast('저장 실패: '+e.message+' — 변경 사항이 되돌려졌습니다.', {err:true});
+    }
+    return;
+  }
+
   try{
-    var data = shipmentToSheetData(s);
-    data.checklist = checklist;
-    await apiPost({action:'upsertOne', id: editingId, data: data});
+    var data2 = shipmentToSheetData(s);
+    data2.checklist = checklist;
+    await apiPost({action:'upsertOne', id: editingId, data: data2});
     toast('저장했습니다.');
     closeModal();
     refreshFromServer(true);
   }catch(e){
+    if(saveBtn){ saveBtn.disabled = false; saveBtn.textContent = '저장'; }
     toast('저장 실패: '+e.message, {err:true});
   }
 }
