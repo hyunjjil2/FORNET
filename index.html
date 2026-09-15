@@ -304,6 +304,18 @@ details.help[open] summary:before{content:"–";}
 .checklist-item .billing-tag{font-size:9.5px; color:var(--brass); border:1px solid var(--brass); border-radius:2px; padding:0 4px; margin-left:6px; font-weight:700;}
 .modal-foot{display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-top:1px solid var(--line);}
 
+/* 항목명 설정 모달 */
+.ils-group{margin-bottom:18px;}
+.ils-group:last-child{margin-bottom:0;}
+.ils-group-head{font-size:12.5px; font-weight:700; color:var(--plum); margin-bottom:8px; padding-bottom:5px; border-bottom:1px solid var(--line);}
+.ils-row{display:grid; grid-template-columns:110px 1fr 44px 64px; align-items:center; gap:8px; padding:5px 2px;}
+.ils-row.changed{background:var(--surface-2);}
+.ils-default{font-size:11.5px; color:var(--ink-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.ils-input{border:1px solid var(--line-strong); border-radius:2px; padding:6px 8px; background:var(--surface); color:var(--ink); font-size:13px; width:100%;}
+.ils-row.changed .ils-input{border-color:var(--plum);}
+.ils-reset{font-size:11px; padding:4px 8px;}
+.ils-reset[disabled]{opacity:.35; cursor:not-allowed;}
+
 .toast-stack{position:fixed; bottom:20px; right:20px; display:flex; flex-direction:column; gap:8px; z-index:60;}
 .toast{background:var(--ink); color:var(--paper); padding:10px 14px; border-radius:3px; font-size:12.5px; display:flex; align-items:center; gap:12px; box-shadow:0 8px 24px rgba(0,0,0,.25); max-width:340px;}
 .toast button{background:none; border:none; color:var(--brass); font-weight:700; font-size:12px; flex:none;}
@@ -353,6 +365,7 @@ details.help[open] summary:before{content:"–";}
       <input class="search" id="searchInput" type="search" placeholder="FILE No · Line Booking No · HBL · MBL · 거래처 · 담당자 검색">
       <button class="btn" id="myClientsToggleBtn"></button>
       <button class="btn" id="myClientsManageBtn">내 거래처 관리</button>
+      <button class="btn" id="itemLabelSettingsBtn">항목명 설정</button>
       <button class="btn" id="csvTemplateBtn">CSV 서식</button>
       <button class="btn" id="addBtn">+ 신규 건</button>
       <button class="btn btn-primary" id="uploadBtn">엑셀 업로드</button>
@@ -423,22 +436,25 @@ var ROUTES = {
   SEA_EXP_FCL: {label:'해상수출 FCL', items:[
     {key:'booking', label:'부킹확정'},
     {key:'baecha', label:'배차'},
-    {key:'docs', label:'SR, VGM, 면장', anchor:'DOC CLS'},
+    {key:'myeonjang', label:'면장'},
+    {key:'docCls', label:'서류마감', anchor:'DOC CLS'},
+    {key:'vgm', label:'VGM'},
     {key:'jigyeol', label:'지결'},
     {key:'ichejeung', label:'이체증'},
     {key:'chulhang', label:'출항', anchor:'ETD'},
     {key:'blIssue', label:'비엘발행'},
-    {key:'invoice', label:'인보이스', billing:true},
+    {key:'invoice', label:'화주청구', billing:true},
     {key:'settlement', label:'계산서', billing:true}
   ]},
   SEA_EXP_LCL: {label:'해상수출 LCL', items:[
     {key:'booking', label:'부킹확정'},
-    {key:'docs', label:'SR, 면장', anchor:'DOC CLS'},
     {key:'baecha', label:'배차'},
+    {key:'myeonjang', label:'면장'},
+    {key:'docCls', label:'서류마감', anchor:'DOC CLS'},
     {key:'jigyeol', label:'지결'},
     {key:'chulhang', label:'출항', anchor:'ETD'},
     {key:'blIssue', label:'비엘발행'},
-    {key:'invoice', label:'인보이스', billing:true},
+    {key:'invoice', label:'화주청구', billing:true},
     {key:'settlement', label:'계산서', billing:true}
   ]},
   SEA_IMP_FCL: {label:'해상수입 FCL', items:[
@@ -498,6 +514,34 @@ var ROUTES = {
 };
 var ROUTE_ORDER = ['SEA_EXP_FCL','SEA_EXP_LCL','SEA_IMP_FCL','SEA_IMP_LCL','AIR_EXP','AIR_IMP'];
 var ANCHOR_FIELD = {'DOC CLS':'docCls','ETD':'etd','ETA(PORT)':'etaPort','ETA(DOOR)':'etaDoor'};
+/* ================= 업무구분 항목 이름 재정의 (설정 화면) =================
+   ROUTES에 코드로 박혀있는 기본 라벨을 "원본"으로 한 번 스냅샷해두고(DEFAULT_ITEM_LABELS),
+   서버(설정 시트)에서 불러온 재정의 값을 ROUTES 안의 라벨에 직접 덮어씀 — 이렇게 하면
+   화면 곳곳(오늘 할 일 표, 체크리스트 보드, 전역 업무구분탭, 상세 모달 등)에서 it.label을
+   그대로 읽는 기존 코드를 전혀 건드리지 않고도 새 이름이 자동으로 반영됨. */
+var DEFAULT_ITEM_LABELS = {}; // routeType -> itemKey -> 원래 라벨
+function snapshotDefaultItemLabels(){
+  ROUTE_ORDER.forEach(function(rt){
+    var route = ROUTES[rt]; if(!route) return;
+    DEFAULT_ITEM_LABELS[rt] = {};
+    route.items.forEach(function(it){ DEFAULT_ITEM_LABELS[rt][it.key] = it.label; });
+  });
+}
+snapshotDefaultItemLabels();
+var itemLabelOverrides = []; // 서버에서 불러온 [{routeType,itemKey,label}, ...] 원본 목록 (설정 화면 저장용)
+function applyItemLabelOverrides(overrides){
+  itemLabelOverrides = overrides||[];
+  // 먼저 전부 기본값으로 되돌린 뒤, 재정의 값만 다시 덮어씀 (매 polling마다 안전하게 재적용 가능)
+  ROUTE_ORDER.forEach(function(rt){
+    var route = ROUTES[rt]; if(!route) return;
+    route.items.forEach(function(it){ if(DEFAULT_ITEM_LABELS[rt] && DEFAULT_ITEM_LABELS[rt][it.key]!==undefined) it.label = DEFAULT_ITEM_LABELS[rt][it.key]; });
+  });
+  itemLabelOverrides.forEach(function(o){
+    var route = ROUTES[o.routeType]; if(!route) return;
+    var it = route.items.filter(function(x){ return x.key===o.itemKey; })[0];
+    if(it) it.label = o.label;
+  });
+}
 /* FCL <-> LCL 짝 (같은 수출/수입 방향의 반대 컨테이너 형태) — "LCL 해당" 체크박스가 이 매핑으로 전환함 */
 var LCL_SIBLING = {SEA_EXP_FCL:'SEA_EXP_LCL', SEA_EXP_LCL:'SEA_EXP_FCL', SEA_IMP_FCL:'SEA_IMP_LCL', SEA_IMP_LCL:'SEA_IMP_FCL'};
 function isLclRoute(rt){ return rt==='SEA_EXP_LCL' || rt==='SEA_IMP_LCL'; }
@@ -1343,6 +1387,7 @@ async function refreshFromServer(silent){
     allShipments = (json.rows||[]).map(sheetRowToShipment);
     byId = {}; allShipments.forEach(function(s){ byId[s.id]=s; });
     if(json.myClients) myClientCodes = json.myClients;
+    applyItemLabelOverrides(json.labelOverrides||[]);
     document.getElementById('syncDot').className='sync-dot live';
     document.getElementById('syncLabel').textContent='연결됨 · '+allShipments.length+'건 · 약 '+Math.round(POLL_MS/1000)+'초마다 갱신';
     renderAll();
@@ -1743,6 +1788,88 @@ function openMyClientsModal(){
   });
 }
 
+/* ================= 항목명 설정 (업무구분탭 이름 변경) =================
+   루틴별로 체크리스트 항목 이름을 화면에서 직접 바꿀 수 있는 설정 화면. 저장하면
+   서버(설정 시트 B~D열)에 (routeType, itemKey, 새 라벨) 형태로 저장되어 모든 기기에
+   동일하게 반영됨 — 팀원이 같은 링크로 접속해도 같은 이름이 보임. 항목 키(key)는
+   백엔드 CHK_<key> 컬럼과 연결된 값이라 절대 바뀌지 않고, 화면에 보이는 라벨만 바뀜. */
+function openItemLabelSettingsModal(){
+  editingId = null;
+  // working: routeType -> itemKey -> 현재 입력값(라벨) — 취소 시 버려짐, 저장 시에만 반영
+  var working = {};
+  ROUTE_ORDER.forEach(function(rt){
+    working[rt] = {};
+    (ROUTES[rt].items||[]).forEach(function(it){ working[rt][it.key] = it.label; });
+  });
+  function isChanged(rt, key){ return working[rt][key] !== (DEFAULT_ITEM_LABELS[rt]||{})[key]; }
+  function routeBlockHtml(rt){
+    var route = ROUTES[rt];
+    var rows = route.items.map(function(it){
+      var changed = isChanged(rt, it.key);
+      return '<div class="ils-row'+(changed?' changed':'')+'">'+
+        '<span class="ils-default" title="기본 이름">'+escapeHtml((DEFAULT_ITEM_LABELS[rt]||{})[it.key]||it.key)+'</span>'+
+        '<input type="text" class="ils-input" data-route="'+rt+'" data-item-key="'+it.key+'" value="'+escapeHtml(working[rt][it.key])+'">'+
+        (it.billing?'<span class="billing-tag" style="position:static;">청구</span>':'<span></span>')+
+        '<button class="btn btn-sm ils-reset" data-route="'+rt+'" data-item-key="'+it.key+'" '+(changed?'':'disabled')+'>기본값</button>'+
+      '</div>';
+    }).join('');
+    return '<div class="ils-group"><div class="ils-group-head">'+escapeHtml(route.label)+'</div>'+rows+'</div>';
+  }
+  function renderAllGroups(){
+    document.getElementById('ilsBody').innerHTML = ROUTE_ORDER.map(routeBlockHtml).join('');
+    wireInputs();
+  }
+  function wireInputs(){
+    document.querySelectorAll('.ils-input').forEach(function(el){
+      el.addEventListener('input', function(){
+        working[el.dataset.route][el.dataset.itemKey] = el.value;
+        var row = el.closest('.ils-row');
+        var changed = isChanged(el.dataset.route, el.dataset.itemKey);
+        row.classList.toggle('changed', changed);
+        row.querySelector('.ils-reset').disabled = !changed;
+      });
+    });
+    document.querySelectorAll('.ils-reset').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var rt=btn.dataset.route, key=btn.dataset.itemKey;
+        working[rt][key] = (DEFAULT_ITEM_LABELS[rt]||{})[key] || key;
+        renderAllGroups();
+      });
+    });
+  }
+  document.getElementById('modalContent').innerHTML =
+    '<div class="modal-head"><h3>항목명 설정</h3><button class="modal-close" id="ilsCloseBtn">&times;</button></div>'+
+    '<div class="modal-body">'+
+    '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:12px;">루틴별 업무구분 항목의 화면 표시 이름을 바꿀 수 있어요. 이름만 바뀌고 기존에 체크된 완료 기록은 그대로 유지됩니다. 저장하면 이 링크를 쓰는 모든 사람 화면에 동일하게 반영돼요.</div>'+
+    '<div id="ilsBody" style="max-height:52vh;overflow-y:auto;"></div>'+
+    '</div>'+
+    '<div class="modal-foot"><span class="mono" style="font-size:11.5px;color:var(--ink-soft);">변경된 항목만 저장돼요</span><button class="btn btn-primary" id="ilsSaveBtn">저장</button></div>';
+  document.getElementById('modalOverlay').hidden = false;
+  renderAllGroups();
+  document.getElementById('ilsCloseBtn').addEventListener('click', closeModal);
+  document.getElementById('ilsSaveBtn').addEventListener('click', async function(){
+    var overrides = [];
+    ROUTE_ORDER.forEach(function(rt){
+      Object.keys(working[rt]).forEach(function(key){
+        var val = String(working[rt][key]||'').trim();
+        if(val && val !== (DEFAULT_ITEM_LABELS[rt]||{})[key]) overrides.push({routeType:rt, itemKey:key, label:val});
+      });
+    });
+    var saveBtn = document.getElementById('ilsSaveBtn');
+    saveBtn.disabled = true; saveBtn.textContent = '저장 중…';
+    try{
+      await apiPost({action:'setItemLabels', overrides: overrides});
+      applyItemLabelOverrides(overrides);
+      toast('항목명을 저장했습니다'+(overrides.length?(' ('+overrides.length+'개 변경)'):' (전부 기본값으로 복원)')+'.');
+      closeModal();
+      renderAll();
+    }catch(e){
+      toast('저장 실패: '+e.message, {err:true});
+      saveBtn.disabled = false; saveBtn.textContent = '저장';
+    }
+  });
+}
+
 /* ================= csv template ================= */
 function downloadCsvTemplate(){
   var headers = REQUIRED_HEADER_DISPLAY;
@@ -1772,6 +1899,7 @@ document.getElementById('myClientsToggleBtn').addEventListener('click', function
   showMyClientsOnly = !showMyClientsOnly; saveMyOnlyPref(showMyClientsOnly); renderAll();
 });
 document.getElementById('myClientsManageBtn').addEventListener('click', openMyClientsModal);
+document.getElementById('itemLabelSettingsBtn').addEventListener('click', openItemLabelSettingsModal);
 
 renderChips();
 renderRouteDocs();
