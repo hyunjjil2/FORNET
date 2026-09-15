@@ -117,6 +117,14 @@ img{max-width:100%;}
 .chip[disabled]{opacity:.4; cursor:not-allowed;}
 .chip.type-chip.active{background:var(--sc,var(--ink)); border-color:var(--sc,var(--ink));}
 
+/* 체크리스트 보드 전용 업무구분탭 — 모든 루틴의 체크리스트 항목을 루틴별로 묶어서 한 줄에 표시 */
+.ov-global-chip-row{display:flex; flex-wrap:wrap; align-items:center; gap:10px 16px;}
+.ov-global-group{display:flex; flex-wrap:wrap; align-items:center; gap:6px;}
+.ov-global-group-label{font-size:11px; color:var(--ink-soft); font-weight:700; white-space:nowrap; padding-right:1px;}
+.ov-global-chip{font-size:11.5px; padding:5px 12px; border-radius:20px;}
+.ov-global-chip .ov-item-chip-count{font-family:"IBM Plex Mono",monospace; margin-left:4px; opacity:.85;}
+.ov-global-chip.active{background:var(--plum); border-color:var(--plum); color:#fff;}
+
 .tab-row{display:flex; gap:6px; margin-bottom:16px; border-bottom:2px solid var(--ink); padding-bottom:0;}
 .tab-btn{
   background:transparent; border:1px solid var(--line-strong); border-bottom:none; color:var(--ink-soft);
@@ -707,6 +715,8 @@ var TYPE_DEFS = [
 ];
 function renderTypeChips(){
   var row = document.getElementById('typeChipRow');
+  if(activeTab==='CHECKLIST'){ renderChecklistGlobalChips(row); return; }
+  row.className = 'chip-row';
   if(activeTab!=='TODAY'){ row.innerHTML=''; row.style.display='none'; return; }
   row.style.display='';
   row.innerHTML = TYPE_DEFS.map(function(t){
@@ -716,6 +726,46 @@ function renderTypeChips(){
   document.querySelectorAll('[data-type-chip]').forEach(function(btn){
     btn.addEventListener('click', function(){ activeType=btn.dataset.typeChip; renderTypeChips(); renderBoard(); });
   });
+}
+/* 체크리스트 보드탭 전용 "업무구분탭" — 오늘 할 일의 업무구분탭 자리(같은 row)를 재사용하되, 내용은
+   전혀 다름: 6개 루틴 전부의 체크리스트 항목을 루틴별로 묶어서 한 줄에 모두 나열함(중복 제거·공통 항목만
+   추리기 없이 전부 표시). 같은 key라도 루틴마다 의미가 다를 수 있어(예: carrierJigyeol = 해상수입은
+   "운송사 지결", 항공수출은 "선사지결") 항상 (routeType, itemKey) 쌍으로 식별함.
+   버튼을 누르면 해당 루틴으로 바로 이동해서 그 항목 미완료 건만 필터링된 상태로 펼쳐서 보여줌 —
+   해상수입LCL의 "콘솔사지결"을 보려고 먼저 해상수입LCL 패널을 열어볼 필요 없이 한 번에 이동. */
+function renderChecklistGlobalChips(row){
+  row.style.display='';
+  row.innerHTML = ROUTE_ORDER.map(function(rt){
+    var route = ROUTES[rt]; if(!route) return '';
+    var allList = overviewShipmentsFor(rt);
+    var chips = route.items.map(function(it){
+      var pending = allList.filter(function(s){ return !(s.checklist||{})[it.key]; }).length;
+      var active = (activeFilter===rt && ovItemFilter[rt]===it.key);
+      return '<button class="chip ov-global-chip'+(active?' active':'')+'" data-global-item="1" data-route="'+rt+'" data-item-key="'+it.key+'" title="'+escapeHtml(route.label)+' · '+escapeHtml(it.label)+' 미완료 건 바로 보기">'+escapeHtml(it.label)+(it.billing?' [청구]':'')+'<span class="ov-item-chip-count">'+pending+'</span></button>';
+    }).join('');
+    return '<span class="ov-global-group"><span class="ov-global-group-label">'+escapeHtml(route.label)+'</span>'+chips+'</span>';
+  }).join('');
+  row.className = 'chip-row ov-global-chip-row';
+  document.querySelectorAll('[data-global-item]').forEach(function(btn){
+    btn.addEventListener('click', function(){ jumpToChecklistItem(btn.dataset.route, btn.dataset.itemKey); });
+  });
+}
+/* 체크리스트 보드의 특정 루틴+항목으로 한 번에 이동: 탭 전환·루틴 필터·항목 필터·섹션 펼침·검색어 초기화를
+   전부 처리한 뒤 렌더링하고, 마지막에 해당 루틴 패널로 스크롤함. */
+function jumpToChecklistItem(routeType, itemKey){
+  activeTab = 'CHECKLIST';
+  activeFilter = routeType;
+  ovItemFilter[routeType] = itemKey;
+  sectionCollapsedOverride['sec-checklist'] = false;
+  ovCollapsed[routeType] = false;
+  var searchEl = document.getElementById('searchInput');
+  if(searchEl) searchEl.value = '';
+  renderChips();
+  renderTabRow();
+  renderTypeChips();
+  renderBoard();
+  var target = document.getElementById('ov-'+routeType) || document.getElementById('sec-checklist');
+  if(target) target.scrollIntoView({behavior:'smooth', block:'start'});
 }
 function renderTabRow(){
   var tabs=[
@@ -906,7 +956,7 @@ function renderSections(board, sections){
     });
   });
   wireBoardEvents();
-  sections.forEach(function(sec){ if(sec.bulk) wireBulkBar(sec.id, sec.bulk.items); });
+  sections.forEach(function(sec){ if(sec.bulk){ wireSelectCheckboxes(sec.id, sec.bulk.items); wireBulkBar(sec.id, sec.bulk.items); } });
   if(document.getElementById('sec-checklist')) wireChecklistSection();
 }
 function renderTodayTab(board, q){
@@ -954,8 +1004,27 @@ function bulkBarHtml(sectionId, items){
     '<button class="btn btn-sm btn-primary" data-bulk-apply="'+sectionId+'" '+(n===0?'disabled':'')+'>선택 항목 일괄 완료 처리</button>'+
     '</div>';
 }
-function wireBulkBar(sectionId, items){
-  document.querySelectorAll('.select-cb[data-sel-sec="'+sectionId+'"]').forEach(function(cb){
+/* 행 체크박스는 renderSections() 때 한 번만 배선함(refreshBulkBar에서는 다시 부르지 않음) —
+   그래야 매번 하나씩 체크할 때마다 리스너가 중복으로 쌓이지 않고, 인덱스 기반 Shift+클릭
+   범위 선택(엑셀처럼 shift 누르고 아래쪽 클릭하면 그 사이 전부 선택)도 안정적으로 동작함. */
+var lastCheckedIdx = {}; // sectionId -> 마지막으로 클릭한 체크박스의 순번(인덱스)
+function wireSelectCheckboxes(sectionId, items){
+  var cbs = Array.prototype.slice.call(document.querySelectorAll('.select-cb[data-sel-sec="'+sectionId+'"]'));
+  cbs.forEach(function(cb, idx){
+    cb.addEventListener('click', function(e){
+      if(e.shiftKey && lastCheckedIdx[sectionId]!=null){
+        var start = Math.min(lastCheckedIdx[sectionId], idx);
+        var end = Math.max(lastCheckedIdx[sectionId], idx);
+        var targetChecked = cb.checked; // 방금 클릭으로 바뀐 상태를 그 사이 전체에 동일하게 적용
+        for(var i=start; i<=end; i++){
+          if(cbs[i].checked !== targetChecked){
+            cbs[i].checked = targetChecked;
+            cbs[i].dispatchEvent(new Event('change', {bubbles:true}));
+          }
+        }
+      }
+      lastCheckedIdx[sectionId] = idx;
+    });
     cb.addEventListener('change', function(){
       var sel = getSel(sectionId);
       var key = selKey(cb.dataset.selId, cb.dataset.selItem);
@@ -964,6 +1033,8 @@ function wireBulkBar(sectionId, items){
       refreshBulkBar(sectionId, items);
     });
   });
+}
+function wireBulkBar(sectionId, items){
   var allCb = document.getElementById('bulkAll-'+sectionId);
   if(allCb){
     allCb.addEventListener('change', function(){
