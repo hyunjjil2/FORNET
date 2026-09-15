@@ -239,6 +239,10 @@ img{max-width:100%;}
 .stage-circle:hover{border-color:var(--teal);}
 .stage-circle.done, .stage-circle.flash{background:var(--teal); border-color:var(--teal);}
 .stage-circle.warnring{border-color:var(--warn);}
+/* LCL/FCL 원터치 전환 버튼의 "확인 대기" 상태 — 실수로 한 번 눌렀을 때 바로 바뀌지 않고,
+   눈에 띄게 깜빡이며 한 번 더 눌러야 확정됨을 알려줌 */
+@keyframes armedPulse{0%,100%{box-shadow:0 0 0 0 var(--warn-soft);} 50%{box-shadow:0 0 0 5px var(--warn-soft);}}
+.stage-circle.armed{border-color:var(--warn); border-style:dashed; animation:armedPulse 1s ease-in-out infinite;}
 .stage-cell{display:flex; align-items:center; justify-content:center;}
 .remark-cell{
   border:1px solid transparent; background:transparent; color:var(--ink); font-size:12.5px;
@@ -296,6 +300,13 @@ details.help[open] summary:before{content:"–";}
 .field textarea{resize:vertical; min-height:44px;}
 .checkbox-row{display:flex; align-items:center; gap:8px; font-size:12.5px; margin-top:10px;}
 .checkbox-row input{width:15px; height:15px;}
+/* LCL 해당·Door 배송 해당처럼 잘못 누르면 상태가 바로 바뀌는 항목은 원터치 체크박스 대신
+   YES/NO 드롭다운으로 — 실수로 스치듯 클릭해도 값이 안 바뀌고, 항상 명시적으로 선택해야 바뀜.
+   기본값은 항상 NO이고, 사람이 직접 YES를 선택했을 때만 해당 트래킹(LCL 전환·도착 추적)이 시작됨. */
+.select-row{display:flex; align-items:center; gap:10px; font-size:12.5px; margin-top:10px;}
+.select-row .yn-label{flex:none;}
+.select-row select{border:1px solid var(--line-strong); border-radius:2px; padding:6px 24px 6px 9px; background:var(--surface); color:var(--ink); font-size:12.5px; font-weight:600;}
+.select-row select.yn-yes{border-color:var(--teal); color:var(--teal);}
 .checklist-block{margin-top:16px; border-top:1px solid var(--line); padding-top:14px;}
 .checklist-block h4{font-size:12.5px; font-weight:700; margin-bottom:8px; color:var(--ink-soft); letter-spacing:.2px;}
 .checklist-item{display:flex; align-items:center; gap:9px; padding:6px 2px; border-bottom:1px dashed var(--line);}
@@ -1182,6 +1193,7 @@ function renderMyClientsToggle(){
 /* ================= 체크리스트 현황판 (한눈에 보기) — 섹션 02 안에 루틴별로 표시 ================= */
 var ovCollapsed = {};  // routeType -> true/false, 사용자가 이번 화면에서 직접 접었다 편 것만 기록 (새로고침하면 초기화)
 var ovItemFilter = {}; // routeType -> itemKey — 클릭한 항목(예: 마감빌)이 아직 완료되지 않은 건만 걸러서 보여줌 (새로고침하면 초기화)
+var armedLclButtons = {}; // id -> 자동 취소 타이머 — LCL/FCL 원터치 버튼의 "확인 대기" 상태 관리용 (새로고침하면 초기화)
 function overviewRoutesToShow(){
   return activeFilter==='ALL' ? ROUTE_ORDER.slice() : [activeFilter];
 }
@@ -1289,7 +1301,20 @@ function wireChecklistSection(){
     });
   });
   document.querySelectorAll('#sec-checklist [data-act="ovlcl"]').forEach(function(btn){
-    btn.addEventListener('click', function(){ toggleLclFlag(btn.dataset.id); });
+    btn.addEventListener('click', function(){
+      var id = btn.dataset.id;
+      if(btn.classList.contains('armed')){
+        clearTimeout(armedLclButtons[id]); delete armedLclButtons[id];
+        btn.classList.remove('armed');
+        toggleLclFlag(id);
+        return;
+      }
+      // 실수로 스치듯 눌러서 바로 LCL/FCL이 바뀌지 않도록 1차 클릭은 "확인 대기" 상태로만 표시하고,
+      // 같은 버튼을 한 번 더 눌러야 실제로 전환됨 (몇 초 안에 다시 안 누르면 자동으로 취소됨).
+      btn.classList.add('armed');
+      btn.title = '다시 한 번 클릭하면 전환됩니다 — 실수라면 그냥 두면 자동으로 취소돼요';
+      armedLclButtons[id] = setTimeout(function(){ btn.classList.remove('armed'); delete armedLclButtons[id]; }, 3500);
+    });
   });
   document.querySelectorAll('#sec-checklist .remark-cell').forEach(function(btn){
     btn.addEventListener('click', function(){ openRemarkEditor(btn.dataset.remarkId); });
@@ -1462,7 +1487,7 @@ var INFO_FIELDS = [
   {k:'forwarder', label:'운송사', type:'text'},
   {k:'vessel', label:'VESSEL', type:'text'},
   {k:'terminal', label:'터미널', type:'text'},
-  {k:'note', label:'특이사항', type:'textarea', full:true}
+  {k:'note', label:'비고', type:'textarea', full:true}
 ];
 function modalChecklistHtml(routeType, billingOnly, checklist){
   var items = routeItems(routeType, billingOnly);
@@ -1487,22 +1512,34 @@ function doorAreaHtml(doorEligible, checklist){
   }).join('')+'</div>';
 }
 function refreshDoorArea(){
-  var doorEligible = document.getElementById('fld_doorEligible').checked;
+  var sel = document.getElementById('fld_doorEligible');
+  sel.classList.toggle('yn-yes', sel.value==='yes');
+  var doorEligible = sel.value==='yes';
   var s = editingId ? (byId[editingId]||{}) : {};
   document.getElementById('doorArea').innerHTML = doorAreaHtml(doorEligible, s.checklist);
 }
+function ynSelectHtml(id, isYes){
+  return '<select id="'+id+'" class="'+(isYes?'yn-yes':'')+'">'+
+    '<option value="no" '+(!isYes?'selected':'')+'>NO</option>'+
+    '<option value="yes" '+(isYes?'selected':'')+'>YES</option>'+
+  '</select>';
+}
 function lclRowHtml(routeType){
   if(!isSeaRoute(routeType)) return '';
-  var checked = isLclRoute(routeType);
-  return '<div class="checkbox-row"><input type="checkbox" id="fld_lclFlag" '+(checked?'checked':'')+'><label for="fld_lclFlag">LCL 건 (혼적) — 체크 시 LCL 탭·체크리스트로 전환</label></div>';
+  var isYes = isLclRoute(routeType);
+  return '<div class="select-row"><span class="yn-label">LCL 건 (혼적)</span>'+ynSelectHtml('fld_lclFlag', isYes)+'<span style="color:var(--ink-soft);">— YES 선택 시 LCL 탭·체크리스트로 전환</span></div>';
 }
 function refreshLclRow(){
   var rt = document.getElementById('fld_routeType').value;
   document.getElementById('lclRow').innerHTML = lclRowHtml(rt);
-  var cb = document.getElementById('fld_lclFlag');
-  if(cb){
-    cb.addEventListener('change', function(){
+  var sel = document.getElementById('fld_lclFlag');
+  if(sel){
+    sel.addEventListener('change', function(){
+      sel.classList.toggle('yn-yes', sel.value==='yes');
       var curRt = document.getElementById('fld_routeType').value;
+      var isCurrentlyLcl = isLclRoute(curRt);
+      var wantsLcl = sel.value==='yes';
+      if(wantsLcl===isCurrentlyLcl) return;
       var sib = LCL_SIBLING[curRt];
       if(sib){ document.getElementById('fld_routeType').value = sib; refreshModalChecklist(); }
     });
@@ -1532,7 +1569,7 @@ function openModal(id){
       '<div class="field"><label>상태</label><select data-k="cancelled"><option value="">진행중</option><option value="1" '+(s.cancelled?'selected':'')+'>캔슬</option></select></div>'+
     '</div>'+
     '<div id="lclRow">'+lclRowHtml(s.routeType)+'</div>'+
-    '<div class="checkbox-row"><input type="checkbox" id="fld_doorEligible" '+(defaultDoorEligible?'checked':'')+'><label for="fld_doorEligible">Door 배송 해당 (체크 시 최종 도착·정산 확인용 "도착 추적" 목록에 표시됨)</label></div>'+
+    '<div class="select-row"><span class="yn-label">Door 배송 해당</span>'+ynSelectHtml('fld_doorEligible', defaultDoorEligible)+'<span style="color:var(--ink-soft);">— YES 선택 시 최종 도착·정산 확인용 "도착 추적" 목록에 표시됨</span></div>'+
     '<div id="doorArea">'+doorAreaHtml(defaultDoorEligible, s.checklist)+'</div>'+
     '<div class="checkbox-row"><input type="checkbox" id="fld_billingOnly" '+(defaultBillingOnly?'checked':'')+'><label for="fld_billingOnly">이월·분할 청구 전용 건 (청구 관련 항목만 체크리스트에 표시)</label></div>'+
     '<div class="checklist-block"><h4>체크리스트</h4><div id="checklistArea">'+modalChecklistHtml(s.routeType, defaultBillingOnly, s.checklist)+'</div></div>'+
@@ -1559,7 +1596,7 @@ async function saveModal(){
   });
   s.routeType = document.getElementById('fld_routeType').value || '';
   s.billingOnly = document.getElementById('fld_billingOnly').checked;
-  s.doorEligible = document.getElementById('fld_doorEligible').checked;
+  s.doorEligible = document.getElementById('fld_doorEligible').value==='yes';
   var checklist = {};
   document.querySelectorAll('#checklistArea [data-chk], #doorArea [data-chk]').forEach(function(el){ checklist[el.dataset.chk] = el.checked; });
   s.checklist = checklist;
