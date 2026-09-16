@@ -180,6 +180,10 @@ img{max-width:100%;}
 .trow.today{grid-template-columns:22px 40px 108px 150px 108px 74px 148px 148px 148px 84px 168px 118px 34px; align-items:start; padding-top:11px; padding-bottom:11px;}
 .trow.today.head{padding-top:8px; padding-bottom:8px; align-items:center;}
 .trow.today.head span{white-space:normal; line-height:1.25;}
+.trow.bh-row{grid-template-columns:74px 108px 108px 108px 108px minmax(120px,1fr) 84px 56px 120px 90px 120px minmax(140px,1.4fr) 96px 34px 34px; align-items:center;}
+.trow.bh-row.head{background:var(--surface-2); font-size:10.5px; font-weight:600; color:var(--ink-soft); letter-spacing:.3px;}
+.bh-status-chip{background:var(--warn-soft); color:var(--warn); border-color:transparent; white-space:nowrap;}
+.bh-status-chip.done{background:var(--teal-soft); color:var(--teal);}
 .trow.today .bl-cell{font-family:"Noto Sans KR","Malgun Gothic","맑은 고딕",system-ui,sans-serif; font-size:13.5px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--ink); line-height:1.3; letter-spacing:.1px;}
 .trow.today .mgmtno{white-space:normal; word-break:break-word; font-size:13px;}
 .trow.today .client-name{white-space:normal; overflow:visible; text-overflow:clip; word-break:break-word; font-size:14px;}
@@ -239,6 +243,8 @@ img{max-width:100%;}
 .stage-circle:hover{border-color:var(--teal);}
 .stage-circle.done, .stage-circle.flash{background:var(--teal); border-color:var(--teal);}
 .stage-circle.warnring{border-color:var(--warn);}
+.stage-circle.na{background:var(--surface-2); border-color:var(--line); border-style:dashed; cursor:default;}
+.stage-circle.na:hover{border-color:var(--line);}
 .stage-cell{display:flex; align-items:center; justify-content:center;}
 /* 체크리스트보드 표 안의 LCL YES/NO 선택 — 상세모달과 동일하게 드롭다운으로, 실수로 스치듯
    클릭해도 값이 안 바뀌고 명시적으로 선택해야만 바뀜. 기본은 NO, YES를 고를 때만 전환됨. */
@@ -447,7 +453,6 @@ var POLL_MS = 20000;
 /* ================= route / checklist config (Code.gs / xlsx 템플릿과 동일하게 유지) ================= */
 var ROUTES = {
   SEA_EXP_FCL: {label:'해상수출 FCL', items:[
-    {key:'booking', label:'부킹확정'},
     {key:'baecha', label:'배차'},
     {key:'myeonjang', label:'면장'},
     {key:'docCls', label:'서류마감', anchor:'DOC CLS'},
@@ -460,7 +465,6 @@ var ROUTES = {
     {key:'settlement', label:'계산서', billing:true}
   ]},
   SEA_EXP_LCL: {label:'해상수출 LCL', items:[
-    {key:'booking', label:'부킹확정'},
     {key:'baecha', label:'배차'},
     {key:'myeonjang', label:'면장'},
     {key:'docCls', label:'서류마감', anchor:'DOC CLS'},
@@ -471,7 +475,6 @@ var ROUTES = {
     {key:'settlement', label:'계산서', billing:true}
   ]},
   SEA_IMP_FCL: {label:'해상수입 FCL', items:[
-    {key:'booking', label:'부킹확정'},
     {key:'checkBill', label:'체크빌'},
     {key:'closeBill', label:'마감빌'},
     {key:'an', label:'AN'},
@@ -486,7 +489,6 @@ var ROUTES = {
     {key:'settlement', label:'계산서', billing:true}
   ]},
   SEA_IMP_LCL: {label:'해상수입 LCL', items:[
-    {key:'booking', label:'부킹확정'},
     {key:'checkBill', label:'체크빌'},
     {key:'closeBill', label:'마감빌'},
     {key:'consolAn', label:'콘솔사에서 AN'},
@@ -502,7 +504,6 @@ var ROUTES = {
     {key:'settlement', label:'계산서', billing:true}
   ]},
   AIR_EXP: {label:'항공수출', items:[
-    {key:'booking', label:'부킹확정'},
     {key:'baecha', label:'배차'},
     {key:'myeonjang', label:'면장'},
     {key:'chkBl', label:'CHK BL'},
@@ -513,7 +514,6 @@ var ROUTES = {
     {key:'carrierJigyeol', label:'선사지결', billing:true}
   ]},
   AIR_IMP: {label:'항공수입', items:[
-    {key:'impBooking', label:'부킹확정'},
     {key:'impBaecha', label:'배차'},
     {key:'impChkBl', label:'CHK BL'},
     {key:'impBaechaInfo', label:'배차정보'},
@@ -617,9 +617,10 @@ function normHeader(h){ return String(h||'').trim().replace(/\s+/g,'').toUpperCa
 var CHEVRON_SVG = '<span class="sec-chevron"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
 var allShipments = [];   // [{id(managementNo 기준), managementNo, routeType, billingOnly, cancelled, ...info, checklist:{}}]
 var byId = {};
+var bookingHolds = [];   // 부킹확인중 메모 — 정식 건과 무관한 별도 목록. [{ID,POL,POD,ETD,ETA,서류마감일,VESSEL,CNTR TYPE,수량,BK NO,선사,화주,REMARK,상태}]
 var editingId = null;
 var activeFilter = 'ALL';
-var activeTab = 'TODAY';  // 'TODAY' | 'CHECKLIST' — 새로고침하면 항상 TODAY로 초기화 (in-memory only)
+var activeTab = 'TODAY';  // 'TODAY' | 'CHECKLIST' | 'BOOKING_HOLD' — 새로고침하면 항상 TODAY로 초기화 (in-memory only)
 var activeType = 'ALL';   // '오늘 할 일' 탭 내 타입 필터: ALL | duesoon | billing | door
 var pollTimer = null;
 var selection = {};  // sectionId -> { "id::itemKey": {id, item} } — 일괄 처리용 선택 상태
@@ -756,8 +757,12 @@ function feedToday(){
 
 /* ================= rendering (아티팩트 버전과 동일 로직) ================= */
 function renderChips(){
+  var el = document.getElementById('chipRow');
+  // 부킹확인중 메모는 루틴(FCL/LCL 등) 구분이 없으므로 루틴 필터 자체를 숨김
+  if(activeTab==='BOOKING_HOLD'){ el.innerHTML=''; el.style.display='none'; return; }
+  el.style.display='';
   var chips=[{key:'ALL',label:'전체'}].concat(ROUTE_ORDER.map(function(k){return {key:k,label:ROUTES[k].label};}));
-  document.getElementById('chipRow').innerHTML = chips.map(function(c){
+  el.innerHTML = chips.map(function(c){
     return '<button class="chip'+(activeFilter===c.key?' active':'')+'" data-chip="'+c.key+'" '+(c.disabled?'disabled':'')+'>'+c.label+'</button>';
   }).join('');
   document.querySelectorAll('[data-chip]').forEach(function(btn){
@@ -800,7 +805,8 @@ function renderChecklistGlobalChips(row){
     var route = ROUTES[rt]; if(!route) return;
     var allList = overviewShipmentsFor(rt);
     route.items.forEach(function(it){
-      var pending = allList.filter(function(s){ return !(s.checklist||{})[it.key]; }).length;
+      // 청구전용 건은 청구 항목 외에는 해당없음으로 보고 미완료 집계에서 제외
+      var pending = allList.filter(function(s){ if(s.billingOnly && !it.billing) return false; return !(s.checklist||{})[it.key]; }).length;
       if(!groups[it.label]){ groups[it.label] = {label:it.label, pending:0, billing:!!it.billing, pairs:[]}; order.push(it.label); }
       groups[it.label].pending += pending;
       groups[it.label].billing = groups[it.label].billing || !!it.billing;
@@ -847,13 +853,14 @@ function jumpToChecklistItemGroup(pairs){
 function renderTabRow(){
   var tabs=[
     {key:'TODAY', label:'오늘 할 일', count: feedTodayAll().length + feedUnassigned().length},
-    {key:'CHECKLIST', label:'체크리스트 보드', count: checklistOverviewCount()}
+    {key:'CHECKLIST', label:'체크리스트 보드', count: checklistOverviewCount()},
+    {key:'BOOKING_HOLD', label:'부킹확인중', count: bookingHolds.filter(function(b){return (b['상태']||'대기중')==='대기중';}).length}
   ];
   document.getElementById('tabRow').innerHTML = tabs.map(function(t){
     return '<button class="tab-btn'+(activeTab===t.key?' active':'')+'" data-tab="'+t.key+'">'+t.label+'<span class="tab-count mono">'+t.count+'</span></button>';
   }).join('');
   document.querySelectorAll('[data-tab]').forEach(function(btn){
-    btn.addEventListener('click', function(){ if(activeTab===btn.dataset.tab) return; activeTab=btn.dataset.tab; renderTypeChips(); renderTabRow(); renderBoard(); });
+    btn.addEventListener('click', function(){ if(activeTab===btn.dataset.tab) return; activeTab=btn.dataset.tab; renderChips(); renderTypeChips(); renderTabRow(); renderBoard(); });
   });
 }
 function renderKpis(){
@@ -1055,6 +1062,132 @@ function renderTodayTab(board, q){
   sections.push({id:'sec-today', tag:'01', title:'오늘 할 일', sub:typeLbl+' · 체크박스로 여러 건을 한 번에 선택해 일괄 완료 처리 가능', color:'steel', body:todayTable(today,'sec-today'), count:today.length, bulk:{items:today.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
   renderSections(board, sections);
 }
+/* ================= 부킹확인중 (임시 메모) 탭 =================
+   정식 관리번호 체계와 완전히 분리된 가벼운 메모 목록. 부킹 컨펌 전, 대략의 정보로 이미
+   스케줄을 잡고 기다리는 건들을 적어두는 용도. ALVIS 입력 후 정식 건(엑셀 업로드)으로
+   넘어가면 상태를 "확정전환됨"으로 바꾸거나 목록에서 삭제. */
+function bookingHoldMatchesSearch(b, q){
+  if(!q) return true;
+  var hay = [b['BK NO'], b['화주'], b['VESSEL'], b['선사'], b['POL'], b['POD'], b['REMARK']].join(' ').toLowerCase();
+  return hay.indexOf(q) >= 0;
+}
+function bookingHoldRowHtml(b){
+  var etd = fmtDate(b['ETD']), eta = fmtDate(b['ETA']), docCls = fmtDate(b['서류마감일']);
+  var isDone = (b['상태']||'대기중') === '확정전환됨';
+  return '<div class="trow bh-row">'+
+    '<span class="ov-cell mono">'+escapeHtml(b['POL']||'-')+'</span>'+
+    '<span class="ov-cell mono">'+escapeHtml(b['POD']||'-')+'</span>'+
+    '<span class="ov-cell mono">'+(etd.date==='—'?'-':(etd.date+(etd.time?(' '+etd.time):'')))+'</span>'+
+    '<span class="ov-cell mono">'+(eta.date==='—'?'-':(eta.date+(eta.time?(' '+eta.time):'')))+'</span>'+
+    '<span class="ov-cell mono">'+(docCls.date==='—'?'-':(docCls.date+(docCls.time?(' '+docCls.time):'')))+'</span>'+
+    '<span class="ov-cell" title="'+escapeHtml(b['VESSEL']||'')+'">'+escapeHtml(b['VESSEL']||'-')+'</span>'+
+    '<span class="ov-cell mono">'+escapeHtml(b['CNTR TYPE']||'-')+'</span>'+
+    '<span class="ov-cell mono" style="text-align:center;">'+escapeHtml(b['수량']||'-')+'</span>'+
+    '<span class="ov-cell mono" title="'+escapeHtml(b['BK NO']||'')+'">'+escapeHtml(b['BK NO']||'-')+'</span>'+
+    '<span class="ov-cell">'+escapeHtml(b['선사']||'-')+'</span>'+
+    '<button class="client-name ov-cell" style="font-weight:600;" data-bh-edit="'+escapeHtml(b['ID'])+'">'+escapeHtml(b['화주']||'-')+'</button>'+
+    '<button class="remark-cell'+(b['REMARK']?'':' placeholder')+'" data-bh-edit="'+escapeHtml(b['ID'])+'" title="클릭해서 수정">'+escapeHtml(b['REMARK']||'메모 입력…')+'</button>'+
+    '<span class="stage-cell"><button class="chip bh-status-chip'+(isDone?' done':'')+'" data-bh-toggle-status="'+escapeHtml(b['ID'])+'" title="클릭하면 상태 전환">'+(isDone?'확정전환됨':'대기중')+'</button></span>'+
+    '<button class="edit-btn" data-bh-edit="'+escapeHtml(b['ID'])+'" title="수정"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M11 2l3 3-8 8-3.5.5.5-3.5z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg></button>'+
+    '<button class="edit-btn" data-bh-delete="'+escapeHtml(b['ID'])+'" title="삭제"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M3 4h10M6.5 4V2.5h3V4M4.5 4l.6 9.5a1 1 0 001 .95h3.8a1 1 0 001-.95L11.5 4" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'+
+    '</div>';
+}
+function bookingHoldTable(list){
+  if(list.length===0) return '<div class="trow empty">부킹 확인 대기 중인 메모가 없습니다 — "+ 신규 메모"로 추가해 보세요.</div>';
+  var head = '<div class="trow bh-row head"><span>POL</span><span>POD</span><span>ETD</span><span>ETA</span><span>서류마감일</span><span>VESSEL</span><span>CNTR TYPE</span><span>수량</span><span>BK NO</span><span>선사</span><span>화주</span><span>REMARK</span><span>상태</span><span></span><span></span></div>';
+  return head + list.map(bookingHoldRowHtml).join('');
+}
+function renderBookingHoldTab(board, q){
+  var sections=[];
+  var list = bookingHolds.filter(function(b){ return bookingHoldMatchesSearch(b, q); })
+    .sort(function(a,b){ return String(a['ETD']||'').localeCompare(String(b['ETD']||'')); });
+  sections.push({id:'sec-booking-hold', tag:'03', title:'부킹확인중', sub:'부킹 컨펌 전, 대략의 정보로 이미 예약하고 기다리는 건들을 메모 · ALVIS 입력 후 정식 건으로 넘어가면 "확정전환됨"으로 표시하거나 삭제', color:'warn', raw:true, count:list.length,
+    body:'<div style="display:flex;justify-content:flex-end;padding:10px 16px 0;"><button class="btn btn-sm" id="bhAddBtn">+ 신규 메모</button></div><div class="table-scroll">'+bookingHoldTable(list)+'</div>'});
+  renderSections(board, sections);
+  var addBtn = document.getElementById('bhAddBtn');
+  if(addBtn) addBtn.addEventListener('click', function(){ openBookingHoldModal(null); });
+  document.querySelectorAll('[data-bh-edit]').forEach(function(el){
+    el.addEventListener('click', function(){ openBookingHoldModal(el.dataset.bhEdit); });
+  });
+  document.querySelectorAll('[data-bh-toggle-status]').forEach(function(el){
+    el.addEventListener('click', function(e){ e.stopPropagation(); toggleBookingHoldStatus(el.dataset.bhToggleStatus); });
+  });
+  document.querySelectorAll('[data-bh-delete]').forEach(function(el){
+    el.addEventListener('click', function(e){ e.stopPropagation(); deleteBookingHoldConfirm(el.dataset.bhDelete); });
+  });
+}
+async function toggleBookingHoldStatus(id){
+  var b = bookingHolds.filter(function(x){return x.ID===id;})[0]; if(!b) return;
+  var prev = b['상태'];
+  var next = prev==='확정전환됨' ? '대기중' : '확정전환됨';
+  b['상태'] = next; renderAll();
+  try{
+    await apiPost({action:'upsertBookingHold', data:{ID:id, '상태':next}});
+    refreshFromServer(true);
+  }catch(e){ b['상태'] = prev; renderAll(); toast('상태 변경 실패: '+e.message, {err:true}); }
+}
+async function deleteBookingHoldConfirm(id){
+  var b = bookingHolds.filter(function(x){return x.ID===id;})[0]; if(!b) return;
+  var prevList = bookingHolds.slice();
+  bookingHolds = bookingHolds.filter(function(x){return x.ID!==id;});
+  renderAll();
+  toast('메모를 삭제했습니다 ('+(b['BK NO']||b['화주']||id)+').', {undo:function(){ bookingHolds = prevList; renderAll(); }});
+  try{
+    await apiPost({action:'deleteBookingHold', id:id});
+  }catch(e){ bookingHolds = prevList; renderAll(); toast('삭제 실패: '+e.message, {err:true}); }
+}
+var BOOKING_HOLD_FIELDS = [
+  {k:'POL', label:'POL', type:'text'},
+  {k:'POD', label:'POD', type:'text'},
+  {k:'ETD', label:'ETD', type:'datetime-local'},
+  {k:'ETA', label:'ETA', type:'datetime-local'},
+  {k:'서류마감일', label:'서류마감일', type:'datetime-local'},
+  {k:'VESSEL', label:'VESSEL', type:'text'},
+  {k:'CNTR TYPE', label:'CNTR TYPE', type:'text'},
+  {k:'수량', label:'수량', type:'text'},
+  {k:'BK NO', label:'BK NO', type:'text'},
+  {k:'선사', label:'선사', type:'text'},
+  {k:'화주', label:'화주', type:'text'},
+  {k:'REMARK', label:'REMARK', type:'textarea', full:true}
+];
+function openBookingHoldModal(id){
+  var isNew = !id;
+  var b = isNew ? {} : (bookingHolds.filter(function(x){return x.ID===id;})[0] || {});
+  var fieldsHtml = BOOKING_HOLD_FIELDS.map(function(f){
+    var val = b[f.k]||'';
+    var inner;
+    if(f.type==='datetime-local'){ inner = '<input type="datetime-local" data-bhf="'+f.k+'" value="'+escapeHtml(fmtDateInput(val))+'">'; }
+    else if(f.type==='textarea'){ inner = '<textarea data-bhf="'+f.k+'" rows="2">'+escapeHtml(val)+'</textarea>'; }
+    else { inner = '<input type="text" data-bhf="'+f.k+'" value="'+escapeHtml(val)+'">'; }
+    return '<div class="field'+(f.full?' full':'')+'"><label>'+f.label+'</label>'+inner+'</div>';
+  }).join('');
+  document.getElementById('modalContent').innerHTML =
+    '<div class="modal-head"><h3>'+(isNew?'부킹확인중 메모 등록':'부킹확인중 메모 수정')+'</h3><button class="modal-close" id="bhCloseBtn">&times;</button></div>'+
+    '<div class="modal-body"><div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;">부킹 컨펌 전, 대략의 정보로 이미 예약하고 기다리는 건을 메모해두는 용도입니다. 정식 관리번호와는 연결되지 않으며, ALVIS 입력 후 엑셀로 정식 건이 생성되면 이 메모는 "확정전환됨"으로 표시하거나 삭제하면 됩니다.</div>'+
+    '<div class="field-grid">'+fieldsHtml+'</div></div>'+
+    '<div class="modal-foot">'+(isNew?'':'<button class="btn btn-sm" id="bhDeleteBtn" style="margin-right:auto;color:var(--danger);">삭제</button>')+'<button class="btn btn-primary" id="bhSaveBtn">저장</button></div>';
+  document.getElementById('modalOverlay').hidden = false;
+  document.getElementById('bhCloseBtn').addEventListener('click', closeModal);
+  var delBtn = document.getElementById('bhDeleteBtn');
+  if(delBtn) delBtn.addEventListener('click', function(){ closeModal(); deleteBookingHoldConfirm(id); });
+  document.getElementById('bhSaveBtn').addEventListener('click', function(){ saveBookingHoldModal(id); });
+}
+async function saveBookingHoldModal(id){
+  var data = {};
+  document.querySelectorAll('#modalContent [data-bhf]').forEach(function(el){
+    var key = el.dataset.bhf;
+    var val = el.value;
+    if(el.type==='datetime-local'){ data[key] = val ? new Date(val).toISOString() : ''; }
+    else { data[key] = val; }
+  });
+  if(id) data.ID = id;
+  closeModal();
+  try{
+    await apiPost({action:'upsertBookingHold', data:data});
+    toast(id?'메모를 수정했습니다.':'새 메모를 등록했습니다.');
+    refreshFromServer(true);
+  }catch(e){ toast('저장 실패: '+e.message, {err:true}); }
+}
 function renderChecklistTab(board, q){
   var sections=[];
   if(q){
@@ -1072,7 +1205,8 @@ function renderBoard(){
   var q=(document.getElementById('searchInput').value||'').trim().toLowerCase();
   var board=document.getElementById('board');
   if(activeTab==='TODAY') renderTodayTab(board, q);
-  else renderChecklistTab(board, q);
+  else if(activeTab==='CHECKLIST') renderChecklistTab(board, q);
+  else renderBookingHoldTab(board, q);
 }
 
 /* ================= 일괄 선택 처리 ================= */
@@ -1205,8 +1339,14 @@ function overviewRoutesToShow(){
   return routes.filter(function(rt){
     var filterKey = ovItemFilter[rt];
     if(!filterKey) return true;
+    var route = ROUTES[rt]; if(!route) return true;
+    var filterItem = (route.items||[]).filter(function(it){return it.key===filterKey;})[0];
     var allList = overviewShipmentsFor(rt);
-    return allList.some(function(s){ return !(s.checklist||{})[filterKey]; });
+    return allList.some(function(s){
+      // 청구전용 건에게는 청구 항목이 아닌 필터가 해당없음이므로 미완료로 치지 않음
+      if(s.billingOnly && filterItem && !filterItem.billing) return false;
+      return !(s.checklist||{})[filterKey];
+    });
   });
 }
 function overviewShipmentsFor(routeType){
@@ -1226,6 +1366,10 @@ function overviewGridCols(n){
    "완료"와 다르게 처리되어 오늘 할 일에서 완전히 제외됨 — 매번 필요 없는 건까지 완료 처리하듯 눌러줄 필요가 없어짐. */
 function stageCircleCell(s, it){
   var chk=s.checklist||{}; var done=!!chk[it.key];
+  // 청구전용 건은 청구 항목이 아니면 애초에 처리할 필요가 없는 항목 — "해당없음"으로 표시하고 클릭 불가 처리
+  if(s.billingOnly && !it.billing){
+    return '<span class="stage-cell"><button class="stage-circle na" title="'+escapeHtml(it.label)+' — 청구전용 건이라 해당없음" disabled></button></span>';
+  }
   return '<span class="stage-cell"><button class="stage-circle'+(done?' done':'')+'" data-act="ovtoggle" data-id="'+escapeHtml(s.id)+'" data-item="'+it.key+'" title="'+escapeHtml(it.label)+(done?' — 완료 (해제는 상세에서)':' — 클릭하면 완료 처리')+'" '+(done?'disabled':'')+'></button></span>';
 }
 function doorFlagCellOv(s){
@@ -1262,7 +1406,9 @@ function overviewItemChipsHtml(routeType, items, allList){
   var filterKey = ovItemFilter[routeType];
   var allBtn = '<button class="chip ov-item-chip-reset'+(!filterKey?' active':'')+'" data-ov-item-reset="'+routeType+'">전체 보기</button>';
   var chips = items.map(function(it){
-    var pending = allList.filter(function(s){ return !(s.checklist||{})[it.key]; }).length;
+    // 청구전용 건은 청구 관련 항목 외에는 "해당없음"으로 보고 미완료 집계에서 제외
+    // (예: Z26KWN101-X01처럼 -X숫자로 끝나는 건은 부킹확정 등 일반 항목이 계속 미완료로 남지 않도록)
+    var pending = allList.filter(function(s){ if(s.billingOnly && !it.billing) return false; return !(s.checklist||{})[it.key]; }).length;
     var active = filterKey===it.key;
     return '<button class="chip ov-item-chip'+(active?' active':'')+'" data-ov-item-filter="'+routeType+'" data-item-key="'+it.key+'" title="'+escapeHtml(it.label)+' 미완료 건만 보기">'+escapeHtml(it.label)+(it.billing?' [청구]':'')+'<span class="ov-item-chip-count">'+pending+'</span></button>';
   }).join('');
@@ -1277,7 +1423,12 @@ function overviewGroupHtml(routeType){
   var items = route.items;
   var allList = overviewShipmentsFor(routeType);
   var filterKey = ovItemFilter[routeType];
-  var list = filterKey ? allList.filter(function(s){ return !(s.checklist||{})[filterKey]; }) : allList;
+  var filterItem = filterKey ? items.filter(function(it){return it.key===filterKey;})[0] : null;
+  // 청구전용 건은 청구 항목이 아닌 필터에서는 애초에 "해당없음"이므로 미완료 목록에 포함하지 않음
+  var list = filterKey ? allList.filter(function(s){
+    if(s.billingOnly && filterItem && !filterItem.billing) return false;
+    return !(s.checklist||{})[filterKey];
+  }) : allList;
   var headCells = '<span class="ov-head-lbl" style="text-align:left;">관리번호</span><span class="ov-head-lbl" style="text-align:left;">거래처명</span><span class="ov-head-lbl">House B/L</span><span class="ov-head-lbl">Master B/L</span><span class="ov-head-lbl lcl">LCL</span><span class="ov-head-lbl door">DOOR</span>'+
     items.map(function(it){ return '<span class="ov-head-lbl" title="'+escapeHtml(it.label)+(it.billing?' (청구)':'')+'">'+escapeHtml(it.label)+(it.billing?'<br><span style="color:var(--brass);">(청구)</span>':'')+'</span>'; }).join('')+
     '<span class="ov-head-lbl" style="text-align:left;">비고</span>';
@@ -1470,6 +1621,7 @@ async function refreshFromServer(silent){
     byId = {}; allShipments.forEach(function(s){ byId[s.id]=s; });
     if(json.myClients) myClientCodes = json.myClients;
     applyItemLabelOverrides(json.labelOverrides||[]);
+    bookingHolds = json.bookingHolds||[];
     document.getElementById('syncDot').className='sync-dot live';
     document.getElementById('syncLabel').textContent='연결됨 · '+allShipments.length+'건 · 약 '+Math.round(POLL_MS/1000)+'초마다 갱신';
     renderAll();
