@@ -655,6 +655,21 @@ function normHeader(h){ return String(h||'').trim().replace(/\s+/g,'').toUpperCa
 var CHEVRON_SVG = '<span class="sec-chevron"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
 var allShipments = [];   // [{id(managementNo 기준), managementNo, routeType, billingOnly, cancelled, ...info, checklist:{}}]
 var byId = {};
+/* ================= 체크 처리 중 깜빡임(사라짐→다시 나타남→사라짐) 방지 =================
+   완료 버튼을 누르면 화면은 바로 반영(낙관적 갱신)하고 서버에는 뒤늦게 저장되는데,
+   그 사이(약 1~2초) 20초 주기 자동 새로고침이 끼어들면 아직 저장 전인 옛날 값으로
+   화면을 덮어써서 방금 체크한 항목이 다시 미완료로 돌아왔다가, 저장이 끝나면 또
+   사라지는 것처럼 보임 — 저장이 확정될 때까지는 새로고침이 와도 낙관적 값을 유지시켜서 막음. */
+var pendingChecklistWrites = {}; // "id|itemKey" -> 아직 서버 저장 확정 전인 낙관적 값(true/false)
+function pendingWriteKey(id, itemKey){ return id+'|'+itemKey; }
+function reapplyPendingWrites(){
+  Object.keys(pendingChecklistWrites).forEach(function(key){
+    var sep = key.lastIndexOf('|');
+    var id = key.slice(0, sep), itemKey = key.slice(sep+1);
+    var s = byId[id]; if(!s) return;
+    var nc = Object.assign({}, s.checklist||{}); nc[itemKey] = pendingChecklistWrites[key]; s.checklist = nc;
+  });
+}
 var bookingHolds = [];   // 부킹확인중 메모 — 정식 건과 무관한 별도 목록. [{ID,POL,POD,ETD,ETA,서류마감일,VESSEL,CNTR TYPE,수량,BK NO,선사,화주,REMARK,상태}]
 var editingId = null;
 var activeFilter = 'ALL';
@@ -1044,7 +1059,10 @@ function applySort(tableKey, list, getters){
   });
 }
 function wireSortHeaders(){
+  // renderSections()와 renderArchive() 양쪽에서 호출될 수 있어, 같은 화면 갱신 주기 안에서
+  // 이미 배선된 요소를 다시 배선하면 리스너가 중복으로 쌓일 수 있음 — wired 플래그로 방지.
   document.querySelectorAll('[data-sort-table]').forEach(function(el){
+    if(el.dataset.wired) return; el.dataset.wired='1';
     el.addEventListener('click', function(){
       var tableKey = el.dataset.sortTable, col = el.dataset.sortCol;
       var st = sortState[tableKey];
@@ -1105,7 +1123,7 @@ function todayTable(list, sectionId){
       '<span class="type-tag '+x.type+'">'+TYPE_LABEL[x.type]+'</span>'+
       '<span class="item-label">'+escapeHtml(it.label)+(it.billing?'<span class="billing-tag">청구</span>':'')+'</span>'+
       '<span class="date-badge-cell">'+(d?('<span class="mono">'+d.date+(d.time?(' '+d.time):'')+'</span>'):'')+badge+'</span>'+
-      '<button class="edit-btn" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="상세/수정"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M11 2l3 3-8 8-3.5.5.5-3.5z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg></button>'+
+      '<button class="edit-btn" data-act="editnote" data-id="'+escapeHtml(s.id)+'" title="비고 입력·수정"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M11 2l3 3-8 8-3.5.5.5-3.5z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg></button>'+
       '</div>';
   }).join('');
   return todayHeadHtml() + rows;
@@ -1155,7 +1173,7 @@ function searchResultTable(list){
       '<span class="mono" style="font-size:11.5px;">'+escapeHtml(s.hbl||'-')+'</span>'+
       '<span class="mono" style="font-size:11.5px;">'+escapeHtml(s.mbl||'-')+'</span>'+
       '<span></span>'+
-      '<button class="edit-btn" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="상세/수정"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M11 2l3 3-8 8-3.5.5.5-3.5z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg></button>'+
+      '<button class="edit-btn" data-act="editnote" data-id="'+escapeHtml(s.id)+'" title="비고 입력·수정"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M11 2l3 3-8 8-3.5.5.5-3.5z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg></button>'+
       '</div>';
   }).join('');
   return head + rows;
@@ -1455,8 +1473,10 @@ async function bulkApply(sectionId){
     var s = byId[en.id];
     return {id:en.id, item:en.item, prevChecklist: s ? Object.assign({}, s.checklist||{}) : null};
   });
-  entries.forEach(function(en){
+  var pKeys = entries.map(function(en){ return pendingWriteKey(en.id, en.item); });
+  entries.forEach(function(en, i){
     var s = byId[en.id]; if(!s) return;
+    pendingChecklistWrites[pKeys[i]] = true;
     var nc = Object.assign({}, s.checklist||{}); nc[en.item] = true; s.checklist = nc;
   });
   selection[sectionId] = {};
@@ -1464,9 +1484,11 @@ async function bulkApply(sectionId){
   try{
     var items = entries.map(function(en){ var s=byId[en.id]; return {managementNo: s?s.managementNo:en.id, itemKey: en.item}; });
     await apiPost({action:'toggleMany', items: items, value:true});
+    pKeys.forEach(function(k){ delete pendingChecklistWrites[k]; }); // 저장 확정
     toast(entries.length+'건을 일괄 완료 처리했습니다.');
     refreshFromServer(true);
   }catch(e){
+    pKeys.forEach(function(k){ delete pendingChecklistWrites[k]; });
     prevStates.forEach(function(p){ var s=byId[p.id]; if(s && p.prevChecklist) s.checklist=p.prevChecklist; });
     renderAll();
     toast('일괄 처리 실패: '+e.message, {err:true});
@@ -1495,11 +1517,11 @@ function renderArchive(){
     var st=statusOf(s); var stLabel={active:'진행중',done:'완료',cancelled:'캔슬',unassigned:'루틴 미지정'}[st];
     return '<div class="trow">'+
       '<span class="mono" style="font-size:12px;">'+escapeHtml(s.managementNo||s.id)+'</span>'+
-      '<span style="font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+escapeHtml(s.client||'-')+'</span>'+
+      '<button class="client-name" style="font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="'+escapeHtml(s.client||'')+'">'+escapeHtml(s.client||'-')+'</button>'+
       '<span style="font-size:11px;color:var(--ink-soft);">'+escapeHtml((ROUTES[s.routeType]||{}).label||'-')+(s.billingOnly?' · 청구전용':'')+'</span>'+
       '<span style="font-size:11.5px;">'+stLabel+'</span>'+
       '<span class="mono" style="font-size:11.5px;color:var(--ink-soft);">'+(items.length?(doneCount+' / '+items.length):'-')+'</span>'+
-      '<button class="edit-btn" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="수정"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M11 2l3 3-8 8-3.5.5.5-3.5z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg></button>'+
+      '<button class="edit-btn" data-act="editnote" data-id="'+escapeHtml(s.id)+'" title="비고 입력·수정"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M11 2l3 3-8 8-3.5.5.5-3.5z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg></button>'+
       '</div>';
   }).join('');
   body.innerHTML='<div class="table-scroll">'+head+rows+'</div>';
@@ -1746,14 +1768,25 @@ function saveRemarkFromEditor(){
 
 function renderAll(){ renderMyClientsToggle(); renderKpis(); renderTabRow(); renderTypeChips(); renderBoard(); renderArchive(); renderRouteDocs(); }
 function wireBoardEvents(){
+  // renderSections()와 renderArchive() 양쪽에서 호출될 수 있어, 같은 화면 갱신 주기 안에서
+  // 이미 배선된 요소를 다시 배선하면 리스너가 중복으로 쌓일 수 있음 — wired 플래그로 방지.
   document.querySelectorAll('[data-act="toggle"]').forEach(function(btn){
+    if(btn.dataset.wired) return; btn.dataset.wired='1';
     btn.addEventListener('click', function(){
       if(btn.classList.contains('flash')) return;
       btn.classList.add('flash');
       setTimeout(function(){ toggleItem(btn.dataset.id, btn.dataset.item); }, 320);
     });
   });
-  document.querySelectorAll('[data-act="edit"]').forEach(function(el){ el.addEventListener('click', function(){ openModal(el.dataset.id); }); });
+  document.querySelectorAll('[data-act="edit"]').forEach(function(el){
+    if(el.dataset.wired) return; el.dataset.wired='1';
+    el.addEventListener('click', function(){ openModal(el.dataset.id); });
+  });
+  // 연필 아이콘은 상세창이 아니라 비고 입력창을 바로 열어줌 — 상세창은 거래처명을 눌러야만 열림
+  document.querySelectorAll('[data-act="editnote"]').forEach(function(el){
+    if(el.dataset.wired) return; el.dataset.wired='1';
+    el.addEventListener('click', function(){ openRemarkEditor(el.dataset.id); });
+  });
 }
 
 /* ================= toast ================= */
@@ -1828,6 +1861,7 @@ async function refreshFromServer(silent, retryCount){
     if(refreshRetryTimer){ clearTimeout(refreshRetryTimer); refreshRetryTimer = null; }
     allShipments = (json.rows||[]).map(sheetRowToShipment);
     byId = {}; allShipments.forEach(function(s){ byId[s.id]=s; });
+    reapplyPendingWrites(); // 저장 확정 전인 낙관적 체크 상태는 새로고침으로 덮어쓰지 않음
     if(json.myClients) myClientCodes = json.myClients;
     applyItemLabelOverrides(json.labelOverrides||[]);
     bookingHolds = json.bookingHolds||[];
@@ -1870,15 +1904,22 @@ function toggleItem(id, itemKey){
   var s = byId[id]; if(!s) return;
   var prevChecklist = Object.assign({}, s.checklist||{});
   var newChecklist = Object.assign({}, prevChecklist); newChecklist[itemKey]=true;
+  var pKey = pendingWriteKey(id, itemKey);
+  pendingChecklistWrites[pKey] = true;
   s.checklist = newChecklist; renderAll(); // 낙관적 갱신
   apiPost({action:'toggleItem', managementNo:s.managementNo, itemKey:itemKey, value:true})
     .then(function(){
+      delete pendingChecklistWrites[pKey]; // 저장 확정 — 이제 새로고침이 와도 안전
       toast('"'+(s.managementNo||id)+'" 항목 완료 처리', {undo:function(){
+        var uKey = pendingWriteKey(id, itemKey);
+        pendingChecklistWrites[uKey] = false;
         s.checklist = prevChecklist; renderAll();
-        apiPost({action:'toggleItem', managementNo:s.managementNo, itemKey:itemKey, value:false}).catch(function(){});
+        apiPost({action:'toggleItem', managementNo:s.managementNo, itemKey:itemKey, value:false})
+          .then(function(){ delete pendingChecklistWrites[uKey]; })
+          .catch(function(){ delete pendingChecklistWrites[uKey]; });
       }});
     })
-    .catch(function(e){ s.checklist=prevChecklist; renderAll(); toast('저장 실패: '+e.message, {err:true}); });
+    .catch(function(e){ delete pendingChecklistWrites[pKey]; s.checklist=prevChecklist; renderAll(); toast('저장 실패: '+e.message, {err:true}); });
 }
 /* ================= modal ================= */
 var INFO_FIELDS = [
