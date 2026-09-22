@@ -254,12 +254,14 @@ img{max-width:100%;}
 .type-tag.duesoon{color:var(--steel); background:var(--steel-soft); border-color:transparent;}
 .type-tag.billing{color:var(--brass); background:var(--brass-soft); border-color:transparent;}
 .type-tag.door{color:var(--warn); background:var(--warn-soft); border-color:transparent;}
+.type-tag.dispatch{color:var(--teal); background:var(--teal-soft); border-color:transparent;}
 
 .ov-row{padding:8px 14px; min-width:0; align-items:stretch;}
 .ov-row.head{background:var(--surface-2); padding-top:9px; padding-bottom:9px;}
 .ov-head-lbl{font-size:11.5px; font-weight:700; color:var(--ink-soft); text-align:center; line-height:1.25; white-space:normal; letter-spacing:0; align-self:center;}
 .ov-head-lbl.door, .ov-head-lbl.lcl{color:var(--warn);}
 .ov-head-lbl.lcl{color:var(--plum);}
+.ov-head-lbl.dispatch{color:var(--teal);}
 .ov-item-chips{display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:10px 16px; background:var(--surface-2); border-bottom:1px solid var(--line);}
 .ov-item-chips-label{font-size:11px; color:var(--ink-soft); font-weight:600; margin-right:2px; white-space:nowrap;}
 .ov-item-chip{font-size:11.5px; padding:5px 12px; border-radius:20px;}
@@ -491,7 +493,6 @@ var POLL_MS = 20000;
 /* ================= route / checklist config (Code.gs / xlsx 템플릿과 동일하게 유지) ================= */
 var ROUTES = {
   SEA_EXP_FCL: {label:'해상수출 FCL', items:[
-    {key:'baecha', label:'배차'},
     {key:'myeonjang', label:'면장'},
     {key:'docCls', label:'서류마감', anchor:'DOC CLS'},
     {key:'vgm', label:'VGM'},
@@ -503,7 +504,6 @@ var ROUTES = {
     {key:'settlement', label:'계산서', billing:true}
   ]},
   SEA_EXP_LCL: {label:'해상수출 LCL', items:[
-    {key:'baecha', label:'배차'},
     {key:'myeonjang', label:'면장'},
     {key:'docCls', label:'서류마감', anchor:'DOC CLS'},
     {key:'jigyeol', label:'지결'},
@@ -521,7 +521,6 @@ var ROUTES = {
     {key:'arrival', label:'입항', anchor:'ETA(PORT)'},
     {key:'customsInvoice', label:'통관용 인보이스'},
     {key:'customs', label:'수입 통관'},
-    {key:'baecha', label:'배차'},
     {key:'carrierJigyeol', label:'운송사 지결'},
     {key:'finalInvoice', label:'운송료 포함 최종인보이스', billing:true},
     {key:'settlement', label:'계산서', billing:true}
@@ -536,13 +535,11 @@ var ROUTES = {
     {key:'doIssue', label:'DO 발행'},
     {key:'customsInvoice', label:'통관용 인보이스'},
     {key:'customs', label:'수입 통관'},
-    {key:'baecha', label:'배차'},
     {key:'carrierJigyeol', label:'운송사 지결'},
     {key:'finalInvoice', label:'최종 인보이스', billing:true},
     {key:'settlement', label:'계산서', billing:true}
   ]},
   AIR_EXP: {label:'항공수출', items:[
-    {key:'baecha', label:'배차'},
     {key:'myeonjang', label:'면장'},
     {key:'chkBl', label:'CHK BL'},
     {key:'baechaInfo', label:'배차정보'},
@@ -552,7 +549,6 @@ var ROUTES = {
     {key:'carrierJigyeol', label:'선사지결', billing:true}
   ]},
   AIR_IMP: {label:'항공수입', items:[
-    {key:'impBaecha', label:'배차'},
     {key:'impChkBl', label:'CHK BL'},
     {key:'impBaechaInfo', label:'배차정보'},
     {key:'impInsurance', label:'보험'},
@@ -624,7 +620,7 @@ var INFO_HEADERS = ['관리번호','루틴','청구전용','캔슬','서비스',
 var FIELD_TO_HEADER = {
   managementNo:'관리번호', routeType:'루틴', billingOnly:'청구전용', cancelled:'캔슬',
   service:'서비스', tradeType:'수출입', clientCode:'거래처코드', client:'거래처명', manager:'담당자', pol:'POL', pod:'POD',
-  docCls:'DOC CLS', cfsCls:'CFS CLS', etd:'ETD', etaPort:'ETA(PORT)', etaDoor:'ETA(DOOR)', doorEligible:'Door배송',
+  docCls:'DOC CLS', cfsCls:'CFS CLS', etd:'ETD', etaPort:'ETA(PORT)', etaDoor:'ETA(DOOR)', doorEligible:'Door배송', dispatchNeeded:'배차필요',
   lineBookingNo:'Line Booking No', hbl:'House B/L No', mbl:'Master B/L No', carrier:'선사', forwarder:'운송사', vessel:'VESSEL', terminal:'터미널', note:'특이사항',
   createdAt:'생성일시', updatedAt:'수정일시'
 };
@@ -635,6 +631,9 @@ var ROUTE_LABEL_TO_KEY = {}; ROUTE_ORDER.forEach(function(k){ ROUTE_LABEL_TO_KEY
 var GLOBAL_CHECK_ITEMS = [
   {key:'doorArrival', label:'도착 확인·정산 완료'}
 ];
+/* "배차 필요" 건에만 표시되는 배차 완료 체크 항목의 실제 체크리스트 키.
+   루틴마다 기존에 쓰던 키가 달라서(항공수입만 impBaecha, 나머지는 baecha) 라우트별로 분기함. */
+function dispatchItemKeyFor(routeType){ return routeType==='AIR_IMP' ? 'impBaecha' : 'baecha'; }
 
 var FIELD_ALIASES = {
   managementNo: ['관리번호','FILENO','FILE No','파일번호'],
@@ -792,13 +791,29 @@ function feedDoorTracking(){
   out.sort(function(a,b){ var av=a.dd===null?9999:a.dd, bv=b.dd===null?9999:b.dd; return av-bv; });
   return out;
 }
-/* ================= "오늘 할 일" 통합 피드 (타입 태그: duesoon/billing/door) ================= */
-var TYPE_LABEL = {duesoon:'출항안내', billing:'청구대기', door:'도착확인'};
+/* "배차 필요"로 지정된 건 중 아직 배차가 완료되지 않은 건만 모음 — DOOR 추적과 동일한 구조.
+   청구전용 건은 애초에 배차 자체가 해당없음이므로 배차 필요로 지정되어 있어도 제외. */
+function feedDispatch(){
+  var out=[];
+  activeShipments().forEach(function(s){
+    if(!matchesFilter(s) || !matchesMyClients(s)) return;
+    if(!s.dispatchNeeded || s.billingOnly) return;
+    var key = dispatchItemKeyFor(s.routeType);
+    var chk=s.checklist||{};
+    if(chk[key]) return;
+    out.push({s:s, dd:getDday(s.etd), itemKey:key});
+  });
+  out.sort(function(a,b){ var av=a.dd===null?9999:a.dd, bv=b.dd===null?9999:b.dd; return av-bv; });
+  return out;
+}
+/* ================= "오늘 할 일" 통합 피드 (타입 태그: duesoon/billing/door/dispatch) ================= */
+var TYPE_LABEL = {duesoon:'출항안내', billing:'청구대기', door:'도착확인', dispatch:'배차'};
 function feedTodayAll(){
   var out=[];
   feedDueSoon().forEach(function(x){ out.push({type:'duesoon', s:x.s, item:x.item, dd:x.dd, field:x.field, sortKey:(x.dd===null?9999:x.dd)}); });
   feedBilling().forEach(function(x){ out.push({type:'billing', s:x.s, item:x.item, aging:x.aging, sortKey:-(x.aging===null?-9999:x.aging)}); });
   feedDoorTracking().forEach(function(x){ out.push({type:'door', s:x.s, item:{key:'doorArrival', label:'도착 확인·정산 완료'}, dd:x.dd, sortKey:(x.dd===null?9999:x.dd)}); });
+  feedDispatch().forEach(function(x){ out.push({type:'dispatch', s:x.s, item:{key:x.itemKey, label:'배차'}, dd:x.dd, field:'etd', sortKey:(x.dd===null?9999:x.dd)}); });
   return out;
 }
 function feedToday(){
@@ -826,7 +841,8 @@ var TYPE_DEFS = [
   {key:'ALL', label:'전체'},
   {key:'duesoon', label:'출항안내', color:'steel'},
   {key:'billing', label:'청구대기', color:'brass'},
-  {key:'door', label:'도착확인', color:'warn'}
+  {key:'door', label:'도착확인', color:'warn'},
+  {key:'dispatch', label:'배차', color:'teal'}
 ];
 function renderTypeChips(){
   var row = document.getElementById('typeChipRow');
@@ -940,6 +956,7 @@ function renderKpis(){
     {label:'체크리스트 보드', value: checklistOverviewCount(), color:'plum', goto:{tab:'CHECKLIST', target:'sec-checklist'}},
     {label:'청구 대기 항목', value: feedBilling().length, color:'brass', goto:{tab:'TODAY', type:'billing', target:'sec-today'}},
     {label:'도착 추적', value: feedDoorTracking().length, color:'warn', goto:{tab:'TODAY', type:'door', target:'sec-today'}},
+    {label:'배차 대기', value: feedDispatch().length, color:'teal', goto:{tab:'TODAY', type:'dispatch', target:'sec-today'}},
     {label:'완료', value: allShipments.filter(function(s){return statusOf(s)==='done' && matchesMyClients(s);}).length, color:'slate'}
   ];
   document.getElementById('kpiStrip').innerHTML = kpis.map(function(k,i){
@@ -1525,6 +1542,7 @@ function renderArchive(){
       '</div>';
   }).join('');
   body.innerHTML='<div class="table-scroll">'+head+rows+'</div>';
+  wireBoardEvents();
   wireSortHeaders();
 }
 function renderRouteDocs(){
@@ -1573,7 +1591,7 @@ function checklistOverviewCount(){
   return total;
 }
 function overviewGridCols(n){
-  return '96px minmax(130px,1fr) 150px 150px 72px 46px 46px ' + new Array(n).fill('58px').join(' ') + ' minmax(180px,1fr)';
+  return '96px minmax(130px,1fr) 150px 150px 72px 46px 46px 46px ' + new Array(n).fill('58px').join(' ') + ' minmax(180px,1fr)';
 }
 var OVERVIEW_SORT_GETTERS = {
   mgmtno: function(s){ return s.managementNo||s.id||''; },
@@ -1608,6 +1626,13 @@ function lclFlagCellOv(s){
     '<option value="yes" '+(isLcl?'selected':'')+'>YES</option>'+
   '</select></span>';
 }
+function dispatchFlagCellOv(s){
+  var isYes = !!s.dispatchNeeded;
+  return '<span class="stage-cell"><select class="ov-yn-select'+(isYes?' yn-yes':'')+'" data-act="ovdispatch" data-id="'+escapeHtml(s.id)+'" title="YES 선택 시 배차가 필요한 건으로 지정 — 오늘 할 일 > 배차 목록에 표시됨">'+
+    '<option value="no" '+(!isYes?'selected':'')+'>NO</option>'+
+    '<option value="yes" '+(isYes?'selected':'')+'>YES</option>'+
+  '</select></span>';
+}
 function remarkCellHtml(s){
   var val = s.note||'';
   return '<button class="remark-cell'+(val?'':' placeholder')+'" data-remark-id="'+escapeHtml(s.id)+'" title="클릭해서 크게 보기·수정">'+escapeHtml(val||'비고 입력…')+'</button>';
@@ -1621,9 +1646,10 @@ function overviewRowHtml(s, items){
     '<span class="ov-cell mono" style="text-align:center;">'+(etdFmt.date==='—'?'-':escapeHtml(etdFmt.date))+'</span>'+
     lclFlagCellOv(s)+
     doorFlagCellOv(s)+
+    dispatchFlagCellOv(s)+
     items.map(function(it){ return stageCircleCell(s, it); }).join('')+
     remarkCellHtml(s);
-  return '<div class="trow ov-row" style="grid-template-columns:'+overviewGridCols(items.length)+';min-width:'+(816+items.length*58)+'px;">'+cells+'</div>';
+  return '<div class="trow ov-row" style="grid-template-columns:'+overviewGridCols(items.length)+';min-width:'+(862+items.length*58)+'px;">'+cells+'</div>';
 }
 function overviewItemChipsHtml(routeType, items, allList){
   var filterKey = ovItemFilter[routeType];
@@ -1657,10 +1683,10 @@ function overviewGroupHtml(routeType){
     '<span class="ov-head-lbl">'+sortHeadHtml('overview','hbl','House B/L')+'</span>'+
     '<span class="ov-head-lbl">'+sortHeadHtml('overview','mbl','Master B/L')+'</span>'+
     '<span class="ov-head-lbl">'+sortHeadHtml('overview','etd','ETD')+'</span>'+
-    '<span class="ov-head-lbl lcl">LCL</span><span class="ov-head-lbl door">DOOR</span>'+
+    '<span class="ov-head-lbl lcl">LCL</span><span class="ov-head-lbl door">DOOR</span><span class="ov-head-lbl dispatch">배차</span>'+
     items.map(function(it){ return '<span class="ov-head-lbl" title="'+escapeHtml(it.label)+(it.billing?' (청구)':'')+'">'+escapeHtml(it.label)+(it.billing?'<br><span style="color:var(--brass);">(청구)</span>':'')+'</span>'; }).join('')+
     '<span class="ov-head-lbl" style="text-align:left;">비고</span>';
-  var headRow = '<div class="trow ov-row head" style="grid-template-columns:'+overviewGridCols(items.length)+';min-width:'+(816+items.length*58)+'px;">'+headCells+'</div>';
+  var headRow = '<div class="trow ov-row head" style="grid-template-columns:'+overviewGridCols(items.length)+';min-width:'+(862+items.length*58)+'px;">'+headCells+'</div>';
   var emptyMsg = filterKey ? ('"'+escapeHtml((items.filter(function(it){return it.key===filterKey;})[0]||{}).label||'')+'" 미완료 건 없음 — 전부 처리됨') : '진행중인 건 없음';
   var bodyRows = list.length ? list.map(function(s){ return overviewRowHtml(s, items); }).join('') : '<div class="trow empty">'+emptyMsg+'</div>';
   var collapsed = ovCollapsed.hasOwnProperty(routeType) ? ovCollapsed[routeType] : (activeFilter==='ALL');
@@ -1713,6 +1739,13 @@ function wireChecklistSection(){
       toggleDoorEligible(sel.dataset.id, sel.value==='yes');
     });
   });
+  document.querySelectorAll('#sec-checklist [data-act="ovdispatch"]').forEach(function(sel){
+    sel.addEventListener('click', function(e){ e.stopPropagation(); });
+    sel.addEventListener('change', function(){
+      sel.classList.toggle('yn-yes', sel.value==='yes');
+      toggleDispatchNeeded(sel.dataset.id, sel.value==='yes');
+    });
+  });
   document.querySelectorAll('#sec-checklist .remark-cell').forEach(function(btn){
     btn.addEventListener('click', function(){ openRemarkEditor(btn.dataset.remarkId); });
   });
@@ -1740,6 +1773,17 @@ async function toggleDoorEligible(id, wantsYes){
     toast('"'+(s.managementNo||id)+'" Door 배송 해당 여부를 변경했습니다.');
     refreshFromServer(true);
   }catch(e){ s.doorEligible = prev; renderAll(); toast('변경 실패: '+e.message, {err:true}); }
+}
+async function toggleDispatchNeeded(id, wantsYes){
+  var s = byId[id]; if(!s) return;
+  if(wantsYes===!!s.dispatchNeeded) return; // 이미 원하는 상태면 아무것도 하지 않음
+  var prev = s.dispatchNeeded;
+  s.dispatchNeeded = wantsYes; renderAll();
+  try{
+    await apiPost({action:'upsertOne', id: s.managementNo, data: {'배차필요': wantsYes}});
+    toast('"'+(s.managementNo||id)+'" 배차 필요 여부를 변경했습니다.');
+    refreshFromServer(true);
+  }catch(e){ s.dispatchNeeded = prev; renderAll(); toast('변경 실패: '+e.message, {err:true}); }
 }
 function saveRemark(id, value){
   var s = byId[id]; if(!s) return;
@@ -1997,6 +2041,24 @@ function refreshDoorArea(){
   var s = editingId ? (byId[editingId]||{}) : {};
   document.getElementById('doorArea').innerHTML = doorAreaHtml(doorEligible, s.checklist);
 }
+/* "배차 필요"로 지정된 건만 배차 완료 체크박스를 보여줌 — DOOR와 동일한 구조.
+   단, 실제 체크리스트 키는 루틴에 따라 다르므로(항공수입만 impBaecha) 매번 라우트를 함께 넘겨받음. */
+function dispatchAreaHtml(dispatchNeeded, routeType, checklist){
+  if(!dispatchNeeded || !routeType) return '';
+  var key = dispatchItemKeyFor(routeType);
+  var chk = checklist||{};
+  return '<div class="checklist-block"><h4>배차</h4>'+
+    '<label class="checklist-item"><span class="n">•</span><input type="checkbox" data-chk="'+key+'" '+(chk[key]?'checked':'')+'><span class="lbl">배차 완료</span></label>'+
+    '</div>';
+}
+function refreshDispatchArea(){
+  var sel = document.getElementById('fld_dispatchNeeded');
+  sel.classList.toggle('yn-yes', sel.value==='yes');
+  var dispatchNeeded = sel.value==='yes';
+  var rt = document.getElementById('fld_routeType').value;
+  var s = editingId ? (byId[editingId]||{}) : {};
+  document.getElementById('dispatchArea').innerHTML = dispatchAreaHtml(dispatchNeeded, rt, s.checklist);
+}
 function ynSelectHtml(id, isYes){
   return '<select id="'+id+'" class="'+(isYes?'yn-yes':'')+'">'+
     '<option value="no" '+(!isYes?'selected':'')+'>NO</option>'+
@@ -2024,13 +2086,14 @@ function refreshLclRow(){
     });
   }
 }
-function onRouteTypeChange(){ refreshModalChecklist(); refreshLclRow(); }
+function onRouteTypeChange(){ refreshModalChecklist(); refreshLclRow(); refreshDispatchArea(); }
 function openModal(id){
   editingId = id || null;
   var s = id ? (byId[id]||{}) : {};
   var isNew = !id;
   var defaultBillingOnly = s.billingOnly!==undefined ? s.billingOnly : isBillingOnlyByNo(s.managementNo||'');
   var defaultDoorEligible = !!s.doorEligible;
+  var defaultDispatchNeeded = !!s.dispatchNeeded;
   var infoHtml = INFO_FIELDS.map(function(f){
     var val = s[f.k]!==undefined ? s[f.k] : '';
     var inner;
@@ -2050,6 +2113,8 @@ function openModal(id){
     '<div id="lclRow">'+lclRowHtml(s.routeType)+'</div>'+
     '<div class="select-row"><span class="yn-label">Door 배송 해당</span>'+ynSelectHtml('fld_doorEligible', defaultDoorEligible)+'<span style="color:var(--ink-soft);">— YES 선택 시 최종 도착·정산 확인용 "도착 추적" 목록에 표시됨</span></div>'+
     '<div id="doorArea">'+doorAreaHtml(defaultDoorEligible, s.checklist)+'</div>'+
+    '<div class="select-row"><span class="yn-label">배차 필요</span>'+ynSelectHtml('fld_dispatchNeeded', defaultDispatchNeeded)+'<span style="color:var(--ink-soft);">— YES 선택 시 "오늘 할 일 > 배차" 목록에 표시됨</span></div>'+
+    '<div id="dispatchArea">'+dispatchAreaHtml(defaultDispatchNeeded, s.routeType, s.checklist)+'</div>'+
     '<div class="checkbox-row"><input type="checkbox" id="fld_billingOnly" '+(defaultBillingOnly?'checked':'')+'><label for="fld_billingOnly">이월·분할 청구 전용 건 (청구 관련 항목만 체크리스트에 표시)</label></div>'+
     '<div class="checklist-block"><h4>체크리스트</h4><div id="checklistArea">'+modalChecklistHtml(s.routeType, defaultBillingOnly, s.checklist)+'</div></div>'+
     '</div>'+
@@ -2060,6 +2125,7 @@ function openModal(id){
   document.getElementById('fld_routeType').addEventListener('change', onRouteTypeChange);
   document.getElementById('fld_billingOnly').addEventListener('change', refreshModalChecklist);
   document.getElementById('fld_doorEligible').addEventListener('change', refreshDoorArea);
+  document.getElementById('fld_dispatchNeeded').addEventListener('change', refreshDispatchArea);
   var delBtn = document.getElementById('deleteBtn'); if(delBtn) delBtn.addEventListener('click', deleteFromModal);
   refreshLclRow();
 }
@@ -2076,8 +2142,9 @@ async function saveModal(){
   s.routeType = document.getElementById('fld_routeType').value || '';
   s.billingOnly = document.getElementById('fld_billingOnly').checked;
   s.doorEligible = document.getElementById('fld_doorEligible').value==='yes';
+  s.dispatchNeeded = document.getElementById('fld_dispatchNeeded').value==='yes';
   var checklist = {};
-  document.querySelectorAll('#checklistArea [data-chk], #doorArea [data-chk]').forEach(function(el){ checklist[el.dataset.chk] = el.checked; });
+  document.querySelectorAll('#checklistArea [data-chk], #doorArea [data-chk], #dispatchArea [data-chk]').forEach(function(el){ checklist[el.dataset.chk] = el.checked; });
   s.checklist = checklist;
   if(!s.managementNo){ toast('관리번호를 입력해 주세요.', {err:true}); return; }
   s.id = s.managementNo;
