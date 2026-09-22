@@ -735,13 +735,15 @@ function statusOf(s){ if(s.cancelled) return 'cancelled'; if(!s.routeType) retur
 function matchesFilter(s){ return activeFilter==='ALL' || s.routeType===activeFilter; }
 function matchesSearch(s,q){
   if(!q) return true;
-  return (s.managementNo||'').toLowerCase().indexOf(q)>=0 ||
-         (s.client||'').toLowerCase().indexOf(q)>=0 ||
-         (s.clientCode||'').toLowerCase().indexOf(q)>=0 ||
-         (s.manager||'').toLowerCase().indexOf(q)>=0 ||
-         (s.lineBookingNo||'').toLowerCase().indexOf(q)>=0 ||
-         (s.hbl||'').toLowerCase().indexOf(q)>=0 ||
-         (s.mbl||'').toLowerCase().indexOf(q)>=0;
+  // 필드 값이 (숫자로만 된 셀 등으로 인해) 문자열이 아닐 수 있으므로 항상 String()으로 감싸서
+  // .toLowerCase() 호출 시 예외가 나지 않도록 함 — 검색 전체가 먹통이 되는 것을 방지.
+  return String(s.managementNo||'').toLowerCase().indexOf(q)>=0 ||
+         String(s.client||'').toLowerCase().indexOf(q)>=0 ||
+         String(s.clientCode||'').toLowerCase().indexOf(q)>=0 ||
+         String(s.manager||'').toLowerCase().indexOf(q)>=0 ||
+         String(s.lineBookingNo||'').toLowerCase().indexOf(q)>=0 ||
+         String(s.hbl||'').toLowerCase().indexOf(q)>=0 ||
+         String(s.mbl||'').toLowerCase().indexOf(q)>=0;
 }
 function searchResults(q){ if(!q) return []; return allShipments.filter(function(s){ return matchesSearch(s,q); }); }
 function activeShipments(){ return allShipments.filter(function(s){return statusOf(s)==='active';}); }
@@ -1848,11 +1850,22 @@ function toast(msg, opts){
 /* ================= backend I/O ================= */
 function webappReady(){ return WEBAPP_URL && WEBAPP_URL.indexOf('PASTE_YOUR') !== 0; }
 
+/* 관리번호·Line Booking No·B/L No 등은 숫자만 입력하면 구글시트가 자동으로 "숫자" 형식
+   셀로 저장해버릴 수 있음 — 이 경우 서버에서 내려오는 값이 문자열이 아니라 순수 숫자(Number)가
+   되어, 검색(.toLowerCase() 등 문자열 전용 메서드 호출)에서 예외가 발생해 검색 기능 전체가
+   먹통이 되는 문제가 있었음. 불리언(청구전용·캔슬·Door배송·배차필요) 항목을 제외한 모든 필드는
+   여기서 항상 문자열로 통일해 이 문제를 원천 차단함. */
+var BOOL_FIELDS_ = {billingOnly:1, cancelled:1, doorEligible:1, dispatchNeeded:1};
 function sheetRowToShipment(row){
   var s = { checklist: row.checklist || {} };
   Object.keys(HEADER_TO_FIELD).forEach(function(h){
     var f = HEADER_TO_FIELD[h];
-    s[f] = row[h]!==undefined ? row[h] : (f==='billingOnly'||f==='cancelled' ? false : '');
+    var v = row[h];
+    if(BOOL_FIELDS_[f]){
+      s[f] = v!==undefined ? v : false;
+    } else {
+      s[f] = (v===undefined || v===null) ? '' : String(v);
+    }
   });
   s.id = s.managementNo;
   // 관리번호가 "-X숫자"로 끝나면 시트에 저장된 값과 무관하게 항상 청구전용으로 자동 보정.
@@ -2334,7 +2347,7 @@ function openMyClientsModal(){
 
   function renderRows(filterQ){
     var q=(filterQ||'').trim().toLowerCase();
-    var rows = q ? allRows.filter(function(r){ return r.code.toLowerCase().indexOf(q)>=0 || (r.name||'').toLowerCase().indexOf(q)>=0; }) : allRows;
+    var rows = q ? allRows.filter(function(r){ return String(r.code||'').toLowerCase().indexOf(q)>=0 || String(r.name||'').toLowerCase().indexOf(q)>=0; }) : allRows;
     if(rows.length===0) return '<div style="padding:14px 0;color:var(--ink-soft);font-size:12.5px;">일치하는 거래처가 없습니다.</div>';
     return rows.map(function(r){
       return '<label class="checklist-item"><input type="checkbox" data-code="'+escapeHtml(r.code)+'" '+(workingSet[r.code]?'checked':'')+'>'+
