@@ -252,6 +252,7 @@ img{max-width:100%;}
 .route-pill.lcl{background:var(--plum-soft); color:var(--plum);}
 .type-tag{font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:3px; white-space:nowrap; border:1px solid currentColor;}
 .type-tag.duesoon{color:var(--steel); background:var(--steel-soft); border-color:transparent;}
+.type-tag.docCls{color:var(--plum); background:var(--plum-soft); border-color:transparent;}
 .type-tag.billing{color:var(--brass); background:var(--brass-soft); border-color:transparent;}
 .type-tag.door{color:var(--warn); background:var(--warn-soft); border-color:transparent;}
 .type-tag.dispatch{color:var(--teal); background:var(--teal-soft); border-color:transparent;}
@@ -641,7 +642,7 @@ var FIELD_ALIASES = {
   service: ['서비스'], tradeType: ['수출입'],
   clientCode: ['거래처코드','거래처 코드','거래처','CLIENTCODE','CLIENT CODE'],
   client: ['거래처명','거래처 명'], manager: ['담당자'],
-  pol: ['POL'], pod: ['POD'], docCls: ['DOCCLS','DOC CLS'], cfsCls: ['CFSCLS','CFS CLS'], etd: ['ETD'],
+  pol: ['POL'], pod: ['POD'], docCls: ['DOCCLS','DOC CLS','서류마감일','서류 마감일','서류마감'], cfsCls: ['CFSCLS','CFS CLS'], etd: ['ETD'],
   etaPort: ['ETA(PORT)','ETAPORT','ETA PORT'], etaDoor: ['ETA(DOOR)','ETADOOR','ETA DOOR','DELIVERY'],
   lineBookingNo: ['LINEBOOKINGNO','LINE BOOKING NO','LINE BOOKING NUMBER'],
   hbl: ['HOUSEB/LNO','HOUSE B/L NO','HBL'], mbl: ['MASTERB/LNO','MASTER B/L NO','MBL'],
@@ -750,12 +751,29 @@ function activeShipments(){ return allShipments.filter(function(s){return status
 function feedUnassigned(){ return allShipments.filter(function(s){return statusOf(s)==='unassigned' && matchesMyClients(s);}); }
 function feedDueSoon(){
   // 아직 해당 날짜(anchor)가 되지 않은 항목은 "할 일"이 아니므로 제외 — 당일(D-DAY)이 되거나 이미 지난 항목만 노출.
+  // 서류마감(DOC CLS)은 별도 "서류마감" 업무구분으로 분리되어 여기서는 제외함(feedDocCls 참고).
   var out=[];
   activeShipments().forEach(function(s){
     if(!matchesFilter(s) || !matchesMyClients(s)) return;
     var chk=s.checklist||{};
     relevantItems(s).forEach(function(it){
-      if(!it.anchor || chk[it.key]) return;
+      if(!it.anchor || it.anchor==='DOC CLS' || chk[it.key]) return;
+      var field = ANCHOR_FIELD[it.anchor]; var dd = getDday(s[field]);
+      if(dd!==null && dd<=0) out.push({s:s,item:it,dd:dd,field:field});
+    });
+  });
+  out.sort(function(a,b){return a.dd-b.dd;});
+  return out;
+}
+/* "서류마감"(DOC CLS) 항목만 따로 모음 — 예전엔 "출항안내"에 다른 anchor 항목들과 섞여 있었으나,
+   서류 마감 임박 건만 따로 확인하고 싶다는 요청으로 별도 업무구분으로 분리함. */
+function feedDocCls(){
+  var out=[];
+  activeShipments().forEach(function(s){
+    if(!matchesFilter(s) || !matchesMyClients(s)) return;
+    var chk=s.checklist||{};
+    relevantItems(s).forEach(function(it){
+      if(!it.anchor || it.anchor!=='DOC CLS' || chk[it.key]) return;
       var field = ANCHOR_FIELD[it.anchor]; var dd = getDday(s[field]);
       if(dd!==null && dd<=0) out.push({s:s,item:it,dd:dd,field:field});
     });
@@ -808,11 +826,12 @@ function feedDispatch(){
   out.sort(function(a,b){ var av=a.dd===null?9999:a.dd, bv=b.dd===null?9999:b.dd; return av-bv; });
   return out;
 }
-/* ================= "오늘 할 일" 통합 피드 (타입 태그: duesoon/billing/door/dispatch) ================= */
-var TYPE_LABEL = {duesoon:'출항안내', billing:'청구대기', door:'도착확인', dispatch:'배차'};
+/* ================= "오늘 할 일" 통합 피드 (타입 태그: duesoon/docCls/billing/door/dispatch) ================= */
+var TYPE_LABEL = {duesoon:'출항안내', docCls:'서류마감', billing:'청구대기', door:'도착확인', dispatch:'배차'};
 function feedTodayAll(){
   var out=[];
   feedDueSoon().forEach(function(x){ out.push({type:'duesoon', s:x.s, item:x.item, dd:x.dd, field:x.field, sortKey:(x.dd===null?9999:x.dd)}); });
+  feedDocCls().forEach(function(x){ out.push({type:'docCls', s:x.s, item:x.item, dd:x.dd, field:x.field, sortKey:(x.dd===null?9999:x.dd)}); });
   feedBilling().forEach(function(x){ out.push({type:'billing', s:x.s, item:x.item, aging:x.aging, sortKey:-(x.aging===null?-9999:x.aging)}); });
   feedDoorTracking().forEach(function(x){ out.push({type:'door', s:x.s, item:{key:'doorArrival', label:'도착 확인·정산 완료'}, dd:x.dd, sortKey:(x.dd===null?9999:x.dd)}); });
   feedDispatch().forEach(function(x){ out.push({type:'dispatch', s:x.s, item:{key:x.itemKey, label:'배차'}, dd:x.dd, field:'etd', sortKey:(x.dd===null?9999:x.dd)}); });
@@ -842,6 +861,7 @@ function renderChips(){
 var TYPE_DEFS = [
   {key:'ALL', label:'전체'},
   {key:'duesoon', label:'출항안내', color:'steel'},
+  {key:'docCls', label:'서류마감', color:'plum'},
   {key:'billing', label:'청구대기', color:'brass'},
   {key:'door', label:'도착확인', color:'warn'},
   {key:'dispatch', label:'배차', color:'teal'}
@@ -955,6 +975,7 @@ function renderKpis(){
     {label:'전체 진행중', value: allShipments.filter(function(s){return statusOf(s)==='active' && matchesMyClients(s);}).length, color:'ink'},
     {label:'루틴 미지정', value: feedUnassigned().length, color:'danger', goto:{tab:'TODAY', type:'ALL', target:'sec-unassigned', forceAllRoute:true}},
     {label:'출항안내', value: feedDueSoon().length, color:'steel', goto:{tab:'TODAY', type:'duesoon', target:'sec-today'}},
+    {label:'서류마감', value: feedDocCls().length, color:'plum', goto:{tab:'TODAY', type:'docCls', target:'sec-today'}},
     {label:'체크리스트 보드', value: checklistOverviewCount(), color:'plum', goto:{tab:'CHECKLIST', target:'sec-checklist'}},
     {label:'청구 대기 항목', value: feedBilling().length, color:'brass', goto:{tab:'TODAY', type:'billing', target:'sec-today'}},
     {label:'도착 추적', value: feedDoorTracking().length, color:'warn', goto:{tab:'TODAY', type:'door', target:'sec-today'}},
