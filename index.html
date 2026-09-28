@@ -550,6 +550,7 @@ var ROUTES = {
     {key:'impPreAlert', label:'PRE-ALERT'},
     {key:'impDocCls', label:'서류마감', anchor:'DOC CLS'},
     {key:'impSettlementDocs', label:'정산서, 마감서류', billing:true},
+    {key:'impInvoice', label:'화주청구', billing:true},
     {key:'impMyeonjang', label:'면장'},
     {key:'impCarrierJigyeol', label:'선사지결', billing:true}
   ]}
@@ -806,7 +807,12 @@ function feedDoorTracking(){
   return out;
 }
 /* "배차 필요"로 지정된 건 중 아직 배차가 완료되지 않은 건만 모음 — DOOR 추적과 동일한 구조.
-   청구전용 건은 애초에 배차 자체가 해당없음이므로 배차 필요로 지정되어 있어도 제외. */
+   청구전용 건은 애초에 배차 자체가 해당없음이므로 배차 필요로 지정되어 있어도 제외.
+   단, YES로 지정하자마자 바로 "오늘 할 일"에 띄우면 아직 여유 있는 건까지 계속 눈에 밟혀서
+   정작 급한 건이 묻히므로, 서류마감(DOC CLS)까지 남은 기간이 지정 기간(기본 5일) 이내로
+   다가오거나 이미 지난 건만 노출함 — 예: 서류마감이 10/15이면 10/10부터(D-5) 노출 시작.
+   DOC CLS 날짜 자체가 없는 건은 기준을 판단할 수 없으므로 안전하게 그대로 노출함. */
+var DISPATCH_ALERT_WINDOW_DAYS = 5;
 function feedDispatch(){
   var out=[];
   activeShipments().forEach(function(s){
@@ -815,6 +821,8 @@ function feedDispatch(){
     var key = dispatchItemKeyFor(s.routeType);
     var chk=s.checklist||{};
     if(chk[key]) return;
+    var docClsDd = getDday(s.docCls);
+    if(docClsDd!==null && docClsDd>DISPATCH_ALERT_WINDOW_DAYS) return;
     out.push({s:s, dd:getDday(s.etd), itemKey:key});
   });
   out.sort(function(a,b){ var av=a.dd===null?9999:a.dd, bv=b.dd===null?9999:b.dd; return av-bv; });
@@ -1768,7 +1776,7 @@ function lclFlagCellOv(s){
 }
 function dispatchFlagCellOv(s){
   var isYes = !!s.dispatchNeeded;
-  return '<span class="stage-cell"><select class="ov-yn-select'+(isYes?' yn-yes':'')+'" data-act="ovdispatch" data-id="'+escapeHtml(s.id)+'" title="YES 선택 시 배차가 필요한 건으로 지정 — 오늘 할 일 > 배차 목록에 표시됨">'+
+  return '<span class="stage-cell"><select class="ov-yn-select'+(isYes?' yn-yes':'')+'" data-act="ovdispatch" data-id="'+escapeHtml(s.id)+'" title="YES 선택 시 배차가 필요한 건으로 지정 — 서류마감 D-'+DISPATCH_ALERT_WINDOW_DAYS+'부터 오늘 할 일 > 배차 목록에 표시됨">'+
     '<option value="no" '+(!isYes?'selected':'')+'>NO</option>'+
     '<option value="yes" '+(isYes?'selected':'')+'>YES</option>'+
   '</select></span>';
@@ -2318,7 +2326,7 @@ function openModal(id){
     '<div id="lclRow">'+lclRowHtml(s.routeType)+'</div>'+
     '<div class="select-row"><span class="yn-label">Door 배송 해당</span>'+ynSelectHtml('fld_doorEligible', defaultDoorEligible)+'<span style="color:var(--ink-soft);">— YES 선택 시 최종 도착·정산 확인용 "도착 추적" 목록에 표시됨</span></div>'+
     '<div id="doorArea">'+doorAreaHtml(defaultDoorEligible, s.checklist)+'</div>'+
-    '<div class="select-row"><span class="yn-label">배차 필요</span>'+ynSelectHtml('fld_dispatchNeeded', defaultDispatchNeeded)+'<span style="color:var(--ink-soft);">— YES 선택 시 "오늘 할 일 > 배차" 목록에 표시됨</span></div>'+
+    '<div class="select-row"><span class="yn-label">배차 필요</span>'+ynSelectHtml('fld_dispatchNeeded', defaultDispatchNeeded)+'<span style="color:var(--ink-soft);">— YES 선택 시, 서류마감 D-'+DISPATCH_ALERT_WINDOW_DAYS+'부터 미완료면 "오늘 할 일 > 배차" 목록에 표시됨</span></div>'+
     '<div id="dispatchArea">'+dispatchAreaHtml(defaultDispatchNeeded, s.routeType, s.checklist)+'</div>'+
     '<div class="select-row"><span class="yn-label">비엘 홀딩중</span>'+ynSelectHtml('fld_blHolding', defaultBlHolding)+'<span style="color:var(--ink-soft);">— YES 선택 시 "비엘홀딩중" 탭에 표시되고, 비엘발행 항목이 있으면 자동으로 완료 처리됨</span></div>'+
     '<div class="checkbox-row"><input type="checkbox" id="fld_billingOnly" '+(defaultBillingOnly?'checked':'')+'><label for="fld_billingOnly">이월·분할 청구 전용 건 (청구 관련 항목만 체크리스트에 표시)</label></div>'+
