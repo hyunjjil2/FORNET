@@ -2092,6 +2092,19 @@ function parseApiResponse_(text){
   catch(e){ throw new Error('서버 응답을 해석하지 못했습니다 — 서버가 일시적으로 응답하지 않거나 재배포 중일 수 있습니다. 잠시 후 다시 시도해 주세요.'); }
 }
 function sleep_(ms){ return new Promise(function(resolve){ setTimeout(resolve, ms); }); }
+/* 일부 브라우저(예: Whale)는 Apps Script의 리다이렉트 체인(script.google.com ->
+   script.googleusercontent.com)을 처리하다가 이따금 요청을 끝맺지 못하고 응답 없이
+   무한정 붙잡아 두는 경우가 있음(개발자도구 Network 탭에 계속 "Pending"으로 남음).
+   서버 자체는 정상이라도 이 요청 하나가 영원히 안 끝나면 화면은 계속 "재연결 시도
+   중"에서 못 벗어남 — AbortController로 응답 대기 시간에 상한을 두고, 시간 초과 시
+   그 요청을 강제로 취소해서 catch로 넘겨 재시도 로직이 새 요청을 다시 보내게 함. */
+var FETCH_TIMEOUT_MS = 12000;
+function fetchWithTimeout_(url, opts){
+  var controller = new AbortController();
+  var timer = setTimeout(function(){ controller.abort(); }, FETCH_TIMEOUT_MS);
+  opts = Object.assign({}, opts||{}, {signal: controller.signal});
+  return fetch(url, opts).finally(function(){ clearTimeout(timer); });
+}
 /* 구글 앱스스크립트 웹앱은 간헐적으로(콜드 스타트·일시적 부하 등) 저장 요청 응답이
    느려지거나 JSON이 아닌 오류 페이지를 반환할 때가 있음 — 체크리스트 항목을 여러 개
    빠르게 연속으로 누를 때 특히 그럴 수 있음. 조회(apiGet)와 마찬가지로, 이런 "재시도하면
@@ -2101,7 +2114,7 @@ async function apiPost(payload, retryCount){
   retryCount = retryCount || 0;
   var res, text;
   try{
-    res = await fetch(WEBAPP_URL, {
+    res = await fetchWithTimeout_(WEBAPP_URL, {
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'}, // Apps Script preflight 회피
       body: JSON.stringify(payload)
@@ -2126,7 +2139,7 @@ async function apiPost(payload, retryCount){
   return json.result;
 }
 async function apiGet(){
-  var res = await fetch(WEBAPP_URL + (WEBAPP_URL.indexOf('?')>=0?'&':'?') + '_=' + Date.now());
+  var res = await fetchWithTimeout_(WEBAPP_URL + (WEBAPP_URL.indexOf('?')>=0?'&':'?') + '_=' + Date.now());
   var text = await res.text();
   var json = parseApiResponse_(text);
   if(!json.ok) throw new Error(json.error||'조회 실패');
