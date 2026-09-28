@@ -134,6 +134,7 @@ img{max-width:100%;}
 .tab-btn:hover{color:var(--ink); background:var(--surface-2);}
 .tab-btn.active{background:var(--ink); color:var(--paper); border-color:var(--ink);}
 .tab-count{font-family:"IBM Plex Mono",monospace; font-size:11.5px; margin-left:6px; opacity:.75;}
+.tab-count.has-count{color:var(--danger); font-weight:700; opacity:1;}
 
 .kpi-strip{display:grid; grid-template-columns:repeat(7,1fr); gap:10px; margin-bottom:24px;}
 .kpi{
@@ -981,7 +982,7 @@ function renderTabRow(){
     {key:'BOOKING_HOLD', label:'부킹확인중', count: bookingHolds.filter(function(b){return (b['상태']||'대기중')==='대기중';}).length}
   ];
   document.getElementById('tabRow').innerHTML = tabs.map(function(t){
-    return '<button class="tab-btn'+(activeTab===t.key?' active':'')+'" data-tab="'+t.key+'">'+t.label+'<span class="tab-count mono">'+t.count+'</span></button>';
+    return '<button class="tab-btn'+(activeTab===t.key?' active':'')+'" data-tab="'+t.key+'">'+t.label+'<span class="tab-count mono'+(t.count>0?' has-count':'')+'">'+t.count+'</span></button>';
   }).join('');
   document.querySelectorAll('[data-tab]').forEach(function(btn){
     btn.addEventListener('click', function(){
