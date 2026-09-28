@@ -135,6 +135,7 @@ img{max-width:100%;}
 .tab-btn.active{background:var(--ink); color:var(--paper); border-color:var(--ink);}
 .tab-count{font-family:"IBM Plex Mono",monospace; font-size:11.5px; margin-left:6px; opacity:.75;}
 .tab-count.has-count{color:var(--danger); font-weight:700; opacity:1;}
+.tab-btn.active .tab-count.has-count{color:var(--paper);}
 
 .kpi-strip{display:grid; grid-template-columns:repeat(7,1fr); gap:10px; margin-bottom:24px;}
 .kpi{
@@ -522,7 +523,7 @@ var ROUTES = {
     {key:'customsInvoice', label:'통관용 인보이스'},
     {key:'customs', label:'수입 통관'},
     {key:'carrierJigyeol', label:'운송사 지결'},
-    {key:'finalInvoice', label:'운송료 포함 최종인보이스', billing:true}
+    {key:'finalInvoice', label:'화주청구', billing:true}
   ]},
   SEA_IMP_LCL: {label:'해상수입 LCL', items:[
     {key:'checkBill', label:'체크빌'},
@@ -535,7 +536,7 @@ var ROUTES = {
     {key:'customsInvoice', label:'통관용 인보이스'},
     {key:'customs', label:'수입 통관'},
     {key:'carrierJigyeol', label:'운송사 지결'},
-    {key:'finalInvoice', label:'최종 인보이스', billing:true}
+    {key:'finalInvoice', label:'화주청구', billing:true}
   ]},
   AIR_EXP: {label:'항공수출', items:[
     {key:'myeonjang', label:'면장'},
@@ -543,6 +544,7 @@ var ROUTES = {
     {key:'preAlert', label:'PRE-ALERT'},
     {key:'airDocCls', label:'서류마감', anchor:'DOC CLS'},
     {key:'settlementDocs', label:'정산서, 마감서류', billing:true},
+    {key:'invoice', label:'화주청구', billing:true},
     {key:'carrierJigyeol', label:'선사지결', billing:true}
   ]},
   AIR_IMP: {label:'항공수입', items:[
