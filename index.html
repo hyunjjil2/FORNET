@@ -2098,7 +2098,10 @@ function sleep_(ms){ return new Promise(function(resolve){ setTimeout(resolve, m
    서버 자체는 정상이라도 이 요청 하나가 영원히 안 끝나면 화면은 계속 "재연결 시도
    중"에서 못 벗어남 — AbortController로 응답 대기 시간에 상한을 두고, 시간 초과 시
    그 요청을 강제로 취소해서 catch로 넘겨 재시도 로직이 새 요청을 다시 보내게 함. */
-var FETCH_TIMEOUT_MS = 12000;
+/* Code.gs의 doPost는 락 경합 시 최대 25초(lock.waitLock(25000))까지 대기한 뒤 응답하므로,
+   클라이언트 타임아웃은 반드시 그보다 넉넉히 길어야 함 — 짧게 잡으면 서버가 정상적으로
+   락을 기다리는 중인 저장 요청까지 여기서 먼저 강제 중단시켜 버려 오히려 실패가 늘어남. */
+var FETCH_TIMEOUT_MS = 30000;
 function fetchWithTimeout_(url, opts){
   var controller = new AbortController();
   var timer = setTimeout(function(){ controller.abort(); }, FETCH_TIMEOUT_MS);
