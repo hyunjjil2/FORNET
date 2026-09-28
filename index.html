@@ -726,7 +726,19 @@ function ddayBadge(n, opts){
 /* ================= shipment derived state ================= */
 function isBillingOnlyByNo(no){ return /-X\d+$/i.test(String(no||'').trim()); }
 function relevantItems(s){ return routeItems(s.routeType, !!s.billingOnly); }
-function isDone(s){ var items=relevantItems(s); if(items.length===0) return false; var chk=s.checklist||{}; return items.every(function(it){return !!chk[it.key];}); }
+/* 완료 판정은 루틴의 기본 체크리스트뿐 아니라, 이 건에 해당하는 부가 항목(Door 배송
+   해당 시 "도착 확인·정산 완료", 배차 필요 시 "배차 완료")까지 전부 끝나야 함.
+   이걸 빼먹으면 기본 체크리스트만 다 끝난 시점에 DOOR/배차가 아직 안 끝났어도 "완료" 건으로
+   분류되어 activeShipments()에서 통째로 빠져버려서, 오늘 할 일(도착확인/배차) 어디에도
+   더 이상 뜨지 않는 채로 조용히 누락됨 — 도착확인이 비어 보이던 버그의 원인. */
+function isDone(s){
+  var items=relevantItems(s); if(items.length===0) return false;
+  var chk=s.checklist||{};
+  if(!items.every(function(it){return !!chk[it.key];})) return false;
+  if(s.doorEligible && !chk.doorArrival) return false;
+  if(s.dispatchNeeded && !s.billingOnly && !chk[dispatchItemKeyFor(s.routeType)]) return false;
+  return true;
+}
 function statusOf(s){ if(s.cancelled) return 'cancelled'; if(!s.routeType) return 'unassigned'; if(isDone(s)) return 'done'; return 'active'; }
 
 /* ================= computed feeds ================= */
