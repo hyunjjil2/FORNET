@@ -2517,8 +2517,11 @@ async function handleFile(file){
     var result = await apiPost({action:'upsertMany', rows: sheetRows});
     setProgress(100);
     setUploadBtnBusy(false);
-    uploadStatusDone('업로드 완료', '신규 '+result.created+'건, 갱신 '+result.updated+'건 반영되었습니다.');
-    toast('업로드 완료 — 신규 '+result.created+'건, 갱신 '+result.updated+'건.');
+    // 업로드할 때마다 서버에서 "내 거래처" 아닌 건을 자동으로 보관 처리함(purgeNonMyClients_) —
+    // 확인 절차 없이 조용히 정리되지만, 몇 건이 정리됐는지는 업로드 결과에 함께 표시해줌.
+    var purgeMsg = (result.purge && result.purge.purged) ? (' · 내 거래처 아닌 '+result.purge.purged+'건은 보관 처리됨') : '';
+    uploadStatusDone('업로드 완료', '신규 '+result.created+'건, 갱신 '+result.updated+'건 반영되었습니다.'+purgeMsg);
+    toast('업로드 완료 — 신규 '+result.created+'건, 갱신 '+result.updated+'건.'+purgeMsg);
     refreshFromServer(true);
   }catch(e){
     setUploadBtnBusy(false);
