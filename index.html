@@ -816,6 +816,10 @@ function feedBilling(){
   out.sort(function(a,b){ return (b.aging===null?-9999:b.aging)-(a.aging===null?-9999:a.aging); });
   return out;
 }
+/* 출항안내(duesoon)·서류마감(docCls)과 동일하게, ETA(DOOR)가 아직 여유 있게(D+1 이상) 남은
+   건은 여기(오늘 할 일 01번)에 띄우지 않고 "앞으로 7일 내 예정"(02번, feedUpcoming)에서 미리
+   보여줌 — 기한이 되면(dd<=0) 자동으로 여기로 넘어옴. 단, ETA(DOOR) 값 자체가 없는 건은
+   "여유 있다"고 판단할 근거가 없으므로 배차·서류마감처럼 숨기지 않고 안전하게 그대로 노출함. */
 function feedDoorTracking(){
   var out=[];
   activeShipments().forEach(function(s){
@@ -823,7 +827,9 @@ function feedDoorTracking(){
     if(!s.doorEligible) return;
     var chk=s.checklist||{};
     if(chk.doorArrival) return;
-    out.push({s:s, dd:getDday(s.etaDoor)});
+    var dd = getDday(s.etaDoor);
+    if(dd!==null && dd>0) return;
+    out.push({s:s, dd:dd});
   });
   out.sort(function(a,b){ var av=a.dd===null?9999:a.dd, bv=b.dd===null?9999:b.dd; return av-bv; });
   return out;
@@ -881,13 +887,14 @@ function feedToday(){
   return list;
 }
 /* ================= "앞으로 N일 내" 사전 알림 피드 =================
-   "오늘 할 일"(feedDueSoon·feedDocCls)은 기한(dd)이 이미 됐거나 지난 항목(dd<=0)만 보여주므로,
-   아직 기한 전인 항목은 화면 어디에도 보이지 않음 — 예를 들어 ETD가 열흘 뒤인 건은 출항 당일이
-   되기 전까지 전혀 알 수 없었음. 이 피드는 그 "아직 기한 전"인 항목 중, 지정한 기간(기본 7일)
-   안으로 다가온 것만 모아서 미리 준비할 수 있도록 보여줌 — 기한이 되면 자동으로 여기서 빠지고
-   "오늘 할 일"(01번)로 넘어감. 청구대기(billing)·도착확인(door)·배차(dispatch)는 애초에 기한
-   전이라고 숨기지 않고 항상 전체를 보여주는 방식이라 "아직 안 보이는 미래 항목"이 없으므로,
-   출항안내(duesoon)·서류마감(docCls) 두 타입에만 적용됨. */
+   "오늘 할 일"(feedDueSoon·feedDocCls·feedDoorTracking)은 기한(dd)이 이미 됐거나 지난
+   항목(dd<=0, 또는 판단 기준 날짜 자체가 없는 항목)만 보여주므로, 아직 기한 전인 항목은
+   화면 어디에도 보이지 않음 — 예를 들어 ETD가 열흘 뒤인 건은 출항 당일이 되기 전까지 전혀
+   알 수 없었음. 이 피드는 그 "아직 기한 전"인 항목 중, 지정한 기간(기본 7일) 안으로 다가온
+   것만 모아서 미리 준비할 수 있도록 보여줌 — 기한이 되면 자동으로 여기서 빠지고 "오늘 할
+   일"(01번)로 넘어감. 청구대기(billing)·배차(dispatch)는 애초에 기한 전이라고 숨기지 않고
+   항상 전체를 보여주는 방식이라 이 섹션의 대상이 아니고, 출항안내(duesoon)·서류마감(docCls)·
+   도착확인(door) 세 타입에 적용됨. */
 var UPCOMING_WINDOW_DAYS = 7;
 function feedUpcoming(){
   var out=[];
@@ -901,6 +908,14 @@ function feedUpcoming(){
       var type = it.anchor==='DOC CLS' ? 'docCls' : 'duesoon';
       out.push({type:type, s:s, item:it, dd:dd, field:field, sortKey:dd});
     });
+    // 도착확인(Door)도 출항안내·서류마감과 동일한 기준으로, ETA(DOOR)가 아직 D-7 이내로만
+    // 다가온(아직 당일·경과는 아닌) 건을 미리 보여줌 — 당일이 되면 feedDoorTracking(01번)으로 넘어감.
+    if(s.doorEligible && !chk.doorArrival){
+      var doorDd = getDday(s.etaDoor);
+      if(doorDd!==null && doorDd>0 && doorDd<=UPCOMING_WINDOW_DAYS){
+        out.push({type:'door', s:s, item:{key:'doorArrival', label:'도착 확인·정산 완료'}, dd:doorDd, field:'etaDoor', sortKey:doorDd});
+      }
+    }
   });
   if(activeType!=='ALL') out = out.filter(function(x){return x.type===activeType;});
   out.sort(function(a,b){ return a.sortKey-b.sortKey; });
@@ -1189,6 +1204,9 @@ var TODAY_SORT_GETTERS = {
   item: function(x){ return x.item.label||''; },
   etd: function(x){ var f = x.field ? x.s[x.field] : (x.type==='door'?x.s.etaDoor:x.s.etd); return toDate(f); }
 };
+/* "오늘 할 일"/"앞으로 N일 내" 표의 맨 오른쪽 날짜 열 헤더 라벨 — 도착확인(door)만 필터링해서
+   볼 때는 실제로 표시되는 날짜가 ETD가 아니라 ETA(DOOR)이므로 헤더도 그에 맞게 바꿔줌. */
+function todayDateColLabel(){ return activeType==='door' ? 'ETA' : 'ETD'; }
 function todayHeadHtml(){
   return '<div class="trow today head">'+
     '<span></span><span></span>'+
@@ -1201,7 +1219,7 @@ function todayHeadHtml(){
     '<span>'+sortHeadHtml('today','mbl','Master B/L No')+'</span>'+
     '<span>'+sortHeadHtml('today','type','구분')+'</span>'+
     '<span>'+sortHeadHtml('today','item','항목')+'</span>'+
-    '<span>'+sortHeadHtml('today','etd','ETD')+'</span>'+
+    '<span>'+sortHeadHtml('today','etd',todayDateColLabel())+'</span>'+
     '<span></span>'+
     '</div>';
 }
@@ -1247,7 +1265,7 @@ function upcomingHeadHtml(){
     '<span>'+sortHeadHtml('upcoming','mbl','Master B/L No')+'</span>'+
     '<span>'+sortHeadHtml('upcoming','type','구분')+'</span>'+
     '<span>'+sortHeadHtml('upcoming','item','항목')+'</span>'+
-    '<span>'+sortHeadHtml('upcoming','etd','ETD')+'</span>'+
+    '<span>'+sortHeadHtml('upcoming','etd',todayDateColLabel())+'</span>'+
     '<span></span>'+
     '</div>';
 }
@@ -1367,12 +1385,13 @@ function renderTodayTab(board, q){
   var today=feedToday().filter(function(x){return matchesSearch(x.s,q);});
   var typeLbl = activeType==='ALL' ? '출항안내·청구대기·도착확인 통합' : TYPE_LABEL[activeType];
   sections.push({id:'sec-today', tag:'01', title:'오늘 할 일', sub:typeLbl+' · 체크박스로 여러 건을 한 번에 선택해 일괄 완료 처리 가능', color:'steel', body:todayTable(today,'sec-today'), count:today.length, bulk:{items:today.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
-  // 출항안내·서류마감은 기한 전엔 "오늘 할 일"에 아예 안 보이므로, 앞으로 지정 기간 내로 다가온
-  // 것만 따로 모아 미리 준비할 수 있게 보여줌 — 청구대기·도착확인·배차는 원래 기한과 무관하게
-  // 항상 전체가 보이는 방식이라 이 섹션의 대상이 아님(그 타입 필터가 선택되면 섹션 자체를 숨김).
-  if(activeType==='ALL' || activeType==='duesoon' || activeType==='docCls'){
+  // 출항안내·서류마감·도착확인은 기한 전엔 "오늘 할 일"에 아예 안 보이므로, 앞으로 지정 기간
+  // 내로 다가온 것만 따로 모아 미리 준비할 수 있게 보여줌 — 청구대기·배차는 원래 기한과
+  // 무관하게 항상 전체가 보이는 방식이라 이 섹션의 대상이 아님(그 타입 필터가 선택되면
+  // 섹션 자체를 숨김).
+  if(activeType==='ALL' || activeType==='duesoon' || activeType==='docCls' || activeType==='door'){
     var upcoming = feedUpcoming().filter(function(x){return matchesSearch(x.s,q);});
-    var upcomingTypeLbl = activeType==='ALL' ? '출항안내·서류마감' : TYPE_LABEL[activeType];
+    var upcomingTypeLbl = activeType==='ALL' ? '출항안내·서류마감·도착확인' : TYPE_LABEL[activeType];
     sections.push({id:'sec-upcoming', tag:'02', title:'앞으로 '+UPCOMING_WINDOW_DAYS+'일 내 예정', sub:upcomingTypeLbl+' 중 아직 기한 전이지만 '+UPCOMING_WINDOW_DAYS+'일 이내로 다가온 건 · 기한이 되면 자동으로 "오늘 할 일"로 넘어감', color:'slate', body:upcomingTable(upcoming,'sec-upcoming'), count:upcoming.length, bulk:{items:upcoming.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
   }
   renderSections(board, sections);
