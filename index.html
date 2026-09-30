@@ -769,6 +769,8 @@ function feedUnassigned(){ return allShipments.filter(function(s){return statusO
 function feedDueSoon(){
   // 아직 해당 날짜(anchor)가 되지 않은 항목은 "할 일"이 아니므로 제외 — 당일(D-DAY)이 되거나 이미 지난 항목만 노출.
   // 서류마감(DOC CLS)은 별도 "서류마감" 업무구분으로 분리되어 여기서는 제외함(feedDocCls 참고).
+  // 날짜(ETD 등) 자체가 비어 있는 건은 "아직 여유 있다"고 판단할 근거가 없으므로, 도착확인·배차와
+  // 동일하게 숨기지 않고 안전하게 그대로 노출함 — 날짜를 깜빡 안 채운 건이 조용히 누락되는 것을 방지.
   var out=[];
   activeShipments().forEach(function(s){
     if(!matchesFilter(s) || !matchesMyClients(s)) return;
@@ -776,14 +778,16 @@ function feedDueSoon(){
     relevantItems(s).forEach(function(it){
       if(!it.anchor || it.anchor==='DOC CLS' || chk[it.key]) return;
       var field = ANCHOR_FIELD[it.anchor]; var dd = getDday(s[field]);
-      if(dd!==null && dd<=0) out.push({s:s,item:it,dd:dd,field:field});
+      if(dd===null || dd<=0) out.push({s:s,item:it,dd:dd,field:field});
     });
   });
-  out.sort(function(a,b){return a.dd-b.dd;});
+  out.sort(function(a,b){ var av=a.dd===null?9999:a.dd, bv=b.dd===null?9999:b.dd; return av-bv; });
   return out;
 }
 /* "서류마감"(DOC CLS) 항목만 따로 모음 — 예전엔 "출항안내"에 다른 anchor 항목들과 섞여 있었으나,
    서류 마감 임박 건만 따로 확인하고 싶다는 요청으로 별도 업무구분으로 분리함. */
+/* 서류마감(DOC CLS) 날짜 자체가 비어 있는 건도 출항안내(feedDueSoon)와 동일하게 숨기지 않고
+   그대로 노출함 — 서류마감일을 깜빡 안 채운 건이 "오늘 할 일"에서 조용히 빠져있지 않도록. */
 function feedDocCls(){
   var out=[];
   activeShipments().forEach(function(s){
@@ -792,10 +796,10 @@ function feedDocCls(){
     relevantItems(s).forEach(function(it){
       if(!it.anchor || it.anchor!=='DOC CLS' || chk[it.key]) return;
       var field = ANCHOR_FIELD[it.anchor]; var dd = getDday(s[field]);
-      if(dd!==null && dd<=0) out.push({s:s,item:it,dd:dd,field:field});
+      if(dd===null || dd<=0) out.push({s:s,item:it,dd:dd,field:field});
     });
   });
-  out.sort(function(a,b){return a.dd-b.dd;});
+  out.sort(function(a,b){ var av=a.dd===null?9999:a.dd, bv=b.dd===null?9999:b.dd; return av-bv; });
   return out;
 }
 function feedBilling(){
