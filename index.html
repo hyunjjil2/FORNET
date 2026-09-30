@@ -181,7 +181,7 @@ img{max-width:100%;}
 .trow.head{background:var(--surface-2); font-size:10.5px; font-weight:600; color:var(--ink-soft); letter-spacing:.3px; padding:7px 16px;}
 .trow.empty{color:var(--ink-soft); font-size:12.5px; padding:16px; grid-template-columns:1fr; min-width:0; justify-items:center;}
 .trow:not(.head):not(.empty):hover{background:var(--surface-2);}
-.trow.today{grid-template-columns:22px 40px 108px 150px 108px 74px 148px 148px 148px 84px 168px 118px 34px; align-items:start; padding-top:11px; padding-bottom:11px;}
+.trow.today{grid-template-columns:22px 40px 108px 150px 108px 74px 148px 148px 148px 100px 84px 168px 118px 34px; align-items:start; padding-top:11px; padding-bottom:11px;}
 .trow.today.head{padding-top:8px; padding-bottom:8px; align-items:center;}
 .trow.today.head span{white-space:normal; line-height:1.25;}
 .sort-head{display:inline-flex; align-items:center; gap:2px; cursor:pointer; user-select:none;}
@@ -1204,6 +1204,7 @@ var TODAY_SORT_GETTERS = {
   lineBookingNo: function(x){ return String(x.s.lineBookingNo||''); },
   hbl: function(x){ return x.s.hbl||''; },
   mbl: function(x){ return x.s.mbl||''; },
+  pod: function(x){ return x.s.pod||''; },
   type: function(x){ return TYPE_LABEL[x.type]||''; },
   item: function(x){ return x.item.label||''; },
   etd: function(x){ var f = x.field ? x.s[x.field] : (x.type==='door'?x.s.etaDoor:x.s.etd); return toDate(f); }
@@ -1221,6 +1222,7 @@ function todayHeadHtml(){
     '<span>'+sortHeadHtml('today','lineBookingNo','Line Booking No')+'</span>'+
     '<span>'+sortHeadHtml('today','hbl','House B/L No')+'</span>'+
     '<span>'+sortHeadHtml('today','mbl','Master B/L No')+'</span>'+
+    '<span>'+sortHeadHtml('today','pod','POD')+'</span>'+
     '<span>'+sortHeadHtml('today','type','구분')+'</span>'+
     '<span>'+sortHeadHtml('today','item','항목')+'</span>'+
     '<span>'+sortHeadHtml('today','etd',todayDateColLabel())+'</span>'+
@@ -1246,6 +1248,7 @@ function todayTable(list, sectionId){
       '<span class="bl-cell mono" title="'+escapeHtml(s.lineBookingNo||'')+'">'+escapeHtml(s.lineBookingNo||'-')+'</span>'+
       '<span class="bl-cell mono" title="'+escapeHtml(s.hbl||'')+'">'+escapeHtml(s.hbl||'-')+'</span>'+
       '<span class="bl-cell mono" title="'+escapeHtml(s.mbl||'')+'">'+escapeHtml(s.mbl||'-')+'</span>'+
+      '<span class="mgr" title="'+escapeHtml(s.pod||'')+'">'+escapeHtml(s.pod||'-')+'</span>'+
       '<span class="type-tag '+x.type+'">'+TYPE_LABEL[x.type]+'</span>'+
       '<span class="item-label">'+escapeHtml(it.label)+(it.billing?'<span class="billing-tag">청구</span>':'')+'</span>'+
       '<span class="date-badge-cell">'+(d?('<span class="mono">'+d.date+(d.time?(' '+d.time):'')+'</span>'):'')+badge+'</span>'+
@@ -1267,6 +1270,7 @@ function upcomingHeadHtml(){
     '<span>'+sortHeadHtml('upcoming','lineBookingNo','Line Booking No')+'</span>'+
     '<span>'+sortHeadHtml('upcoming','hbl','House B/L No')+'</span>'+
     '<span>'+sortHeadHtml('upcoming','mbl','Master B/L No')+'</span>'+
+    '<span>'+sortHeadHtml('upcoming','pod','POD')+'</span>'+
     '<span>'+sortHeadHtml('upcoming','type','구분')+'</span>'+
     '<span>'+sortHeadHtml('upcoming','item','항목')+'</span>'+
     '<span>'+sortHeadHtml('upcoming','etd',todayDateColLabel())+'</span>'+
@@ -1290,6 +1294,7 @@ function upcomingTable(list, sectionId){
       '<span class="bl-cell mono" title="'+escapeHtml(s.lineBookingNo||'')+'">'+escapeHtml(s.lineBookingNo||'-')+'</span>'+
       '<span class="bl-cell mono" title="'+escapeHtml(s.hbl||'')+'">'+escapeHtml(s.hbl||'-')+'</span>'+
       '<span class="bl-cell mono" title="'+escapeHtml(s.mbl||'')+'">'+escapeHtml(s.mbl||'-')+'</span>'+
+      '<span class="mgr" title="'+escapeHtml(s.pod||'')+'">'+escapeHtml(s.pod||'-')+'</span>'+
       '<span class="type-tag '+x.type+'">'+TYPE_LABEL[x.type]+'</span>'+
       '<span class="item-label">'+escapeHtml(it.label)+(it.billing?'<span class="billing-tag">청구</span>':'')+'</span>'+
       '<span class="date-badge-cell">'+(d?('<span class="mono">'+d.date+(d.time?(' '+d.time):'')+'</span>'):'')+badge+'</span>'+
@@ -2383,6 +2388,18 @@ function refreshLclRow(){
     });
   }
 }
+/* 엑셀 업로드로 들어온 "서비스" 값은 영문(AIR/SEA)인 경우가 많은데, 상세 모달의 서비스
+   드롭다운 옵션은 한글(해상/항공)만 있어서 val===o 정확 일치 비교로는 항상 매칭에 실패해
+   드롭다운이 늘 빈칸으로 보이던 문제가 있었음 — 영문/한글 값 모두 올바른 옵션에 선택 표시되도록 함. */
+function matchesSelectOpt(fieldKey, val, opt){
+  if(fieldKey==='service'){
+    var v = normHeader(val);
+    if(opt==='해상') return v==='해상' || v==='SEA' || v.indexOf('해상')>=0;
+    if(opt==='항공') return v==='항공' || v==='AIR' || v.indexOf('항공')>=0;
+    return false;
+  }
+  return val===opt;
+}
 function onRouteTypeChange(){ refreshModalChecklist(); refreshLclRow(); refreshDispatchArea(); }
 function openModal(id){
   editingId = id || null;
@@ -2395,7 +2412,7 @@ function openModal(id){
   var infoHtml = INFO_FIELDS.map(function(f){
     var val = s[f.k]!==undefined ? s[f.k] : '';
     var inner;
-    if(f.type==='select'){ inner='<select data-k="'+f.k+'"><option value=""></option>'+f.opts.map(function(o){return '<option value="'+escapeHtml(o)+'" '+(val===o?'selected':'')+'>'+escapeHtml(o)+'</option>';}).join('')+'</select>'; }
+    if(f.type==='select'){ inner='<select data-k="'+f.k+'"><option value=""></option>'+f.opts.map(function(o){return '<option value="'+escapeHtml(o)+'" '+(matchesSelectOpt(f.k,val,o)?'selected':'')+'>'+escapeHtml(o)+'</option>';}).join('')+'</select>'; }
     else if(f.type==='datetime'){ inner='<input type="datetime-local" data-k="'+f.k+'" value="'+fmtDateInput(val)+'">'; }
     else if(f.type==='textarea'){ inner='<textarea data-k="'+f.k+'">'+escapeHtml(val)+'</textarea>'; }
     else { inner='<input type="text" data-k="'+f.k+'" value="'+escapeHtml(val)+'">'; }
