@@ -629,6 +629,12 @@ var ROUTE_LABEL_TO_KEY = {}; ROUTE_ORDER.forEach(function(k){ ROUTE_LABEL_TO_KEY
 var GLOBAL_CHECK_ITEMS = [
   {key:'doorArrival', label:'도착 확인·정산 완료'}
 ];
+/* "비엘 홀딩중"으로 지정된 건에만 표시되는 별도 확인 항목의 체크리스트 키.
+   비엘홀딩=YES가 되는 순간 루틴의 "비엘발행" 항목은 화주 확인이 끝났다는 문서상의 편의로
+   자동 완료 처리되지만, 실제로 홀딩이 풀리고 비엘이 최종 발행됐는지는 별도로 확인해야 하므로
+   Door의 "도착 확인·정산 완료"와 동일한 구조로 독립된 체크 항목을 둠. */
+var BL_HOLDING_FINAL_ITEM_KEY = 'blFinalIssue';
+var BL_HOLDING_FINAL_ITEM_LABEL = '최종 비엘 발행 완료';
 /* "배차 필요" 건에만 표시되는 배차 완료 체크 항목의 실제 체크리스트 키.
    루틴마다 기존에 쓰던 키가 달라서(항공수입만 impBaecha, 나머지는 baecha) 라우트별로 분기함. */
 function dispatchItemKeyFor(routeType){ return routeType==='AIR_IMP' ? 'impBaecha' : 'baecha'; }
@@ -727,16 +733,18 @@ function ddayBadge(n, opts){
 function isBillingOnlyByNo(no){ return /-X\d+$/i.test(String(no||'').trim()); }
 function relevantItems(s){ return routeItems(s.routeType, !!s.billingOnly); }
 /* 완료 판정은 루틴의 기본 체크리스트뿐 아니라, 이 건에 해당하는 부가 항목(Door 배송
-   해당 시 "도착 확인·정산 완료", 배차 필요 시 "배차 완료")까지 전부 끝나야 함.
-   이걸 빼먹으면 기본 체크리스트만 다 끝난 시점에 DOOR/배차가 아직 안 끝났어도 "완료" 건으로
-   분류되어 activeShipments()에서 통째로 빠져버려서, 오늘 할 일(도착확인/배차) 어디에도
-   더 이상 뜨지 않는 채로 조용히 누락됨 — 도착확인이 비어 보이던 버그의 원인. */
+   해당 시 "도착 확인·정산 완료", 배차 필요 시 "배차 완료", 비엘 홀딩중 지정 시 "최종 비엘
+   발행 완료")까지 전부 끝나야 함. 이걸 빼먹으면 기본 체크리스트만 다 끝난 시점에 DOOR/배차/
+   비엘홀딩 후속 확인이 아직 안 끝났어도 "완료" 건으로 분류되어 activeShipments()에서 통째로
+   빠져버려서, 오늘 할 일(도착확인/배차)이나 비엘홀딩중 탭 어디에도 더 이상 뜨지 않는 채로
+   조용히 누락됨 — 도착확인이 비어 보이던 버그의 원인. */
 function isDone(s){
   var items=relevantItems(s); if(items.length===0) return false;
   var chk=s.checklist||{};
   if(!items.every(function(it){return !!chk[it.key];})) return false;
   if(s.doorEligible && !chk.doorArrival) return false;
   if(s.dispatchNeeded && !s.billingOnly && !chk[dispatchItemKeyFor(s.routeType)]) return false;
+  if(s.blHolding && !chk[BL_HOLDING_FINAL_ITEM_KEY]) return false;
   return true;
 }
 function statusOf(s){ if(s.cancelled) return 'cancelled'; if(!s.routeType) return 'unassigned'; if(isDone(s)) return 'done'; return 'active'; }
@@ -1547,13 +1555,20 @@ function renderChecklistTab(board, q){
   renderSections(board, sections);
 }
 /* 비엘 홀딩중 건 목록 — 화주에게 비엘발행 여부를 확인하는 동안 "홀딩"으로 표시해 둔 건들만 모아서 보여줌.
-   YES/NO은 체크리스트 보드의 LCL/DOOR/배차와 같은 방식(overview 플래그 셀 또는 상세 모달)으로 지정. */
+   YES/NO은 체크리스트 보드의 LCL/DOOR/배차와 같은 방식(overview 플래그 셀 또는 상세 모달)으로 지정.
+   맨 앞 칸은 Door의 "도착 확인·정산 완료"와 동일한 구조의 별도 확인 항목 — 홀딩중이던 비엘이
+   실제로 최종 발행됐는지를 체크(한 번 체크하면 완료 배지로 바뀜, 되돌리려면 상세 모달에서 해제). */
 function blHoldingTable(list){
   if(list.length===0) return '<div class="trow empty">비엘 홀딩중인 건이 없습니다</div>';
   return list.map(function(x){
     var s=x.s;
     var etdFmt = fmtDate(s.etd);
-    return '<div class="trow" style="grid-template-columns:96px minmax(140px,1fr) 150px 90px 80px 1fr 88px;min-width:760px;">'+
+    var finalDone = !!(s.checklist||{})[BL_HOLDING_FINAL_ITEM_KEY];
+    var finalCell = finalDone
+      ? '<span class="mono" style="font-size:11px;color:var(--teal);font-weight:600;text-align:center;">발행완료</span>'
+      : '<button class="check" data-act="toggle" data-id="'+escapeHtml(s.id)+'" data-item="'+BL_HOLDING_FINAL_ITEM_KEY+'" title="'+escapeHtml(BL_HOLDING_FINAL_ITEM_LABEL)+' 처리"><svg width="12" height="12" viewBox="0 0 16 16"><path d="M2 8l4 4 8-8" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>';
+    return '<div class="trow" style="grid-template-columns:60px 96px minmax(140px,1fr) 150px 90px 80px 1fr 88px;min-width:820px;">'+
+      finalCell+
       '<span class="mgmtno mono">'+escapeHtml(s.managementNo||s.id)+'</span>'+
       '<button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="'+escapeHtml(s.client||'')+'">'+escapeHtml(s.client||'-')+'</button>'+
       routePillHtml(s)+
@@ -1572,7 +1587,7 @@ function renderBlHoldingTab(board, q){
   }
   if(!q){
     var list = feedBlHolding();
-    sections.push({id:'sec-bl-holding', tag:'03', title:'비엘홀딩중', sub:'화주에게 비엘발행 여부 확인 중인 건 · 체크리스트 보드의 B/L홀딩 칸 또는 상세에서 YES로 지정 · YES가 되는 순간 "비엘발행" 항목이 자동 완료 처리됨', color:'brass', body:blHoldingTable(list), count:list.length});
+    sections.push({id:'sec-bl-holding', tag:'03', title:'비엘홀딩중', sub:'화주에게 비엘발행 여부 확인 중인 건 · 체크리스트 보드의 B/L홀딩 칸 또는 상세에서 YES로 지정 · YES가 되는 순간 "비엘발행" 항목이 자동 완료 처리됨 · 맨 앞 체크는 실제 최종 발행 여부를 별도로 확인하는 항목', color:'brass', body:blHoldingTable(list), count:list.length});
   }
   renderSections(board, sections);
 }
@@ -2301,6 +2316,23 @@ function refreshDispatchArea(){
   var s = editingId ? (byId[editingId]||{}) : {};
   document.getElementById('dispatchArea').innerHTML = dispatchAreaHtml(dispatchNeeded, rt, s.checklist);
 }
+/* "비엘 홀딩중" 건에만 표시되는 별도 확인 항목 — Door의 doorAreaHtml과 동일한 구조.
+   비엘홀딩=YES 저장 시 자동 완료 처리되는 "비엘발행"(루틴 체크리스트 항목)과는 별개의,
+   실제 최종 발행 여부를 사람이 직접 확인해서 체크하는 독립 항목임. */
+function blHoldingAreaHtml(blHolding, checklist){
+  if(!blHolding) return '';
+  var chk = checklist||{};
+  return '<div class="checklist-block"><h4>비엘홀딩 추적</h4>'+
+    '<label class="checklist-item"><span class="n">•</span><input type="checkbox" data-chk="'+BL_HOLDING_FINAL_ITEM_KEY+'" '+(chk[BL_HOLDING_FINAL_ITEM_KEY]?'checked':'')+'><span class="lbl">'+escapeHtml(BL_HOLDING_FINAL_ITEM_LABEL)+'</span></label>'+
+    '</div>';
+}
+function refreshBlHoldingArea(){
+  var sel = document.getElementById('fld_blHolding');
+  sel.classList.toggle('yn-yes', sel.value==='yes');
+  var blHolding = sel.value==='yes';
+  var s = editingId ? (byId[editingId]||{}) : {};
+  document.getElementById('blHoldingArea').innerHTML = blHoldingAreaHtml(blHolding, s.checklist);
+}
 function ynSelectHtml(id, isYes){
   return '<select id="'+id+'" class="'+(isYes?'yn-yes':'')+'">'+
     '<option value="no" '+(!isYes?'selected':'')+'>NO</option>'+
@@ -2359,6 +2391,7 @@ function openModal(id){
     '<div class="select-row"><span class="yn-label">배차 필요</span>'+ynSelectHtml('fld_dispatchNeeded', defaultDispatchNeeded)+'<span style="color:var(--ink-soft);">— YES 선택 시, 서류마감 D-'+DISPATCH_ALERT_WINDOW_DAYS+'부터 미완료면 "오늘 할 일 > 배차" 목록에 표시됨</span></div>'+
     '<div id="dispatchArea">'+dispatchAreaHtml(defaultDispatchNeeded, s.routeType, s.checklist)+'</div>'+
     '<div class="select-row"><span class="yn-label">비엘 홀딩중</span>'+ynSelectHtml('fld_blHolding', defaultBlHolding)+'<span style="color:var(--ink-soft);">— YES 선택 시 "비엘홀딩중" 탭에 표시되고, 비엘발행 항목이 있으면 자동으로 완료 처리됨</span></div>'+
+    '<div id="blHoldingArea">'+blHoldingAreaHtml(defaultBlHolding, s.checklist)+'</div>'+
     '<div class="checkbox-row"><input type="checkbox" id="fld_billingOnly" '+(defaultBillingOnly?'checked':'')+'><label for="fld_billingOnly">이월·분할 청구 전용 건 (청구 관련 항목만 체크리스트에 표시)</label></div>'+
     '<div class="checklist-block"><h4>체크리스트</h4><div id="checklistArea">'+modalChecklistHtml(s.routeType, defaultBillingOnly, s.checklist)+'</div></div>'+
     '</div>'+
@@ -2370,7 +2403,7 @@ function openModal(id){
   document.getElementById('fld_billingOnly').addEventListener('change', refreshModalChecklist);
   document.getElementById('fld_doorEligible').addEventListener('change', refreshDoorArea);
   document.getElementById('fld_dispatchNeeded').addEventListener('change', refreshDispatchArea);
-  document.getElementById('fld_blHolding').addEventListener('change', function(){ this.classList.toggle('yn-yes', this.value==='yes'); });
+  document.getElementById('fld_blHolding').addEventListener('change', refreshBlHoldingArea);
   var delBtn = document.getElementById('deleteBtn'); if(delBtn) delBtn.addEventListener('click', deleteFromModal);
   refreshLclRow();
 }
@@ -2390,7 +2423,7 @@ async function saveModal(){
   s.dispatchNeeded = document.getElementById('fld_dispatchNeeded').value==='yes';
   s.blHolding = document.getElementById('fld_blHolding').value==='yes';
   var checklist = {};
-  document.querySelectorAll('#checklistArea [data-chk], #doorArea [data-chk], #dispatchArea [data-chk]').forEach(function(el){ checklist[el.dataset.chk] = el.checked; });
+  document.querySelectorAll('#checklistArea [data-chk], #doorArea [data-chk], #dispatchArea [data-chk], #blHoldingArea [data-chk]').forEach(function(el){ checklist[el.dataset.chk] = el.checked; });
   // 비엘 홀딩중을 YES로 저장하는 경우, 이 루틴에 "비엘발행" 항목이 있으면 화주 확인이 끝난 것으로 보고
   // 체크리스트에서도 자동으로 완료 처리 — 체크박스를 따로 누르지 않아도 되게 함(toggleBlHolding과 동일 규칙).
   if(s.blHolding && ROUTES[s.routeType] && ROUTES[s.routeType].items.some(function(it){ return it.key==='blIssue'; })){
