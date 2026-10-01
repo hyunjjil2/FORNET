@@ -251,6 +251,8 @@ img{max-width:100%;}
 .flag-pill.lcl{background:var(--plum-soft); color:var(--plum);}
 .flag-pill.door-pending{background:var(--warn-soft); color:var(--warn);}
 .flag-pill.door-done{background:var(--teal-soft); color:var(--teal);}
+.flag-pill.isf-pending{background:var(--slate-soft); color:var(--slate);}
+.flag-pill.isf-done{background:var(--teal-soft); color:var(--teal);}
 .route-pill.lcl{background:var(--plum-soft); color:var(--plum);}
 .type-tag{font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:3px; white-space:nowrap; border:1px solid currentColor;}
 .type-tag.duesoon{color:var(--steel); background:var(--steel-soft); border-color:transparent;}
@@ -258,6 +260,7 @@ img{max-width:100%;}
 .type-tag.billing{color:var(--brass); background:var(--brass-soft); border-color:transparent;}
 .type-tag.door{color:var(--warn); background:var(--warn-soft); border-color:transparent;}
 .type-tag.dispatch{color:var(--teal); background:var(--teal-soft); border-color:transparent;}
+.type-tag.isf{color:var(--slate); background:var(--slate-soft); border-color:transparent;}
 
 .ov-row{padding:8px 14px; min-width:0; align-items:stretch;}
 .ov-row.head{background:var(--surface-2); padding-top:9px; padding-bottom:9px;}
@@ -639,6 +642,23 @@ var BL_HOLDING_FINAL_ITEM_LABEL = '최종 비엘 발행 완료';
    루틴마다 기존에 쓰던 키가 달라서(항공수입만 impBaecha, 나머지는 baecha) 라우트별로 분기함. */
 function dispatchItemKeyFor(routeType){ return routeType==='AIR_IMP' ? 'impBaecha' : 'baecha'; }
 
+/* "미주"(ISF 대상) 판정 — DOOR/배차/비엘홀딩처럼 사람이 직접 YES/NO를 지정하는 게 아니라,
+   루틴(해상수출·항공수출)과 POD(도착지) 값만으로 자동 판정함. ISF(10+2)는 미국행 수출 건에만
+   해당하므로 적용 루틴을 해상수출·항공수출로 한정하고, POD의 마지막 콤마 구분 항목이 미국을
+   가리키면(예: "LOS ANGELES, USA") 자동으로 ISF 추적 대상이 됨. */
+var US_BOUND_ROUTES = ['SEA_EXP_FCL','SEA_EXP_LCL','AIR_EXP'];
+function isUsBoundRoute(rt){ return US_BOUND_ROUTES.indexOf(rt)>=0; }
+function isUsPod(pod){
+  var s = String(pod||'').trim();
+  if(!s) return false;
+  var parts = s.split(',');
+  var country = parts[parts.length-1].trim().toUpperCase().replace(/\./g,'');
+  return country==='USA' || country==='US' || country==='UNITED STATES' || country==='UNITED STATES OF AMERICA';
+}
+function isUsBoundShipment(s){ return isUsBoundRoute(s.routeType) && isUsPod(s.pod); }
+var US_ISF_ITEM_KEY = 'isfFiling';
+var US_ISF_ITEM_LABEL = 'ISF 신고 완료';
+
 var FIELD_ALIASES = {
   managementNo: ['관리번호','FILENO','FILE No','파일번호'],
   routeTypeRaw: ['루틴','ROUTE','서비스타입'],
@@ -734,10 +754,11 @@ function isBillingOnlyByNo(no){ return /-X\d+$/i.test(String(no||'').trim()); }
 function relevantItems(s){ return routeItems(s.routeType, !!s.billingOnly); }
 /* 완료 판정은 루틴의 기본 체크리스트뿐 아니라, 이 건에 해당하는 부가 항목(Door 배송
    해당 시 "도착 확인·정산 완료", 배차 필요 시 "배차 완료", 비엘 홀딩중 지정 시 "최종 비엘
-   발행 완료")까지 전부 끝나야 함. 이걸 빼먹으면 기본 체크리스트만 다 끝난 시점에 DOOR/배차/
-   비엘홀딩 후속 확인이 아직 안 끝났어도 "완료" 건으로 분류되어 activeShipments()에서 통째로
-   빠져버려서, 오늘 할 일(도착확인/배차)이나 비엘홀딩중 탭 어디에도 더 이상 뜨지 않는 채로
-   조용히 누락됨 — 도착확인이 비어 보이던 버그의 원인. */
+   발행 완료", 미주(ISF 대상) 건은 "ISF 신고 완료")까지 전부 끝나야 함. 이걸 빼먹으면 기본
+   체크리스트만 다 끝난 시점에 DOOR/배차/비엘홀딩/ISF 후속 확인이 아직 안 끝났어도 "완료" 건으로
+   분류되어 activeShipments()에서 통째로 빠져버려서, 오늘 할 일(도착확인/배차/ISF)이나
+   비엘홀딩중 탭 어디에도 더 이상 뜨지 않는 채로 조용히 누락됨 — 도착확인이 비어 보이던
+   버그의 원인. */
 function isDone(s){
   var items=relevantItems(s); if(items.length===0) return false;
   var chk=s.checklist||{};
@@ -745,6 +766,7 @@ function isDone(s){
   if(s.doorEligible && !chk.doorArrival) return false;
   if(s.dispatchNeeded && !s.billingOnly && !chk[dispatchItemKeyFor(s.routeType)]) return false;
   if(s.blHolding && !chk[BL_HOLDING_FINAL_ITEM_KEY]) return false;
+  if(isUsBoundShipment(s) && !chk[US_ISF_ITEM_KEY]) return false;
   return true;
 }
 function statusOf(s){ if(s.cancelled) return 'cancelled'; if(!s.routeType) return 'unassigned'; if(isDone(s)) return 'done'; return 'active'; }
@@ -838,6 +860,23 @@ function feedDoorTracking(){
   out.sort(function(a,b){ var av=a.dd===null?9999:a.dd, bv=b.dd===null?9999:b.dd; return av-bv; });
   return out;
 }
+/* "미주"(ISF 대상, isUsBoundShipment) 건 중 ISF 신고가 아직 완료되지 않은 건만 모음 —
+   DOOR 추적과 동일한 구조이되, ISF는 선적(출항) 전 신고이므로 ETA(DOOR)가 아닌 ETD를 기준으로
+   함. ETD 자체가 없는 건은 안전하게 그대로 노출함. */
+function feedIsfTracking(){
+  var out=[];
+  activeShipments().forEach(function(s){
+    if(!matchesFilter(s) || !matchesMyClients(s)) return;
+    if(!isUsBoundShipment(s)) return;
+    var chk=s.checklist||{};
+    if(chk[US_ISF_ITEM_KEY]) return;
+    var dd = getDday(s.etd);
+    if(dd!==null && dd>0) return;
+    out.push({s:s, dd:dd});
+  });
+  out.sort(function(a,b){ var av=a.dd===null?9999:a.dd, bv=b.dd===null?9999:b.dd; return av-bv; });
+  return out;
+}
 /* "배차 필요"로 지정된 건 중 아직 배차가 완료되지 않은 건만 모음 — DOOR 추적과 동일한 구조.
    청구전용 건은 애초에 배차 자체가 해당없음이므로 배차 필요로 지정되어 있어도 제외.
    단, YES로 지정하자마자 바로 "오늘 할 일"에 띄우면 아직 여유 있는 건까지 계속 눈에 밟혀서
@@ -873,8 +912,8 @@ function feedBlHolding(){
   out.sort(function(a,b){ var ad=toDate(a.s.etd), bd=toDate(b.s.etd); if(!ad&&!bd) return 0; if(!ad) return 1; if(!bd) return -1; return ad-bd; });
   return out;
 }
-/* ================= "오늘 할 일" 통합 피드 (타입 태그: duesoon/docCls/billing/door/dispatch) ================= */
-var TYPE_LABEL = {duesoon:'출항안내', docCls:'서류마감', billing:'청구대기', door:'도착확인', dispatch:'배차'};
+/* ================= "오늘 할 일" 통합 피드 (타입 태그: duesoon/docCls/billing/door/dispatch/isf) ================= */
+var TYPE_LABEL = {duesoon:'출항안내', docCls:'서류마감', billing:'청구대기', door:'도착확인', dispatch:'배차', isf:'ISF'};
 function feedTodayAll(){
   var out=[];
   feedDueSoon().forEach(function(x){ out.push({type:'duesoon', s:x.s, item:x.item, dd:x.dd, field:x.field, sortKey:(x.dd===null?9999:x.dd)}); });
@@ -882,6 +921,7 @@ function feedTodayAll(){
   feedBilling().forEach(function(x){ out.push({type:'billing', s:x.s, item:x.item, aging:x.aging, sortKey:-(x.aging===null?-9999:x.aging)}); });
   feedDoorTracking().forEach(function(x){ out.push({type:'door', s:x.s, item:{key:'doorArrival', label:'도착 확인·정산 완료'}, dd:x.dd, sortKey:(x.dd===null?9999:x.dd)}); });
   feedDispatch().forEach(function(x){ out.push({type:'dispatch', s:x.s, item:{key:x.itemKey, label:'배차'}, dd:x.dd, field:'etd', sortKey:(x.dd===null?9999:x.dd)}); });
+  feedIsfTracking().forEach(function(x){ out.push({type:'isf', s:x.s, item:{key:US_ISF_ITEM_KEY, label:US_ISF_ITEM_LABEL}, dd:x.dd, field:'etd', sortKey:(x.dd===null?9999:x.dd)}); });
   return out;
 }
 function feedToday(){
@@ -920,6 +960,13 @@ function feedUpcoming(){
         out.push({type:'door', s:s, item:{key:'doorArrival', label:'도착 확인·정산 완료'}, dd:doorDd, field:'etaDoor', sortKey:doorDd});
       }
     }
+    // ISF(미주)도 동일한 기준 — ETD가 아직 D-7 이내로만 다가온 건을 미리 보여줌.
+    if(isUsBoundShipment(s) && !chk[US_ISF_ITEM_KEY]){
+      var isfDd = getDday(s.etd);
+      if(isfDd!==null && isfDd>0 && isfDd<=UPCOMING_WINDOW_DAYS){
+        out.push({type:'isf', s:s, item:{key:US_ISF_ITEM_KEY, label:US_ISF_ITEM_LABEL}, dd:isfDd, field:'etd', sortKey:isfDd});
+      }
+    }
   });
   if(activeType!=='ALL') out = out.filter(function(x){return x.type===activeType;});
   out.sort(function(a,b){ return a.sortKey-b.sortKey; });
@@ -946,7 +993,8 @@ var TYPE_DEFS = [
   {key:'docCls', label:'서류마감', color:'plum'},
   {key:'billing', label:'청구대기', color:'brass'},
   {key:'door', label:'도착확인', color:'warn'},
-  {key:'dispatch', label:'배차', color:'teal'}
+  {key:'dispatch', label:'배차', color:'teal'},
+  {key:'isf', label:'ISF', color:'slate'}
 ];
 function renderTypeChips(){
   var row = document.getElementById('typeChipRow');
@@ -1063,6 +1111,7 @@ function renderKpis(){
     {label:'청구 대기 항목', value: feedBilling().length, color:'brass', goto:{tab:'TODAY', type:'billing', target:'sec-today'}},
     {label:'도착 추적', value: feedDoorTracking().length, color:'warn', goto:{tab:'TODAY', type:'door', target:'sec-today'}},
     {label:'배차 대기', value: feedDispatch().length, color:'teal', goto:{tab:'TODAY', type:'dispatch', target:'sec-today'}},
+    {label:'ISF 추적', value: feedIsfTracking().length, color:'slate', goto:{tab:'TODAY', type:'isf', target:'sec-today'}},
     {label:'완료', value: allShipments.filter(function(s){return statusOf(s)==='done' && matchesMyClients(s);}).length, color:'slate'}
   ];
   document.getElementById('kpiStrip').innerHTML = kpis.map(function(k,i){
@@ -1099,10 +1148,15 @@ function routePillHtml(s){
     var done = !!(s.checklist||{}).doorArrival;
     doorBadge = '<span class="flag-pill '+(done?'door-done':'door-pending')+'">DOOR'+(done?' 완료':'')+'</span>';
   }
-  // route-pill과 DOOR 배지를 하나의 래퍼로 감싸서 그리드 셀 1칸을 항상 유지
-  // (감싸지 않으면 DOOR 건은 자식 요소가 1개 더 생겨 이후 열들이 한 칸씩 밀림)
+  var isfBadge = '';
+  if(isUsBoundShipment(s)){
+    var isfDone = !!(s.checklist||{})[US_ISF_ITEM_KEY];
+    isfBadge = '<span class="flag-pill '+(isfDone?'isf-done':'isf-pending')+'">ISF'+(isfDone?' 완료':'')+'</span>';
+  }
+  // route-pill과 DOOR/ISF 배지를 하나의 래퍼로 감싸서 그리드 셀 1칸을 항상 유지
+  // (감싸지 않으면 배지가 붙는 건은 자식 요소가 더 생겨 이후 열들이 한 칸씩 밀림)
   return '<span class="route-pill-wrap">'+
-    '<span class="route-pill'+(lcl?' lcl':'')+'">'+escapeHtml((ROUTES[s.routeType]||{}).label||'-')+(s.billingOnly?' · 청구전용':'')+'</span>'+doorBadge+
+    '<span class="route-pill'+(lcl?' lcl':'')+'">'+escapeHtml((ROUTES[s.routeType]||{}).label||'-')+(s.billingOnly?' · 청구전용':'')+'</span>'+doorBadge+isfBadge+
     '</span>';
 }
 function selectCbHtml(sectionId, id, itemKey){
@@ -1392,15 +1446,15 @@ function renderTodayTab(board, q){
     sections.push({id:'sec-unassigned', tag:'!', title:'루틴 미지정', sub:'업로드 시 루틴을 인식하지 못했거나, 아직 지정하지 않은 건 · "전체" 탭에서만 표시됨', color:'danger', alert:true, body:unassignedTable(unassigned), count:unassigned.length});
   }
   var today=feedToday().filter(function(x){return matchesSearch(x.s,q);});
-  var typeLbl = activeType==='ALL' ? '출항안내·청구대기·도착확인 통합' : TYPE_LABEL[activeType];
+  var typeLbl = activeType==='ALL' ? '출항안내·청구대기·도착확인·ISF 통합' : TYPE_LABEL[activeType];
   sections.push({id:'sec-today', tag:'01', title:'오늘 할 일', sub:typeLbl+' · 체크박스로 여러 건을 한 번에 선택해 일괄 완료 처리 가능', color:'steel', body:todayTable(today,'sec-today'), count:today.length, bulk:{items:today.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
-  // 출항안내·서류마감·도착확인은 기한 전엔 "오늘 할 일"에 아예 안 보이므로, 앞으로 지정 기간
+  // 출항안내·서류마감·도착확인·ISF는 기한 전엔 "오늘 할 일"에 아예 안 보이므로, 앞으로 지정 기간
   // 내로 다가온 것만 따로 모아 미리 준비할 수 있게 보여줌 — 청구대기·배차는 원래 기한과
   // 무관하게 항상 전체가 보이는 방식이라 이 섹션의 대상이 아님(그 타입 필터가 선택되면
   // 섹션 자체를 숨김).
-  if(activeType==='ALL' || activeType==='duesoon' || activeType==='docCls' || activeType==='door'){
+  if(activeType==='ALL' || activeType==='duesoon' || activeType==='docCls' || activeType==='door' || activeType==='isf'){
     var upcoming = feedUpcoming().filter(function(x){return matchesSearch(x.s,q);});
-    var upcomingTypeLbl = activeType==='ALL' ? '출항안내·서류마감·도착확인' : TYPE_LABEL[activeType];
+    var upcomingTypeLbl = activeType==='ALL' ? '출항안내·서류마감·도착확인·ISF' : TYPE_LABEL[activeType];
     sections.push({id:'sec-upcoming', tag:'02', title:'앞으로 '+UPCOMING_WINDOW_DAYS+'일 내 예정', sub:upcomingTypeLbl+' 중 아직 기한 전이지만 '+UPCOMING_WINDOW_DAYS+'일 이내로 다가온 건 · 기한이 되면 자동으로 "오늘 할 일"로 넘어감', color:'slate', body:upcomingTable(upcoming,'sec-upcoming'), count:upcoming.length, bulk:{items:upcoming.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
   }
   renderSections(board, sections);
@@ -2205,9 +2259,24 @@ async function apiGet(){
 }
 
 var refreshRetryTimer = null;
+/* 20초마다 도는 폴링(startPolling)이 이전 refreshFromServer 호출(재시도 포함)이 아직 끝나지도
+   않았는데 새 호출을 또 시작해버리는 문제가 있었음 — 앱스스크립트 응답이 느려지면(콜드
+   스타트, 락 대기 등) 여러 호출이 동시에 겹쳐 돌면서 서로 전역 refreshRetryTimer를 덮어쓰고,
+   화면 상태(syncLabel)도 서로 경쟁적으로 바꿔씀. 그 결과 조회가 실제로는 막 성공해서 "연결됨"
+   으로 바뀐 직후에, 이미 끝났어야 할 이전 호출의 뒤늦은 재시도 타이머가 뒤따라 실행되며
+   "재연결 시도 중…"으로 다시 덮어써버려 화면이 영원히 재연결 중인 것처럼 보이던 버그의 원인.
+   이제 "최초 호출"(재시도가 아닌 호출) 단위로 refreshBusy 플래그를 두어, 이미 진행 중인
+   호출(그 재시도 체인 전체)이 끝나기 전에는 새 최초 호출을 아예 시작하지 않고 건너뜀 —
+   항상 단 하나의 조회만 동시에 진행되도록 직렬화함. */
+var refreshBusy = false;
 async function refreshFromServer(silent, retryCount){
+  var isTopLevelCall = !retryCount; // retryCount가 없거나 0이면 재시도가 아닌 최초 호출
+  if(isTopLevelCall){
+    if(refreshBusy) return;
+    refreshBusy = true;
+  }
   retryCount = retryCount || 0;
-  if(!webappReady()) return;
+  if(!webappReady()){ refreshBusy = false; return; }
   try{
     var json = await apiGet();
     if(refreshRetryTimer){ clearTimeout(refreshRetryTimer); refreshRetryTimer = null; }
@@ -2230,6 +2299,7 @@ async function refreshFromServer(silent, retryCount){
     } else {
       renderAll();
     }
+    refreshBusy = false;
   }catch(e){
     // 구글 앱스스크립트 웹앱은 한동안 조회가 없다가 다시 호출되면(콜드 스타트)
     // 첫 응답이 간헐적으로 실패하는 경우가 있음 — 바로 "연결 오류"로 표시하지 않고
@@ -2239,11 +2309,12 @@ async function refreshFromServer(silent, retryCount){
       document.getElementById('syncLabel').textContent='재연결 시도 중…';
       if(refreshRetryTimer) clearTimeout(refreshRetryTimer);
       refreshRetryTimer = setTimeout(function(){ refreshFromServer(silent, retryCount+1); }, 2500);
-      return;
+      return; // refreshBusy는 재시도 체인이 계속되는 동안 true로 유지
     }
     document.getElementById('syncDot').className='sync-dot local';
     document.getElementById('syncLabel').textContent='연결 오류';
     if(!silent) toast('불러오기 실패: '+e.message, {err:true});
+    refreshBusy = false;
   }
 }
 function startPolling(){
@@ -2361,6 +2432,25 @@ function refreshBlHoldingArea(){
   var s = editingId ? (byId[editingId]||{}) : {};
   document.getElementById('blHoldingArea').innerHTML = blHoldingAreaHtml(blHolding, s.checklist);
 }
+/* "미주"(ISF) 추적 영역 — DOOR/배차/비엘홀딩과 달리 사람이 직접 YES/NO를 선택하는 토글이 없고,
+   루틴과 POD 입력값만으로 자동 판정되어 나타남(isUsBoundShipment 참고). 그래서 select-row 토글 대신
+   현재 루틴·POD 값을 보고 조건이 맞으면 자동으로 노출되는 안내문 + 체크박스만 둠. */
+function isfAreaHtml(usBound, checklist){
+  if(!usBound) return '';
+  var chk = checklist||{};
+  return '<div class="checklist-block"><h4>ISF 추적</h4>'+
+    '<div style="color:var(--ink-soft);font-size:12.5px;margin-bottom:8px;">POD가 미국으로 확인되어 자동으로 ISF(10+2) 신고 추적 대상이 되었습니다.</div>'+
+    '<label class="checklist-item"><span class="n">•</span><input type="checkbox" data-chk="'+US_ISF_ITEM_KEY+'" '+(chk[US_ISF_ITEM_KEY]?'checked':'')+'><span class="lbl">'+escapeHtml(US_ISF_ITEM_LABEL)+'</span></label>'+
+    '</div>';
+}
+function refreshIsfArea(){
+  var rt = document.getElementById('fld_routeType').value;
+  var podEl = document.querySelector('#modalContent [data-k="pod"]');
+  var pod = podEl ? podEl.value : '';
+  var usBound = isUsBoundRoute(rt) && isUsPod(pod);
+  var s = editingId ? (byId[editingId]||{}) : {};
+  document.getElementById('isfArea').innerHTML = isfAreaHtml(usBound, s.checklist);
+}
 function ynSelectHtml(id, isYes){
   return '<select id="'+id+'" class="'+(isYes?'yn-yes':'')+'">'+
     '<option value="no" '+(!isYes?'selected':'')+'>NO</option>'+
@@ -2400,7 +2490,7 @@ function matchesSelectOpt(fieldKey, val, opt){
   }
   return val===opt;
 }
-function onRouteTypeChange(){ refreshModalChecklist(); refreshLclRow(); refreshDispatchArea(); }
+function onRouteTypeChange(){ refreshModalChecklist(); refreshLclRow(); refreshDispatchArea(); refreshIsfArea(); }
 function openModal(id){
   editingId = id || null;
   var s = id ? (byId[id]||{}) : {};
@@ -2432,6 +2522,7 @@ function openModal(id){
     '<div id="dispatchArea">'+dispatchAreaHtml(defaultDispatchNeeded, s.routeType, s.checklist)+'</div>'+
     '<div class="select-row"><span class="yn-label">비엘 홀딩중</span>'+ynSelectHtml('fld_blHolding', defaultBlHolding)+'<span style="color:var(--ink-soft);">— YES 선택 시 "비엘홀딩중" 탭에 표시되고, 비엘발행 항목이 있으면 자동으로 완료 처리됨</span></div>'+
     '<div id="blHoldingArea">'+blHoldingAreaHtml(defaultBlHolding, s.checklist)+'</div>'+
+    '<div id="isfArea">'+isfAreaHtml(isUsBoundShipment(s), s.checklist)+'</div>'+
     '<div class="checkbox-row"><input type="checkbox" id="fld_billingOnly" '+(defaultBillingOnly?'checked':'')+'><label for="fld_billingOnly">이월·분할 청구 전용 건 (청구 관련 항목만 체크리스트에 표시)</label></div>'+
     '<div class="checklist-block"><h4>체크리스트</h4><div id="checklistArea">'+modalChecklistHtml(s.routeType, defaultBillingOnly, s.checklist)+'</div></div>'+
     '</div>'+
@@ -2444,6 +2535,8 @@ function openModal(id){
   document.getElementById('fld_doorEligible').addEventListener('change', refreshDoorArea);
   document.getElementById('fld_dispatchNeeded').addEventListener('change', refreshDispatchArea);
   document.getElementById('fld_blHolding').addEventListener('change', refreshBlHoldingArea);
+  var podEl = document.querySelector('#modalContent [data-k="pod"]');
+  if(podEl) podEl.addEventListener('input', refreshIsfArea);
   var delBtn = document.getElementById('deleteBtn'); if(delBtn) delBtn.addEventListener('click', deleteFromModal);
   refreshLclRow();
 }
@@ -2463,7 +2556,7 @@ async function saveModal(){
   s.dispatchNeeded = document.getElementById('fld_dispatchNeeded').value==='yes';
   s.blHolding = document.getElementById('fld_blHolding').value==='yes';
   var checklist = {};
-  document.querySelectorAll('#checklistArea [data-chk], #doorArea [data-chk], #dispatchArea [data-chk], #blHoldingArea [data-chk]').forEach(function(el){ checklist[el.dataset.chk] = el.checked; });
+  document.querySelectorAll('#checklistArea [data-chk], #doorArea [data-chk], #dispatchArea [data-chk], #blHoldingArea [data-chk], #isfArea [data-chk]').forEach(function(el){ checklist[el.dataset.chk] = el.checked; });
   // 비엘 홀딩중을 YES로 저장하는 경우, 이 루틴에 "비엘발행" 항목이 있으면 화주 확인이 끝난 것으로 보고
   // 체크리스트에서도 자동으로 완료 처리 — 체크박스를 따로 누르지 않아도 되게 함(toggleBlHolding과 동일 규칙).
   if(s.blHolding && ROUTES[s.routeType] && ROUTES[s.routeType].items.some(function(it){ return it.key==='blIssue'; })){
