@@ -119,6 +119,9 @@ img{max-width:100%;}
 .chip.active{background:var(--ink); color:var(--paper); border-color:var(--ink);}
 .chip[disabled]{opacity:.4; cursor:not-allowed;}
 .chip.type-chip.active{background:var(--sc,var(--ink)); border-color:var(--sc,var(--ink));}
+.type-chip .chip-count{font-family:"IBM Plex Mono",monospace; font-size:11px; margin-left:5px; opacity:.75;}
+.type-chip .chip-count.has-count{color:var(--danger); font-weight:700; opacity:1;}
+.type-chip.active .chip-count.has-count{color:var(--paper);}
 
 /* 체크리스트 보드 전용 업무구분탭 — 모든 루틴의 체크리스트 항목을 루틴별로 묶어서 한 줄에 표시 */
 .ov-global-chip-row{display:flex; flex-wrap:wrap; align-items:center; gap:10px 16px;}
@@ -256,6 +259,8 @@ img{max-width:100%;}
 .flag-pill.door-done{background:var(--teal-soft); color:var(--teal);}
 .flag-pill.isf-pending{background:var(--slate-soft); color:var(--slate);}
 .flag-pill.isf-done{background:var(--teal-soft); color:var(--teal);}
+.flag-pill.edi-pending{background:var(--plum-soft); color:var(--plum);}
+.flag-pill.edi-done{background:var(--teal-soft); color:var(--teal);}
 .flag-pill.bl-holding{background:var(--rose-soft); color:var(--rose);}
 .route-pill.lcl{background:var(--plum-soft); color:var(--plum);}
 .type-tag{font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:3px; white-space:nowrap; border:1px solid currentColor;}
@@ -265,6 +270,7 @@ img{max-width:100%;}
 .type-tag.door{color:var(--warn); background:var(--warn-soft); border-color:transparent;}
 .type-tag.dispatch{color:var(--teal); background:var(--teal-soft); border-color:transparent;}
 .type-tag.isf{color:var(--slate); background:var(--slate-soft); border-color:transparent;}
+.type-tag.edi{color:var(--rose); background:var(--rose-soft); border-color:transparent;}
 
 .ov-row{padding:8px 14px; min-width:0; align-items:stretch;}
 .ov-row.head{background:var(--surface-2); padding-top:9px; padding-bottom:9px;}
@@ -665,6 +671,10 @@ function isUsPod(pod){
 function isUsBoundShipment(s){ return isUsBoundRoute(s.routeType) && isUsPod(s.pod) && !s.billingOnly; }
 var US_ISF_ITEM_KEY = 'isfFiling';
 var US_ISF_ITEM_LABEL = 'ISF 신고 완료';
+/* EDI(AMS) 신고 — ISF와 마찬가지로 "미주"(isUsBoundShipment) 건에만 해당하고, 출항 24시간 전까지
+   신고가 끝나 있어야 하는 것도 동일하므로 ISF와 같은 서류마감(DOC CLS) 기준으로 추적함. */
+var US_EDI_ITEM_KEY = 'ediFiling';
+var US_EDI_ITEM_LABEL = 'EDI(AMS) 신고 완료';
 
 var FIELD_ALIASES = {
   managementNo: ['관리번호','FILENO','FILE No','파일번호'],
@@ -816,6 +826,7 @@ function isDone(s){
   if(s.dispatchNeeded && !s.billingOnly && !chk[dispatchItemKeyFor(s.routeType)]) return false;
   if(s.blHolding && !chk[BL_HOLDING_FINAL_ITEM_KEY]) return false;
   if(isUsBoundShipment(s) && !chk[US_ISF_ITEM_KEY]) return false;
+  if(isUsBoundShipment(s) && !chk[US_EDI_ITEM_KEY]) return false;
   return true;
 }
 function statusOf(s){ if(s.cancelled) return 'cancelled'; if(!s.routeType) return 'unassigned'; if(isDone(s)) return 'done'; return 'active'; }
@@ -932,6 +943,24 @@ function feedIsfTracking(){
   out.sort(function(a,b){ var av=a.dd===null?9999:a.dd, bv=b.dd===null?9999:b.dd; return av-bv; });
   return out;
 }
+/* "미주"(ISF 대상, isUsBoundShipment) 건 중 EDI(AMS) 신고가 아직 완료되지 않은 건만 모음 —
+   ISF 추적(feedIsfTracking)과 완전히 동일한 구조·기준(서류마감 DOC CLS 기준)이되, 체크 항목만
+   EDI(AMS) 신고 완료로 다름 — ISF와 EDI는 서로 독립적인 체크 항목이라 한쪽만 끝났다고 다른
+   쪽도 끝난 것으로 보지 않음. */
+function feedEdiTracking(){
+  var out=[];
+  activeShipments().forEach(function(s){
+    if(!matchesFilter(s) || !matchesMyClients(s)) return;
+    if(!isUsBoundShipment(s)) return;
+    var chk=s.checklist||{};
+    if(chk[US_EDI_ITEM_KEY]) return;
+    var info = effectiveDeadlineInfo(s.docCls);
+    if(info.dd!==null && info.dd>0) return;
+    out.push({s:s, dd:info.dd, holidayShift:info.shifted, holidayEffDate:info.effDate, holidayTitle:info.holidayTitle});
+  });
+  out.sort(function(a,b){ var av=a.dd===null?9999:a.dd, bv=b.dd===null?9999:b.dd; return av-bv; });
+  return out;
+}
 /* "배차 필요"로 지정된 건 중 아직 배차가 완료되지 않은 건만 모음 — DOOR 추적과 동일한 구조.
    청구전용 건은 애초에 배차 자체가 해당없음이므로 배차 필요로 지정되어 있어도 제외.
    단, YES로 지정하자마자 바로 "오늘 할 일"에 띄우면 아직 여유 있는 건까지 계속 눈에 밟혀서
@@ -967,8 +996,8 @@ function feedBlHolding(){
   out.sort(function(a,b){ var ad=toDate(a.s.etd), bd=toDate(b.s.etd); if(!ad&&!bd) return 0; if(!ad) return 1; if(!bd) return -1; return ad-bd; });
   return out;
 }
-/* ================= "오늘 할 일" 통합 피드 (타입 태그: duesoon/docCls/billing/door/dispatch/isf) ================= */
-var TYPE_LABEL = {duesoon:'출항안내', docCls:'서류마감', billing:'청구대기', door:'도착확인', dispatch:'배차', isf:'ISF'};
+/* ================= "오늘 할 일" 통합 피드 (타입 태그: duesoon/docCls/billing/door/dispatch/isf/edi) ================= */
+var TYPE_LABEL = {duesoon:'출항안내', docCls:'서류마감', billing:'청구대기', door:'도착확인', dispatch:'배차', isf:'ISF', edi:'EDI'};
 function feedTodayAll(){
   var out=[];
   feedDueSoon().forEach(function(x){ out.push({type:'duesoon', s:x.s, item:x.item, dd:x.dd, field:x.field, sortKey:(x.dd===null?9999:x.dd), holidayShift:x.holidayShift, holidayEffDate:x.holidayEffDate, holidayTitle:x.holidayTitle}); });
@@ -977,6 +1006,7 @@ function feedTodayAll(){
   feedDoorTracking().forEach(function(x){ out.push({type:'door', s:x.s, item:{key:'doorArrival', label:'도착 확인·정산 완료'}, dd:x.dd, sortKey:(x.dd===null?9999:x.dd)}); });
   feedDispatch().forEach(function(x){ out.push({type:'dispatch', s:x.s, item:{key:x.itemKey, label:'배차'}, dd:x.dd, field:'etd', sortKey:(x.dd===null?9999:x.dd)}); });
   feedIsfTracking().forEach(function(x){ out.push({type:'isf', s:x.s, item:{key:US_ISF_ITEM_KEY, label:US_ISF_ITEM_LABEL}, dd:x.dd, field:'docCls', sortKey:(x.dd===null?9999:x.dd), holidayShift:x.holidayShift, holidayEffDate:x.holidayEffDate, holidayTitle:x.holidayTitle}); });
+  feedEdiTracking().forEach(function(x){ out.push({type:'edi', s:x.s, item:{key:US_EDI_ITEM_KEY, label:US_EDI_ITEM_LABEL}, dd:x.dd, field:'docCls', sortKey:(x.dd===null?9999:x.dd), holidayShift:x.holidayShift, holidayEffDate:x.holidayEffDate, holidayTitle:x.holidayTitle}); });
   return out;
 }
 function feedToday(){
@@ -1024,6 +1054,14 @@ function feedUpcoming(){
         out.push({type:'isf', s:s, item:{key:US_ISF_ITEM_KEY, label:US_ISF_ITEM_LABEL}, dd:isfInfo.dd, field:'docCls', sortKey:isfInfo.dd, holidayShift:isfInfo.shifted, holidayEffDate:isfInfo.effDate, holidayTitle:isfInfo.holidayTitle});
       }
     }
+    // EDI(AMS, 미주)도 ISF와 완전히 동일한 기준(서류마감 DOC CLS, D-7 이내)으로 미리 보여줌 —
+    // ISF와 독립적인 체크 항목이므로 ISF가 이미 끝났어도 EDI가 안 끝났으면 별도로 노출됨.
+    if(isUsBoundShipment(s) && !chk[US_EDI_ITEM_KEY]){
+      var ediInfo = effectiveDeadlineInfo(s.docCls);
+      if(ediInfo.dd!==null && ediInfo.dd>0 && ediInfo.dd<=UPCOMING_WINDOW_DAYS){
+        out.push({type:'edi', s:s, item:{key:US_EDI_ITEM_KEY, label:US_EDI_ITEM_LABEL}, dd:ediInfo.dd, field:'docCls', sortKey:ediInfo.dd, holidayShift:ediInfo.shifted, holidayEffDate:ediInfo.effDate, holidayTitle:ediInfo.holidayTitle});
+      }
+    }
   });
   if(activeType!=='ALL') out = out.filter(function(x){return x.type===activeType;});
   out.sort(function(a,b){ return a.sortKey-b.sortKey; });
@@ -1051,17 +1089,30 @@ var TYPE_DEFS = [
   {key:'billing', label:'청구대기', color:'brass'},
   {key:'door', label:'도착확인', color:'warn'},
   {key:'dispatch', label:'배차', color:'teal'},
-  {key:'isf', label:'ISF', color:'slate'}
+  {key:'isf', label:'ISF', color:'slate'},
+  {key:'edi', label:'EDI', color:'rose'}
 ];
+/* 업무구분탭(전체/출항안내/서류마감/청구대기/도착확인/배차/ISF/EDI)별 "오늘 할 일" 남은 건수 —
+   feedTodayAll()을 한 번만 돌려서 타입별로 집계함(각 타입마다 별도 feed 함수를 다시 호출하지 않음). */
+function typeChipCounts(){
+  var counts = {ALL:0, duesoon:0, docCls:0, billing:0, door:0, dispatch:0, isf:0, edi:0};
+  feedTodayAll().forEach(function(x){
+    counts.ALL++;
+    if(counts[x.type]!==undefined) counts[x.type]++;
+  });
+  return counts;
+}
 function renderTypeChips(){
   var row = document.getElementById('typeChipRow');
   if(activeTab==='CHECKLIST'){ renderChecklistGlobalChips(row); return; }
   row.className = 'chip-row';
   if(activeTab!=='TODAY'){ row.innerHTML=''; row.style.display='none'; return; }
   row.style.display='';
+  var counts = typeChipCounts();
   row.innerHTML = TYPE_DEFS.map(function(t){
     var style = t.color ? ' style="--sc:var(--'+t.color+')"' : '';
-    return '<button class="chip type-chip'+(activeType===t.key?' active':'')+'" data-type-chip="'+t.key+'"'+style+'>'+t.label+'</button>';
+    var c = counts[t.key]||0;
+    return '<button class="chip type-chip'+(activeType===t.key?' active':'')+'" data-type-chip="'+t.key+'"'+style+'>'+t.label+'<span class="chip-count mono'+(c>0?' has-count':'')+'">'+c+'</span></button>';
   }).join('');
   document.querySelectorAll('[data-type-chip]').forEach(function(btn){
     btn.addEventListener('click', function(){ activeType=btn.dataset.typeChip; renderTypeChips(); renderBoard(); });
@@ -1169,6 +1220,7 @@ function renderKpis(){
     {label:'도착 추적', value: feedDoorTracking().length, color:'warn', goto:{tab:'TODAY', type:'door', target:'sec-today'}},
     {label:'배차 대기', value: feedDispatch().length, color:'teal', goto:{tab:'TODAY', type:'dispatch', target:'sec-today'}},
     {label:'ISF 추적', value: feedIsfTracking().length, color:'slate', goto:{tab:'TODAY', type:'isf', target:'sec-today'}},
+    {label:'EDI 추적', value: feedEdiTracking().length, color:'rose', goto:{tab:'TODAY', type:'edi', target:'sec-today'}},
     {label:'완료', value: allShipments.filter(function(s){return statusOf(s)==='done' && matchesMyClients(s);}).length, color:'slate'}
   ];
   document.getElementById('kpiStrip').innerHTML = kpis.map(function(k,i){
@@ -1210,13 +1262,18 @@ function routePillHtml(s){
     var isfDone = !!(s.checklist||{})[US_ISF_ITEM_KEY];
     isfBadge = '<span class="flag-pill '+(isfDone?'isf-done':'isf-pending')+'">ISF'+(isfDone?' 완료':'')+'</span>';
   }
+  var ediBadge = '';
+  if(isUsBoundShipment(s)){
+    var ediDone = !!(s.checklist||{})[US_EDI_ITEM_KEY];
+    ediBadge = '<span class="flag-pill '+(ediDone?'edi-done':'edi-pending')+'">EDI'+(ediDone?' 완료':'')+'</span>';
+  }
   // 비엘홀딩중은 화주 확인이 끝날 때까지 통째로 대기 상태인 건이라 눈에 바로 띄도록 별도
-  // 색상(rose, 연분홍)으로 표시 — DOOR·ISF와 달리 "완료" 상태 구분 없이 YES인 동안만 표시됨.
+  // 색상(rose, 연분홍)으로 표시 — DOOR·ISF/EDI와 달리 "완료" 상태 구분 없이 YES인 동안만 표시됨.
   var blHoldingBadge = s.blHolding ? '<span class="flag-pill bl-holding">비엘홀딩</span>' : '';
-  // route-pill과 DOOR/ISF/비엘홀딩 배지를 하나의 래퍼로 감싸서 그리드 셀 1칸을 항상 유지
+  // route-pill과 DOOR/ISF/EDI/비엘홀딩 배지를 하나의 래퍼로 감싸서 그리드 셀 1칸을 항상 유지
   // (감싸지 않으면 배지가 붙는 건은 자식 요소가 더 생겨 이후 열들이 한 칸씩 밀림)
   return '<span class="route-pill-wrap">'+
-    '<span class="route-pill'+(lcl?' lcl':'')+'">'+escapeHtml((ROUTES[s.routeType]||{}).label||'-')+(s.billingOnly?' · 청구전용':'')+'</span>'+doorBadge+isfBadge+blHoldingBadge+
+    '<span class="route-pill'+(lcl?' lcl':'')+'">'+escapeHtml((ROUTES[s.routeType]||{}).label||'-')+(s.billingOnly?' · 청구전용':'')+'</span>'+doorBadge+isfBadge+ediBadge+blHoldingBadge+
     '</span>';
 }
 function selectCbHtml(sectionId, id, itemKey){
@@ -1328,7 +1385,7 @@ var TODAY_SORT_GETTERS = {
    서류마감(DOC CLS) 기준이므로 헤더도 그에 맞게 바꿔줌. */
 function todayDateColLabel(){
   if(activeType==='door') return 'ETA';
-  if(activeType==='isf') return 'DOC CLS';
+  if(activeType==='isf' || activeType==='edi') return 'DOC CLS';
   return 'ETD';
 }
 function todayHeadHtml(){
@@ -1511,15 +1568,15 @@ function renderTodayTab(board, q){
     sections.push({id:'sec-unassigned', tag:'!', title:'루틴 미지정', sub:'업로드 시 루틴을 인식하지 못했거나, 아직 지정하지 않은 건 · "전체" 탭에서만 표시됨', color:'danger', alert:true, body:unassignedTable(unassigned), count:unassigned.length});
   }
   var today=feedToday().filter(function(x){return matchesSearch(x.s,q);});
-  var typeLbl = activeType==='ALL' ? '출항안내·청구대기·도착확인·ISF 통합' : TYPE_LABEL[activeType];
+  var typeLbl = activeType==='ALL' ? '출항안내·청구대기·도착확인·ISF·EDI 통합' : TYPE_LABEL[activeType];
   sections.push({id:'sec-today', tag:'01', title:'오늘 할 일', sub:typeLbl+' · 체크박스로 여러 건을 한 번에 선택해 일괄 완료 처리 가능', color:'steel', body:todayTable(today,'sec-today'), count:today.length, bulk:{items:today.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
-  // 출항안내·서류마감·도착확인·ISF는 기한 전엔 "오늘 할 일"에 아예 안 보이므로, 앞으로 지정 기간
+  // 출항안내·서류마감·도착확인·ISF·EDI는 기한 전엔 "오늘 할 일"에 아예 안 보이므로, 앞으로 지정 기간
   // 내로 다가온 것만 따로 모아 미리 준비할 수 있게 보여줌 — 청구대기·배차는 원래 기한과
   // 무관하게 항상 전체가 보이는 방식이라 이 섹션의 대상이 아님(그 타입 필터가 선택되면
   // 섹션 자체를 숨김).
-  if(activeType==='ALL' || activeType==='duesoon' || activeType==='docCls' || activeType==='door' || activeType==='isf'){
+  if(activeType==='ALL' || activeType==='duesoon' || activeType==='docCls' || activeType==='door' || activeType==='isf' || activeType==='edi'){
     var upcoming = feedUpcoming().filter(function(x){return matchesSearch(x.s,q);});
-    var upcomingTypeLbl = activeType==='ALL' ? '출항안내·서류마감·도착확인·ISF' : TYPE_LABEL[activeType];
+    var upcomingTypeLbl = activeType==='ALL' ? '출항안내·서류마감·도착확인·ISF·EDI' : TYPE_LABEL[activeType];
     sections.push({id:'sec-upcoming', tag:'02', title:'앞으로 '+UPCOMING_WINDOW_DAYS+'일 내 예정', sub:upcomingTypeLbl+' 중 아직 기한 전이지만 '+UPCOMING_WINDOW_DAYS+'일 이내로 다가온 건 · 기한이 되면 자동으로 "오늘 할 일"로 넘어감', color:'slate', body:upcomingTable(upcoming,'sec-upcoming'), count:upcoming.length, bulk:{items:upcoming.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
   }
   renderSections(board, sections);
@@ -1534,6 +1591,27 @@ function renderTodayTab(board, q){
 var bookingHoldEditingId = null;               // null = 아직 저장 안 된 새 메모 작성 중, 문자열이면 해당 ID 메모 편집 중
 var bookingHoldDraft = {title:'', body:'', status:'대기중'}; // editingId가 null일 때만 사용하는 초안 상태
 var bookingHoldSaveTimer = null;
+/* 방금 로컬에서 저장(생성·수정) 성공한 부킹확인중 메모의 ID -> 저장 시각(ms).
+   저장 직후 바로 20초 주기 폴링(refreshFromServer)이 돌면, 구글시트 쪽 반영이 아주 짧게
+   지연되어 있을 때 서버 응답에 그 메모가 아직 없을 수 있음 — 이때 bookingHolds를 서버
+   응답으로 그대로 덮어쓰면 방금 저장한 메모가 사이드바 목록에서 순간적으로 사라져버림
+   (저장 버튼을 눌러 "저장됨"까지 떴는데도 목록엔 안 보이는 혼란의 원인).
+   mergeBookingHolds_에서 이 표를 참고해 보호 시간 내에는 로컬 내용을 지켜줌. */
+var bookingHoldRecentSave = {};
+var BOOKING_HOLD_PROTECT_MS = 10000;
+function mergeBookingHolds_(serverList){
+  var now = Date.now();
+  var serverIds = {};
+  serverList.forEach(function(b){ serverIds[b.ID]=1; });
+  var merged = serverList.slice();
+  Object.keys(bookingHoldRecentSave).forEach(function(id){
+    if(now - bookingHoldRecentSave[id] > BOOKING_HOLD_PROTECT_MS){ delete bookingHoldRecentSave[id]; return; }
+    if(serverIds[id]) return; // 서버 응답에 이미 반영됨 — 보호 불필요
+    var local = bookingHolds.filter(function(x){return x.ID===id;})[0];
+    if(local) merged.push(local);
+  });
+  return merged;
+}
 function bookingHoldMatchesSearch(b, q){
   if(!q) return true;
   var hay = ((b['제목']||'')+' '+(b['내용']||'')).toLowerCase();
@@ -1580,6 +1658,7 @@ function renderBookingHoldEditor(){
       '<input type="text" id="bhTitleInput" class="bh-title-input" placeholder="제목 없음" value="'+escapeHtml(rec['제목']||'')+'">'+
       '<div class="bh-editor-actions">'+
         '<button class="chip bh-status-chip'+(isDone?' done':'')+'" id="bhStatusChip" title="클릭하면 상태 전환">'+(isDone?'확정전환됨':'대기중')+'</button>'+
+        '<button class="btn btn-primary btn-sm" id="bhSaveBtn" title="지금 바로 저장">저장</button>'+
         '<span class="bh-save-indicator" id="bhSaveIndicator"></span>'+
         '<button class="edit-btn" id="bhDeleteInEditorBtn" title="삭제"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M3 4h10M6.5 4V2.5h3V4M4.5 4l.6 9.5a1 1 0 001 .95h3.8a1 1 0 001-.95L11.5 4" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'+
       '</div>'+
@@ -1590,6 +1669,7 @@ function renderBookingHoldEditor(){
   titleEl.addEventListener('input', scheduleBookingHoldSave);
   bodyEl.addEventListener('input', scheduleBookingHoldSave);
   document.getElementById('bhStatusChip').addEventListener('click', toggleCurrentBookingHoldStatus);
+  document.getElementById('bhSaveBtn').addEventListener('click', manualSaveBookingHold);
   document.getElementById('bhDeleteInEditorBtn').addEventListener('click', deleteCurrentBookingHold);
 }
 function scheduleBookingHoldSave(){
@@ -1597,39 +1677,65 @@ function scheduleBookingHoldSave(){
   if(bookingHoldSaveTimer) clearTimeout(bookingHoldSaveTimer);
   bookingHoldSaveTimer = setTimeout(function(){ bookingHoldSaveTimer=null; commitBookingHoldSave(); }, 1200);
 }
+/* "저장" 버튼 — 자동저장(1.2초 대기)을 기다리지 않고 지금 입력된 내용을 바로 저장하고,
+   저장되는 즉시 왼쪽 목록에 제목이 뜨는 것까지 눈으로 확인할 수 있게 토스트로 알려줌. */
+async function manualSaveBookingHold(){
+  if(bookingHoldSaveTimer){ clearTimeout(bookingHoldSaveTimer); bookingHoldSaveTimer=null; }
+  var btn = document.getElementById('bhSaveBtn');
+  if(btn) btn.disabled = true;
+  try{ await commitBookingHoldSave(true); }
+  finally{ if(btn) btn.disabled = false; }
+}
 // 대기 중인 자동저장이 있으면 즉시 실행하고 끝날 때까지 기다림 — 탭 전환·다른 메모 선택 전에 호출해
 // 마지막 몇 글자가 유실되지 않도록 함.
 async function flushBookingHoldSave(){
   if(bookingHoldSaveTimer){ clearTimeout(bookingHoldSaveTimer); bookingHoldSaveTimer=null; await commitBookingHoldSave(); }
 }
-async function commitBookingHoldSave(){
+/* manual=true는 "저장" 버튼을 직접 눌러서 호출한 경우 — 이땐 저장할 내용이 없거나(빈 메모)
+   바뀐 게 없어도 사용자에게 무슨 상황인지 토스트로 알려줌(자동저장 중단일 때는 조용히 넘어감).
+   저장이 실제로 이뤄지면 bookingHoldRecentSave에 시각을 기록해, 바로 뒤이은 폴링이 아직
+   구글시트에 반영 안 된 응답으로 이 메모를 사이드바에서 지워버리는 걸 막음(mergeBookingHolds_ 참고). */
+async function commitBookingHoldSave(manual){
   var titleEl = document.getElementById('bhTitleInput');
   var bodyEl = document.getElementById('bhBodyTextarea');
-  if(!titleEl || !bodyEl) return; // 편집기가 이미 다른 화면으로 전환됨
+  if(!titleEl || !bodyEl) return false; // 편집기가 이미 다른 화면으로 전환됨
   var title = titleEl.value, body = bodyEl.value;
   var ind = document.getElementById('bhSaveIndicator');
   if(bookingHoldEditingId===null){
-    if(!title.trim() && !body.trim()){ if(ind) ind.textContent=''; return; } // 빈 메모는 저장하지 않음
+    if(!title.trim() && !body.trim()){
+      if(ind) ind.textContent='';
+      if(manual) toast('제목이나 내용을 입력한 뒤 저장해 주세요.', {err:true});
+      return false; // 빈 메모는 저장하지 않음
+    }
     if(ind) ind.textContent='저장 중…';
     try{
       var res = await apiPost({action:'upsertBookingHold', data:{'제목':title, '내용':body, '상태':bookingHoldDraft.status}});
       var nowIso = new Date().toISOString();
       bookingHoldEditingId = res.id;
       bookingHolds.push({ID:res.id, '제목':title, '내용':body, '상태':bookingHoldDraft.status, '생성일시':nowIso, '수정일시':nowIso});
+      bookingHoldRecentSave[res.id] = Date.now();
       if(ind) ind.textContent='저장됨';
       refreshBookingHoldSidebar();
       renderTabRow();
-    }catch(e){ if(ind) ind.textContent=''; toast('저장 실패: '+e.message, {err:true}); }
+      if(manual) toast('메모를 저장했습니다 — 왼쪽 목록에서 확인하세요.');
+      return true;
+    }catch(e){ if(ind) ind.textContent=''; toast('저장 실패: '+e.message, {err:true}); return false; }
   } else {
-    var b = bookingHolds.filter(function(x){return x.ID===bookingHoldEditingId;})[0]; if(!b) return;
-    if(b['제목']===title && b['내용']===body) return; // 바뀐 내용 없으면 요청 생략
+    var b = bookingHolds.filter(function(x){return x.ID===bookingHoldEditingId;})[0]; if(!b) return false;
+    if(b['제목']===title && b['내용']===body){
+      if(manual) toast('바뀐 내용이 없습니다.');
+      return false; // 바뀐 내용 없으면 요청 생략
+    }
     b['제목']=title; b['내용']=body; b['수정일시']=new Date().toISOString();
     if(ind) ind.textContent='저장 중…';
     try{
       await apiPost({action:'upsertBookingHold', data:{ID:b.ID, '제목':title, '내용':body}});
+      bookingHoldRecentSave[b.ID] = Date.now();
       if(ind) ind.textContent='저장됨';
       refreshBookingHoldSidebar();
-    }catch(e){ if(ind) ind.textContent=''; toast('저장 실패: '+e.message, {err:true}); }
+      if(manual) toast('메모를 저장했습니다 — 왼쪽 목록에서 확인하세요.');
+      return true;
+    }catch(e){ if(ind) ind.textContent=''; toast('저장 실패: '+e.message, {err:true}); return false; }
   }
 }
 async function toggleCurrentBookingHoldStatus(){
@@ -1682,7 +1788,7 @@ function bookingHoldLayoutHtml(){
 }
 function renderBookingHoldTab(board, q){
   var pendingCount = bookingHolds.filter(function(b){return (b['상태']||'대기중')!=='확정전환됨';}).length;
-  var sections=[{id:'sec-booking-hold', tag:'04', title:'부킹확인중', sub:'부킹 컨펌 전, 대략의 정보로 이미 예약하고 기다리는 건들을 자유롭게 메모 · ALVIS 입력 후 정식 건으로 넘어가면 "확정전환됨"으로 표시하거나 삭제 · 입력을 멈추면 자동 저장됨', color:'warn', raw:true, locked:true, count:pendingCount, body:bookingHoldLayoutHtml()}];
+  var sections=[{id:'sec-booking-hold', tag:'04', title:'부킹확인중', sub:'', color:'warn', raw:true, locked:true, count:pendingCount, body:bookingHoldLayoutHtml()}];
   renderSections(board, sections);
   document.getElementById('bhNewBtn').addEventListener('click', startNewBookingHoldDraft);
   refreshBookingHoldSidebar();
@@ -2350,7 +2456,7 @@ async function refreshFromServer(silent, retryCount){
     reapplyPendingWrites(); // 저장 확정 전인 낙관적 체크 상태는 새로고침으로 덮어쓰지 않음
     if(json.myClients) myClientCodes = json.myClients;
     applyItemLabelOverrides(json.labelOverrides||[]);
-    bookingHolds = json.bookingHolds||[];
+    bookingHolds = mergeBookingHolds_(json.bookingHolds||[]);
     applyHolidays_(json.holidays||[]);
     document.getElementById('syncDot').className='sync-dot live';
     document.getElementById('syncLabel').textContent='연결됨 · '+allShipments.length+'건 · 약 '+Math.round(POLL_MS/1000)+'초마다 갱신';
@@ -2498,15 +2604,19 @@ function refreshBlHoldingArea(){
   var s = editingId ? (byId[editingId]||{}) : {};
   document.getElementById('blHoldingArea').innerHTML = blHoldingAreaHtml(blHolding, s.checklist);
 }
-/* "미주"(ISF) 추적 영역 — DOOR/배차/비엘홀딩과 달리 사람이 직접 YES/NO를 선택하는 토글이 없고,
+/* "미주"(ISF/EDI) 추적 영역 — DOOR/배차/비엘홀딩과 달리 사람이 직접 YES/NO를 선택하는 토글이 없고,
    루틴과 POD 입력값만으로 자동 판정되어 나타남(isUsBoundShipment 참고). 그래서 select-row 토글 대신
-   현재 루틴·POD 값을 보고 조건이 맞으면 자동으로 노출되는 안내문 + 체크박스만 둠. */
+   현재 루틴·POD 값을 보고 조건이 맞으면 자동으로 노출되는 안내문 + 체크박스만 둠.
+   ISF(10+2)·EDI(AMS) 둘 다 미주 건에만 해당하고 둘 다 출항 24시간 전까지 끝나야 하지만, 서로
+   독립된 별개의 신고·체크 항목이라 한 영역 안에 체크박스를 두 개 둠 — 한쪽만 체크해도 다른
+   쪽은 그대로 "추적" 상태로 남음. */
 function isfAreaHtml(usBound, checklist){
   if(!usBound) return '';
   var chk = checklist||{};
-  return '<div class="checklist-block"><h4>ISF 추적</h4>'+
-    '<div style="color:var(--ink-soft);font-size:12.5px;margin-bottom:8px;">POD가 미국으로 확인되어 자동으로 ISF(10+2) 신고 추적 대상이 되었습니다.</div>'+
+  return '<div class="checklist-block"><h4>미주(ISF·EDI) 추적</h4>'+
+    '<div style="color:var(--ink-soft);font-size:12.5px;margin-bottom:8px;">POD가 미국으로 확인되어 자동으로 ISF(10+2)·EDI(AMS) 신고 추적 대상이 되었습니다.</div>'+
     '<label class="checklist-item"><span class="n">•</span><input type="checkbox" data-chk="'+US_ISF_ITEM_KEY+'" '+(chk[US_ISF_ITEM_KEY]?'checked':'')+'><span class="lbl">'+escapeHtml(US_ISF_ITEM_LABEL)+'</span></label>'+
+    '<label class="checklist-item"><span class="n">•</span><input type="checkbox" data-chk="'+US_EDI_ITEM_KEY+'" '+(chk[US_EDI_ITEM_KEY]?'checked':'')+'><span class="lbl">'+escapeHtml(US_EDI_ITEM_LABEL)+'</span></label>'+
     '</div>';
 }
 function refreshIsfArea(){
