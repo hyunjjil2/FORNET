@@ -17,6 +17,7 @@
   --slate:#565B5F; --slate-soft:#E4E3DF;
   --danger:#A93A2C; --danger-soft:#F3DCD5;
   --warn:#B9832A; --warn-soft:#F1E2C2;
+  --rose:#C14C83; --rose-soft:#F6DCEA;
   --shadow: 0 1px 2px rgba(18,24,42,.06), 0 6px 20px rgba(18,24,42,.06);
   color-scheme: light;
 }
@@ -31,6 +32,7 @@
     --slate:#9AA0A4; --slate-soft:#262A2D;
     --danger:#DD6A55; --danger-soft:#3A2420;
     --warn:#DDAE52; --warn-soft:#362C18;
+    --rose:#E68FBB; --rose-soft:#3A2430;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.28);
     color-scheme: dark;
   }
@@ -45,6 +47,7 @@
   --slate:#9AA0A4; --slate-soft:#262A2D;
   --danger:#DD6A55; --danger-soft:#3A2420;
   --warn:#DDAE52; --warn-soft:#362C18;
+  --rose:#E68FBB; --rose-soft:#3A2430;
   --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.28);
   color-scheme: dark;
 }
@@ -253,6 +256,7 @@ img{max-width:100%;}
 .flag-pill.door-done{background:var(--teal-soft); color:var(--teal);}
 .flag-pill.isf-pending{background:var(--slate-soft); color:var(--slate);}
 .flag-pill.isf-done{background:var(--teal-soft); color:var(--teal);}
+.flag-pill.bl-holding{background:var(--rose-soft); color:var(--rose);}
 .route-pill.lcl{background:var(--plum-soft); color:var(--plum);}
 .type-tag{font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:3px; white-space:nowrap; border:1px solid currentColor;}
 .type-tag.duesoon{color:var(--steel); background:var(--steel-soft); border-color:transparent;}
@@ -730,6 +734,39 @@ function toDate(v){
 function dayFloor(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
 function getDday(val){ var d=toDate(val); if(!d) return null; return Math.round((dayFloor(d)-dayFloor(new Date()))/86400000); }
 function getAging(val){ var d=toDate(val); if(!d) return null; return Math.round((dayFloor(new Date())-dayFloor(d))/86400000); }
+
+/* ================= 공휴일(대체공휴일 포함) 선반영 =================
+   서류마감(DOC CLS)·출항안내(ETD)가 공휴일에 걸리면, 그날은 실제로 업무 처리가 불가능하므로
+   "그 전 마지막 영업일까지는 끝내야 하는 일"로 취급해 미리 "오늘 할 일"에 앞당겨 노출함.
+   공휴일 목록은 refreshFromServer()에서 서버(Code.gs의 getKoreaHolidays_, 구글 공개
+   "대한민국 공휴일" 캘린더)가 내려주는 값을 그대로 받아 holidayDateSet에 담아둠 — 날짜를
+   직접 하드코딩하지 않아 설날·추석처럼 해마다 바뀌는 음력 공휴일과 대체공휴일도 자동 반영됨.
+   서버에서 못 받아온 경우(최초 로딩 전, 캘린더 조회 실패 등)엔 holidayDateSet이 비어 있어
+   그냥 평소처럼(공휴일 보정 없이) 동작함 — 안전한 기본값. */
+var koreaHolidays = [];       // [{date:'yyyy-MM-dd', title:'...'}]
+var holidayDateSet = {};      // {'yyyy-MM-dd': title}
+function applyHolidays_(list){
+  koreaHolidays = list||[];
+  holidayDateSet = {};
+  koreaHolidays.forEach(function(h){ if(h && h.date) holidayDateSet[h.date] = h.title||'공휴일'; });
+}
+function toYmd(d){ var pad=function(n){return String(n).padStart(2,'0');}; return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function isHolidayDate(d){ return !!holidayDateSet[toYmd(d)]; }
+function isWeekendDate(d){ var w=d.getDay(); return w===0 || w===6; }
+/* 마감일 자체가 공휴일인 경우에 한해서만 작동 — 평범한 주말 ETD(선박·항공편은 주말에도
+   출발함)까지 건드리지 않도록, 원래 날짜가 공휴일 목록에 없으면 그대로 두고 아무 보정도 하지
+   않음. 공휴일인 경우에만, 그 공휴일(연휴 포함)과 바로 이어지는 주말을 거슬러 올라가 마지막
+   영업일을 "사실상의 마감일"로 보고 그 날짜 기준으로 디데이를 다시 계산함. */
+function effectiveDeadlineInfo(val){
+  var raw = toDate(val);
+  if(!raw) return {dd:null, shifted:false};
+  var floored = dayFloor(raw);
+  if(!isHolidayDate(floored)) return {dd:getDday(val), shifted:false};
+  var eff = new Date(floored);
+  while(isWeekendDate(eff) || isHolidayDate(eff)){ eff.setDate(eff.getDate()-1); }
+  var dd = Math.round((eff - dayFloor(new Date()))/86400000);
+  return {dd:dd, shifted:true, effDate:eff, holidayTitle: holidayDateSet[toYmd(floored)]};
+}
 function fmtDate(val){
   var d = toDate(val); if(!d) return {date:'—', time:''};
   var mm=d.getMonth()+1, dd=d.getDate();
@@ -750,6 +787,15 @@ function ddayBadge(n, opts){
   if(opts.aging){ label = n+'일 경과'; if(n>=60) cls='heavy'; else if(n>=30) cls='danger'; else if(n>=14) cls='warn'; else cls='ok'; }
   else { label = n===0?'D-DAY':(n<0?(Math.abs(n)+'일 지남'):('D-'+n)); if(n<=0) cls='danger'; else if(n<=3) cls='warn'; else cls='ok'; }
   return '<span class="dday '+cls+'">'+label+'</span>';
+}
+/* 마감일이 공휴일이라 effectiveDeadlineInfo가 그 전 마지막 영업일 기준으로 당겨서 노출한
+   항목에 붙는 작은 표식 — 날짜 칸엔 여전히 실제 마감일(예: 10/5)이 그대로 보이므로, 왜 아직
+   날짜가 남았는데 "오늘 할 일"에 떴는지 헷갈리지 않도록 설명을 덧붙여줌. */
+function holidayTagHtml(x){
+  if(!x || !x.holidayShift) return '';
+  var effStr = x.holidayEffDate ? fmtDate(x.holidayEffDate).date : '';
+  var title = '실제 마감일이 '+(x.holidayTitle||'공휴일')+'이라 '+(effStr?effStr+'까지 ':'')+'미리 처리해야 함';
+  return '<span class="billing-tag" style="background:var(--warn-soft);color:var(--warn);" title="'+escapeHtml(title)+'">공휴일 전</span>';
 }
 
 /* ================= shipment derived state ================= */
@@ -796,14 +842,17 @@ function feedDueSoon(){
   // 서류마감(DOC CLS)은 별도 "서류마감" 업무구분으로 분리되어 여기서는 제외함(feedDocCls 참고).
   // 날짜(ETD 등) 자체가 비어 있는 건은 "아직 여유 있다"고 판단할 근거가 없으므로, 도착확인·배차와
   // 동일하게 숨기지 않고 안전하게 그대로 노출함 — 날짜를 깜빡 안 채운 건이 조용히 누락되는 것을 방지.
+  // 출항(ETD)이 공휴일과 겹치는 건은 effectiveDeadlineInfo가 그 전 마지막 영업일 기준으로
+  // dd를 다시 계산해줘서, 공휴일 당일이 아니라 미리 앞당겨 "오늘 할 일"에 노출됨.
   var out=[];
   activeShipments().forEach(function(s){
     if(!matchesFilter(s) || !matchesMyClients(s)) return;
     var chk=s.checklist||{};
     relevantItems(s).forEach(function(it){
       if(!it.anchor || it.anchor==='DOC CLS' || chk[it.key]) return;
-      var field = ANCHOR_FIELD[it.anchor]; var dd = getDday(s[field]);
-      if(dd===null || dd<=0) out.push({s:s,item:it,dd:dd,field:field});
+      var field = ANCHOR_FIELD[it.anchor];
+      var info = it.anchor==='ETD' ? effectiveDeadlineInfo(s[field]) : {dd:getDday(s[field]), shifted:false};
+      if(info.dd===null || info.dd<=0) out.push({s:s,item:it,dd:info.dd,field:field,holidayShift:info.shifted,holidayEffDate:info.effDate,holidayTitle:info.holidayTitle});
     });
   });
   out.sort(function(a,b){ var av=a.dd===null?9999:a.dd, bv=b.dd===null?9999:b.dd; return av-bv; });
@@ -812,7 +861,8 @@ function feedDueSoon(){
 /* "서류마감"(DOC CLS) 항목만 따로 모음 — 예전엔 "출항안내"에 다른 anchor 항목들과 섞여 있었으나,
    서류 마감 임박 건만 따로 확인하고 싶다는 요청으로 별도 업무구분으로 분리함. */
 /* 서류마감(DOC CLS) 날짜 자체가 비어 있는 건도 출항안내(feedDueSoon)와 동일하게 숨기지 않고
-   그대로 노출함 — 서류마감일을 깜빡 안 채운 건이 "오늘 할 일"에서 조용히 빠져있지 않도록. */
+   그대로 노출함 — 서류마감일을 깜빡 안 채운 건이 "오늘 할 일"에서 조용히 빠져있지 않도록.
+   서류마감일이 공휴일과 겹치는 건도 feedDueSoon(ETD)과 동일하게 마지막 영업일 기준으로 앞당김. */
 function feedDocCls(){
   var out=[];
   activeShipments().forEach(function(s){
@@ -820,8 +870,9 @@ function feedDocCls(){
     var chk=s.checklist||{};
     relevantItems(s).forEach(function(it){
       if(!it.anchor || it.anchor!=='DOC CLS' || chk[it.key]) return;
-      var field = ANCHOR_FIELD[it.anchor]; var dd = getDday(s[field]);
-      if(dd===null || dd<=0) out.push({s:s,item:it,dd:dd,field:field});
+      var field = ANCHOR_FIELD[it.anchor];
+      var info = effectiveDeadlineInfo(s[field]);
+      if(info.dd===null || info.dd<=0) out.push({s:s,item:it,dd:info.dd,field:field,holidayShift:info.shifted,holidayEffDate:info.effDate,holidayTitle:info.holidayTitle});
     });
   });
   out.sort(function(a,b){ var av=a.dd===null?9999:a.dd, bv=b.dd===null?9999:b.dd; return av-bv; });
@@ -874,9 +925,9 @@ function feedIsfTracking(){
     if(!isUsBoundShipment(s)) return;
     var chk=s.checklist||{};
     if(chk[US_ISF_ITEM_KEY]) return;
-    var dd = getDday(s.docCls);
-    if(dd!==null && dd>0) return;
-    out.push({s:s, dd:dd});
+    var info = effectiveDeadlineInfo(s.docCls);
+    if(info.dd!==null && info.dd>0) return;
+    out.push({s:s, dd:info.dd, holidayShift:info.shifted, holidayEffDate:info.effDate, holidayTitle:info.holidayTitle});
   });
   out.sort(function(a,b){ var av=a.dd===null?9999:a.dd, bv=b.dd===null?9999:b.dd; return av-bv; });
   return out;
@@ -920,12 +971,12 @@ function feedBlHolding(){
 var TYPE_LABEL = {duesoon:'출항안내', docCls:'서류마감', billing:'청구대기', door:'도착확인', dispatch:'배차', isf:'ISF'};
 function feedTodayAll(){
   var out=[];
-  feedDueSoon().forEach(function(x){ out.push({type:'duesoon', s:x.s, item:x.item, dd:x.dd, field:x.field, sortKey:(x.dd===null?9999:x.dd)}); });
-  feedDocCls().forEach(function(x){ out.push({type:'docCls', s:x.s, item:x.item, dd:x.dd, field:x.field, sortKey:(x.dd===null?9999:x.dd)}); });
+  feedDueSoon().forEach(function(x){ out.push({type:'duesoon', s:x.s, item:x.item, dd:x.dd, field:x.field, sortKey:(x.dd===null?9999:x.dd), holidayShift:x.holidayShift, holidayEffDate:x.holidayEffDate, holidayTitle:x.holidayTitle}); });
+  feedDocCls().forEach(function(x){ out.push({type:'docCls', s:x.s, item:x.item, dd:x.dd, field:x.field, sortKey:(x.dd===null?9999:x.dd), holidayShift:x.holidayShift, holidayEffDate:x.holidayEffDate, holidayTitle:x.holidayTitle}); });
   feedBilling().forEach(function(x){ out.push({type:'billing', s:x.s, item:x.item, aging:x.aging, sortKey:-(x.aging===null?-9999:x.aging)}); });
   feedDoorTracking().forEach(function(x){ out.push({type:'door', s:x.s, item:{key:'doorArrival', label:'도착 확인·정산 완료'}, dd:x.dd, sortKey:(x.dd===null?9999:x.dd)}); });
   feedDispatch().forEach(function(x){ out.push({type:'dispatch', s:x.s, item:{key:x.itemKey, label:'배차'}, dd:x.dd, field:'etd', sortKey:(x.dd===null?9999:x.dd)}); });
-  feedIsfTracking().forEach(function(x){ out.push({type:'isf', s:x.s, item:{key:US_ISF_ITEM_KEY, label:US_ISF_ITEM_LABEL}, dd:x.dd, field:'docCls', sortKey:(x.dd===null?9999:x.dd)}); });
+  feedIsfTracking().forEach(function(x){ out.push({type:'isf', s:x.s, item:{key:US_ISF_ITEM_KEY, label:US_ISF_ITEM_LABEL}, dd:x.dd, field:'docCls', sortKey:(x.dd===null?9999:x.dd), holidayShift:x.holidayShift, holidayEffDate:x.holidayEffDate, holidayTitle:x.holidayTitle}); });
   return out;
 }
 function feedToday(){
@@ -951,10 +1002,11 @@ function feedUpcoming(){
     var chk=s.checklist||{};
     relevantItems(s).forEach(function(it){
       if(!it.anchor || chk[it.key]) return;
-      var field = ANCHOR_FIELD[it.anchor]; var dd = getDday(s[field]);
-      if(dd===null || dd<=0 || dd>UPCOMING_WINDOW_DAYS) return;
+      var field = ANCHOR_FIELD[it.anchor];
+      var info = (it.anchor==='ETD' || it.anchor==='DOC CLS') ? effectiveDeadlineInfo(s[field]) : {dd:getDday(s[field]), shifted:false};
+      if(info.dd===null || info.dd<=0 || info.dd>UPCOMING_WINDOW_DAYS) return;
       var type = it.anchor==='DOC CLS' ? 'docCls' : 'duesoon';
-      out.push({type:type, s:s, item:it, dd:dd, field:field, sortKey:dd});
+      out.push({type:type, s:s, item:it, dd:info.dd, field:field, sortKey:info.dd, holidayShift:info.shifted, holidayEffDate:info.effDate, holidayTitle:info.holidayTitle});
     });
     // 도착확인(Door)도 출항안내·서류마감과 동일한 기준으로, ETA(DOOR)가 아직 D-7 이내로만
     // 다가온(아직 당일·경과는 아닌) 건을 미리 보여줌 — 당일이 되면 feedDoorTracking(01번)으로 넘어감.
@@ -965,10 +1017,11 @@ function feedUpcoming(){
       }
     }
     // ISF(미주)도 동일한 기준 — 서류마감(DOC CLS)이 아직 D-7 이내로만 다가온 건을 미리 보여줌.
+    // 서류마감이 공휴일과 겹치면 effectiveDeadlineInfo가 마지막 영업일 기준으로 당겨줌.
     if(isUsBoundShipment(s) && !chk[US_ISF_ITEM_KEY]){
-      var isfDd = getDday(s.docCls);
-      if(isfDd!==null && isfDd>0 && isfDd<=UPCOMING_WINDOW_DAYS){
-        out.push({type:'isf', s:s, item:{key:US_ISF_ITEM_KEY, label:US_ISF_ITEM_LABEL}, dd:isfDd, field:'docCls', sortKey:isfDd});
+      var isfInfo = effectiveDeadlineInfo(s.docCls);
+      if(isfInfo.dd!==null && isfInfo.dd>0 && isfInfo.dd<=UPCOMING_WINDOW_DAYS){
+        out.push({type:'isf', s:s, item:{key:US_ISF_ITEM_KEY, label:US_ISF_ITEM_LABEL}, dd:isfInfo.dd, field:'docCls', sortKey:isfInfo.dd, holidayShift:isfInfo.shifted, holidayEffDate:isfInfo.effDate, holidayTitle:isfInfo.holidayTitle});
       }
     }
   });
@@ -1157,10 +1210,13 @@ function routePillHtml(s){
     var isfDone = !!(s.checklist||{})[US_ISF_ITEM_KEY];
     isfBadge = '<span class="flag-pill '+(isfDone?'isf-done':'isf-pending')+'">ISF'+(isfDone?' 완료':'')+'</span>';
   }
-  // route-pill과 DOOR/ISF 배지를 하나의 래퍼로 감싸서 그리드 셀 1칸을 항상 유지
+  // 비엘홀딩중은 화주 확인이 끝날 때까지 통째로 대기 상태인 건이라 눈에 바로 띄도록 별도
+  // 색상(rose, 연분홍)으로 표시 — DOOR·ISF와 달리 "완료" 상태 구분 없이 YES인 동안만 표시됨.
+  var blHoldingBadge = s.blHolding ? '<span class="flag-pill bl-holding">비엘홀딩</span>' : '';
+  // route-pill과 DOOR/ISF/비엘홀딩 배지를 하나의 래퍼로 감싸서 그리드 셀 1칸을 항상 유지
   // (감싸지 않으면 배지가 붙는 건은 자식 요소가 더 생겨 이후 열들이 한 칸씩 밀림)
   return '<span class="route-pill-wrap">'+
-    '<span class="route-pill'+(lcl?' lcl':'')+'">'+escapeHtml((ROUTES[s.routeType]||{}).label||'-')+(s.billingOnly?' · 청구전용':'')+'</span>'+doorBadge+isfBadge+
+    '<span class="route-pill'+(lcl?' lcl':'')+'">'+escapeHtml((ROUTES[s.routeType]||{}).label||'-')+(s.billingOnly?' · 청구전용':'')+'</span>'+doorBadge+isfBadge+blHoldingBadge+
     '</span>';
 }
 function selectCbHtml(sectionId, id, itemKey){
@@ -1313,7 +1369,7 @@ function todayTable(list, sectionId){
       '<span class="bl-cell mono" title="'+escapeHtml(s.mbl||'')+'">'+escapeHtml(s.mbl||'-')+'</span>'+
       '<span class="mgr" title="'+escapeHtml(s.pod||'')+'">'+escapeHtml(s.pod||'-')+'</span>'+
       '<span class="type-tag '+x.type+'">'+TYPE_LABEL[x.type]+'</span>'+
-      '<span class="item-label">'+escapeHtml(it.label)+(it.billing?'<span class="billing-tag">청구</span>':'')+'</span>'+
+      '<span class="item-label">'+escapeHtml(it.label)+(it.billing?'<span class="billing-tag">청구</span>':'')+holidayTagHtml(x)+'</span>'+
       '<span class="date-badge-cell">'+(d?('<span class="mono">'+d.date+(d.time?(' '+d.time):'')+'</span>'):'')+badge+'</span>'+
       '<button class="edit-btn" data-act="editnote" data-id="'+escapeHtml(s.id)+'" title="비고 입력·수정"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M11 2l3 3-8 8-3.5.5.5-3.5z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg></button>'+
       '</div>';
@@ -1359,7 +1415,7 @@ function upcomingTable(list, sectionId){
       '<span class="bl-cell mono" title="'+escapeHtml(s.mbl||'')+'">'+escapeHtml(s.mbl||'-')+'</span>'+
       '<span class="mgr" title="'+escapeHtml(s.pod||'')+'">'+escapeHtml(s.pod||'-')+'</span>'+
       '<span class="type-tag '+x.type+'">'+TYPE_LABEL[x.type]+'</span>'+
-      '<span class="item-label">'+escapeHtml(it.label)+(it.billing?'<span class="billing-tag">청구</span>':'')+'</span>'+
+      '<span class="item-label">'+escapeHtml(it.label)+(it.billing?'<span class="billing-tag">청구</span>':'')+holidayTagHtml(x)+'</span>'+
       '<span class="date-badge-cell">'+(d?('<span class="mono">'+d.date+(d.time?(' '+d.time):'')+'</span>'):'')+badge+'</span>'+
       '<button class="edit-btn" data-act="editnote" data-id="'+escapeHtml(s.id)+'" title="비고 입력·수정"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M11 2l3 3-8 8-3.5.5.5-3.5z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg></button>'+
       '</div>';
@@ -2295,6 +2351,7 @@ async function refreshFromServer(silent, retryCount){
     if(json.myClients) myClientCodes = json.myClients;
     applyItemLabelOverrides(json.labelOverrides||[]);
     bookingHolds = json.bookingHolds||[];
+    applyHolidays_(json.holidays||[]);
     document.getElementById('syncDot').className='sync-dot live';
     document.getElementById('syncLabel').textContent='연결됨 · '+allShipments.length+'건 · 약 '+Math.round(POLL_MS/1000)+'초마다 갱신';
     // 부킹확인중 메모를 한창 입력 중일 때 백그라운드 자동 갱신이 편집기 DOM을 통째로
