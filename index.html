@@ -645,7 +645,10 @@ function dispatchItemKeyFor(routeType){ return routeType==='AIR_IMP' ? 'impBaech
 /* "미주"(ISF 대상) 판정 — DOOR/배차/비엘홀딩처럼 사람이 직접 YES/NO를 지정하는 게 아니라,
    루틴(해상수출·항공수출)과 POD(도착지) 값만으로 자동 판정함. ISF(10+2)는 미국행 수출 건에만
    해당하므로 적용 루틴을 해상수출·항공수출로 한정하고, POD의 마지막 콤마 구분 항목이 미국을
-   가리키면(예: "LOS ANGELES, USA") 자동으로 ISF 추적 대상이 됨. */
+   가리키면(예: "LOS ANGELES, USA") 자동으로 ISF 추적 대상이 됨.
+   단, 관리번호가 "-X01"·"-X02"처럼 끝나는 이월·분할 청구 전용 건(billingOnly)은 월마감 이후
+   추가청구만을 위해 새로 생성된 작업번호라 배차와 마찬가지로 ISF 추적 대상에서 제외함 —
+   도착확인(doorEligible)·청구대기(billing 항목)는 billingOnly와 무관하게 그대로 추적됨. */
 var US_BOUND_ROUTES = ['SEA_EXP_FCL','SEA_EXP_LCL','AIR_EXP'];
 function isUsBoundRoute(rt){ return US_BOUND_ROUTES.indexOf(rt)>=0; }
 function isUsPod(pod){
@@ -655,7 +658,7 @@ function isUsPod(pod){
   var country = parts[parts.length-1].trim().toUpperCase().replace(/\./g,'');
   return country==='USA' || country==='US' || country==='UNITED STATES' || country==='UNITED STATES OF AMERICA';
 }
-function isUsBoundShipment(s){ return isUsBoundRoute(s.routeType) && isUsPod(s.pod); }
+function isUsBoundShipment(s){ return isUsBoundRoute(s.routeType) && isUsPod(s.pod) && !s.billingOnly; }
 var US_ISF_ITEM_KEY = 'isfFiling';
 var US_ISF_ITEM_LABEL = 'ISF 신고 완료';
 
@@ -861,8 +864,9 @@ function feedDoorTracking(){
   return out;
 }
 /* "미주"(ISF 대상, isUsBoundShipment) 건 중 ISF 신고가 아직 완료되지 않은 건만 모음 —
-   DOOR 추적과 동일한 구조이되, ISF는 선적(출항) 전 신고이므로 ETA(DOOR)가 아닌 ETD를 기준으로
-   함. ETD 자체가 없는 건은 안전하게 그대로 노출함. */
+   DOOR 추적과 동일한 구조이되, ISF는 출항 24시간 전까지는 신고가 끝나 있어야 하므로 ETD가 아닌
+   서류마감(DOC CLS)을 기준으로 함 — 서류마감이 보통 출항 며칠 전으로 잡혀 있어 실제 신고
+   준비·마감 일정과 더 맞음. DOC CLS 자체가 없는 건은 안전하게 그대로 노출함. */
 function feedIsfTracking(){
   var out=[];
   activeShipments().forEach(function(s){
@@ -870,7 +874,7 @@ function feedIsfTracking(){
     if(!isUsBoundShipment(s)) return;
     var chk=s.checklist||{};
     if(chk[US_ISF_ITEM_KEY]) return;
-    var dd = getDday(s.etd);
+    var dd = getDday(s.docCls);
     if(dd!==null && dd>0) return;
     out.push({s:s, dd:dd});
   });
@@ -921,7 +925,7 @@ function feedTodayAll(){
   feedBilling().forEach(function(x){ out.push({type:'billing', s:x.s, item:x.item, aging:x.aging, sortKey:-(x.aging===null?-9999:x.aging)}); });
   feedDoorTracking().forEach(function(x){ out.push({type:'door', s:x.s, item:{key:'doorArrival', label:'도착 확인·정산 완료'}, dd:x.dd, sortKey:(x.dd===null?9999:x.dd)}); });
   feedDispatch().forEach(function(x){ out.push({type:'dispatch', s:x.s, item:{key:x.itemKey, label:'배차'}, dd:x.dd, field:'etd', sortKey:(x.dd===null?9999:x.dd)}); });
-  feedIsfTracking().forEach(function(x){ out.push({type:'isf', s:x.s, item:{key:US_ISF_ITEM_KEY, label:US_ISF_ITEM_LABEL}, dd:x.dd, field:'etd', sortKey:(x.dd===null?9999:x.dd)}); });
+  feedIsfTracking().forEach(function(x){ out.push({type:'isf', s:x.s, item:{key:US_ISF_ITEM_KEY, label:US_ISF_ITEM_LABEL}, dd:x.dd, field:'docCls', sortKey:(x.dd===null?9999:x.dd)}); });
   return out;
 }
 function feedToday(){
@@ -960,11 +964,11 @@ function feedUpcoming(){
         out.push({type:'door', s:s, item:{key:'doorArrival', label:'도착 확인·정산 완료'}, dd:doorDd, field:'etaDoor', sortKey:doorDd});
       }
     }
-    // ISF(미주)도 동일한 기준 — ETD가 아직 D-7 이내로만 다가온 건을 미리 보여줌.
+    // ISF(미주)도 동일한 기준 — 서류마감(DOC CLS)이 아직 D-7 이내로만 다가온 건을 미리 보여줌.
     if(isUsBoundShipment(s) && !chk[US_ISF_ITEM_KEY]){
-      var isfDd = getDday(s.etd);
+      var isfDd = getDday(s.docCls);
       if(isfDd!==null && isfDd>0 && isfDd<=UPCOMING_WINDOW_DAYS){
-        out.push({type:'isf', s:s, item:{key:US_ISF_ITEM_KEY, label:US_ISF_ITEM_LABEL}, dd:isfDd, field:'etd', sortKey:isfDd});
+        out.push({type:'isf', s:s, item:{key:US_ISF_ITEM_KEY, label:US_ISF_ITEM_LABEL}, dd:isfDd, field:'docCls', sortKey:isfDd});
       }
     }
   });
@@ -1264,8 +1268,13 @@ var TODAY_SORT_GETTERS = {
   etd: function(x){ var f = x.field ? x.s[x.field] : (x.type==='door'?x.s.etaDoor:x.s.etd); return toDate(f); }
 };
 /* "오늘 할 일"/"앞으로 N일 내" 표의 맨 오른쪽 날짜 열 헤더 라벨 — 도착확인(door)만 필터링해서
-   볼 때는 실제로 표시되는 날짜가 ETD가 아니라 ETA(DOOR)이므로 헤더도 그에 맞게 바꿔줌. */
-function todayDateColLabel(){ return activeType==='door' ? 'ETA' : 'ETD'; }
+   볼 때는 실제로 표시되는 날짜가 ETD가 아니라 ETA(DOOR)이고, ISF(isf)만 필터링해서 볼 때는
+   서류마감(DOC CLS) 기준이므로 헤더도 그에 맞게 바꿔줌. */
+function todayDateColLabel(){
+  if(activeType==='door') return 'ETA';
+  if(activeType==='isf') return 'DOC CLS';
+  return 'ETD';
+}
 function todayHeadHtml(){
   return '<div class="trow today head">'+
     '<span></span><span></span>'+
@@ -2447,7 +2456,8 @@ function refreshIsfArea(){
   var rt = document.getElementById('fld_routeType').value;
   var podEl = document.querySelector('#modalContent [data-k="pod"]');
   var pod = podEl ? podEl.value : '';
-  var usBound = isUsBoundRoute(rt) && isUsPod(pod);
+  var billingOnly = document.getElementById('fld_billingOnly').checked;
+  var usBound = isUsBoundRoute(rt) && isUsPod(pod) && !billingOnly;
   var s = editingId ? (byId[editingId]||{}) : {};
   document.getElementById('isfArea').innerHTML = isfAreaHtml(usBound, s.checklist);
 }
@@ -2531,7 +2541,7 @@ function openModal(id){
   document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
   document.getElementById('saveBtn').addEventListener('click', saveModal);
   document.getElementById('fld_routeType').addEventListener('change', onRouteTypeChange);
-  document.getElementById('fld_billingOnly').addEventListener('change', refreshModalChecklist);
+  document.getElementById('fld_billingOnly').addEventListener('change', function(){ refreshModalChecklist(); refreshIsfArea(); });
   document.getElementById('fld_doorEligible').addEventListener('change', refreshDoorArea);
   document.getElementById('fld_dispatchNeeded').addEventListener('change', refreshDispatchArea);
   document.getElementById('fld_blHolding').addEventListener('change', refreshBlHoldingArea);
