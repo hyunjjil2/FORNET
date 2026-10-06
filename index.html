@@ -729,6 +729,7 @@ function selKey(id,itemKey){ return id+'::'+itemKey; }
 function getSel(sectionId){ if(!selection[sectionId]) selection[sectionId]={}; return selection[sectionId]; }
 function selCount(sectionId){ return Object.keys(getSel(sectionId)).length; }
 var myClientCodes = [];  // 서버(설정 시트)에서 불러온 "내 거래처 코드" 목록
+var dispatchClientCodes = [];  // "내 거래처 관리"에서 배차에 체크한 화주 코드 — 엑셀 업로드 신규 건에 배차필요=YES가 자동으로 걸림(서버 upsertMany_에서 처리)
 function loadMyOnlyPref(){ try{ var v = localStorage.getItem('fw_myClientsOnly'); return v===null ? true : v==='1'; }catch(e){ return true; } }
 function saveMyOnlyPref(v){ try{ localStorage.setItem('fw_myClientsOnly', v?'1':'0'); }catch(e){} }
 var showMyClientsOnly = loadMyOnlyPref();
@@ -2504,6 +2505,7 @@ async function refreshFromServer(silent, retryCount){
     byId = {}; allShipments.forEach(function(s){ byId[s.id]=s; });
     reapplyPendingWrites(); // 저장 확정 전인 낙관적 체크 상태는 새로고침으로 덮어쓰지 않음
     if(json.myClients) myClientCodes = json.myClients;
+    if(json.dispatchClients) dispatchClientCodes = json.dispatchClients;
     applyItemLabelOverrides(json.labelOverrides||[]);
     bookingHolds = mergeBookingHolds_(json.bookingHolds||[]);
     applyHolidays_(json.holidays||[]);
@@ -2997,25 +2999,35 @@ function collectKnownClients(){
 function openMyClientsModal(){
   editingId = null;
   var known = collectKnownClients();
-  var extra = myClientCodes.filter(function(c){ return !known.some(function(k){return k.code===c;}); }).map(function(c){ return {code:c, name:''}; });
+  var extra = myClientCodes.concat(dispatchClientCodes).filter(function(c, i, arr){ return arr.indexOf(c)===i && !known.some(function(k){return k.code===c;}); }).map(function(c){ return {code:c, name:''}; });
   var allRows = known.concat(extra);
   var workingSet = {}; myClientCodes.forEach(function(c){ workingSet[c]=true; });
+  var dispatchSet = {}; dispatchClientCodes.forEach(function(c){ dispatchSet[c]=true; });
 
   function renderRows(filterQ){
     var q=(filterQ||'').trim().toLowerCase();
     var rows = q ? allRows.filter(function(r){ return String(r.code||'').toLowerCase().indexOf(q)>=0 || String(r.name||'').toLowerCase().indexOf(q)>=0; }) : allRows;
     if(rows.length===0) return '<div style="padding:14px 0;color:var(--ink-soft);font-size:12.5px;">일치하는 거래처가 없습니다.</div>';
     return rows.map(function(r){
-      return '<label class="checklist-item"><input type="checkbox" data-code="'+escapeHtml(r.code)+'" '+(workingSet[r.code]?'checked':'')+'>'+
+      return '<div class="checklist-item">'+
+        '<label style="display:flex;align-items:center;gap:9px;flex:1;min-width:0;cursor:pointer;"><input type="checkbox" data-code="'+escapeHtml(r.code)+'" '+(workingSet[r.code]?'checked':'')+'>'+
         '<span class="lbl mono" style="font-weight:600;">'+escapeHtml(r.code)+'</span>'+
-        '<span class="lbl" style="color:var(--ink-soft);margin-left:8px;">'+escapeHtml(r.name||'(대시보드에 등록된 건 없음)')+'</span></label>';
+        '<span class="lbl" style="color:var(--ink-soft);margin-left:8px;">'+escapeHtml(r.name||'(대시보드에 등록된 건 없음)')+'</span></label>'+
+        '<label style="display:flex;align-items:center;justify-content:center;width:48px;flex:none;cursor:pointer;" title="체크하면 이 화주의 신규 건에 배차 필요=YES가 자동으로 걸립니다"><input type="checkbox" data-dispatch-code="'+escapeHtml(r.code)+'" '+(dispatchSet[r.code]?'checked':'')+'></label>'+
+        '</div>';
     }).join('');
   }
-  function updateCount(){ document.getElementById('mcCount').textContent = Object.keys(workingSet).length+'개 선택됨'; }
+  function updateCount(){ document.getElementById('mcCount').textContent = Object.keys(workingSet).length+'개 선택됨 · 배차 '+Object.keys(dispatchSet).length+'개'; }
   function wireRows(){
-    document.querySelectorAll('#mcList input[type=checkbox]').forEach(function(el){
+    document.querySelectorAll('#mcList input[data-code]').forEach(function(el){
       el.addEventListener('change', function(){
         if(el.checked) workingSet[el.dataset.code]=true; else delete workingSet[el.dataset.code];
+        updateCount();
+      });
+    });
+    document.querySelectorAll('#mcList input[data-dispatch-code]').forEach(function(el){
+      el.addEventListener('change', function(){
+        if(el.checked) dispatchSet[el.dataset.dispatchCode]=true; else delete dispatchSet[el.dataset.dispatchCode];
         updateCount();
       });
     });
@@ -3025,7 +3037,9 @@ function openMyClientsModal(){
     '<div class="modal-head"><h3>내 거래처 관리</h3><button class="modal-close" id="mcCloseBtn">&times;</button></div>'+
     '<div class="modal-body">'+
     '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;">체크한 거래처 코드만 "내 거래처만 보기" 상태에서 대시보드 메인 화면(KPI·출항안내·체크리스트 현황판·청구대기·도착추적·루틴미지정)에 표시됩니다. 검색과 전체 건 목록은 항상 전체가 보입니다.</div>'+
+    '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;"><b>배차</b>에 체크한 화주는 앞으로 엑셀에서 새로 불러오는 건에 "배차 필요"가 자동으로 YES로 걸려 "오늘 할 일 > 배차"에서 추적됩니다(이미 있는 건은 바뀌지 않음, -X01 등 청구전용 건 제외).</div>'+
     '<input class="search" id="mcSearch" type="search" placeholder="거래처명·코드로 찾기" style="width:100%;margin-bottom:10px;">'+
+    '<div style="display:flex;justify-content:flex-end;font-size:11px;font-weight:700;color:var(--ink-soft);padding:0 2px 4px;"><span style="width:48px;text-align:center;">배차</span></div>'+
     '<div id="mcList" style="max-height:280px;overflow-y:auto;">'+renderRows('')+'</div>'+
     '<div style="display:flex;gap:8px;margin-top:12px;">'+
       '<input type="text" id="mcNewCode" placeholder="목록에 없는 거래처 코드 직접 추가" style="flex:1;border:1px solid var(--line-strong);border-radius:2px;padding:7px 9px;background:var(--surface);color:var(--ink);">'+
@@ -3053,9 +3067,11 @@ function openMyClientsModal(){
   document.getElementById('mcSaveBtn').addEventListener('click', async function(){
     var codes = Object.keys(workingSet);
     try{
-      await apiPost({action:'setMyClients', codes: codes});
+      var dispatchCodes = Object.keys(dispatchSet);
+      await apiPost({action:'setMyClients', codes: codes, dispatchCodes: dispatchCodes});
       myClientCodes = codes;
-      toast('내 거래처 목록을 저장했습니다 ('+codes.length+'건).');
+      dispatchClientCodes = dispatchCodes;
+      toast('내 거래처 목록을 저장했습니다 ('+codes.length+'건, 배차 거래처 '+dispatchCodes.length+'건).');
       closeModal();
       renderAll();
     }catch(e){ toast('저장 실패: '+e.message, {err:true}); }
