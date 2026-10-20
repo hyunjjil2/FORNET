@@ -445,7 +445,7 @@ details.help[open] summary:before{content:"–";}
     </div>
     <div class="top-actions">
       <span class="sync-status"><span class="sync-dot" id="syncDot"></span><span id="syncLabel">연결 중…</span></span>
-      <input class="search" id="searchInput" type="search" placeholder="FILE No · Line Booking No · HBL · MBL · 거래처 · 담당자 검색">
+      <input class="search" id="searchInput" type="search" placeholder="FILE No · Line Booking No · HBL · MBL · PO No · 비고 · 거래처 · 담당자 검색">
       <button class="btn" id="myClientsToggleBtn"></button>
       <button class="btn" id="myClientsManageBtn">내 거래처 관리</button>
       <button class="btn" id="itemLabelSettingsBtn">항목명 설정</button>
@@ -639,13 +639,13 @@ function routeItems(routeType, billingOnly){
 
 /* 프론트 <-> 시트 헤더/필드 매핑 */
 var INFO_HEADERS = ['관리번호','루틴','청구전용','캔슬','서비스','수출입','거래처코드','거래처명','담당자','POL','POD',
-  'DOC CLS','CFS CLS','ETD','ETA(PORT)','ETA(DOOR)','Door배송','Line Booking No','House B/L No','Master B/L No','선사','운송사','VESSEL','터미널','특이사항',
+  'DOC CLS','CFS CLS','ETD','ETA(PORT)','ETA(DOOR)','Door배송','Line Booking No','House B/L No','Master B/L No','PO No','선사','운송사','VESSEL','터미널','특이사항',
   '생성일시','수정일시'];
 var FIELD_TO_HEADER = {
   managementNo:'관리번호', routeType:'루틴', billingOnly:'청구전용', cancelled:'캔슬',
   service:'서비스', tradeType:'수출입', clientCode:'거래처코드', client:'거래처명', manager:'담당자', pol:'POL', pod:'POD',
   docCls:'DOC CLS', cfsCls:'CFS CLS', etd:'ETD', etaPort:'ETA(PORT)', etaDoor:'ETA(DOOR)', doorEligible:'Door배송', dispatchNeeded:'배차필요', preAlertNeeded:'프리알러트필요', blHolding:'비엘홀딩',
-  lineBookingNo:'Line Booking No', hbl:'House B/L No', mbl:'Master B/L No', carrier:'선사', forwarder:'운송사', vessel:'VESSEL', terminal:'터미널', note:'특이사항',
+  lineBookingNo:'Line Booking No', hbl:'House B/L No', mbl:'Master B/L No', poNo:'PO No', carrier:'선사', forwarder:'운송사', vessel:'VESSEL', terminal:'터미널', note:'특이사항',
   createdAt:'생성일시', updatedAt:'수정일시'
 };
 var HEADER_TO_FIELD = {}; Object.keys(FIELD_TO_HEADER).forEach(function(k){ HEADER_TO_FIELD[FIELD_TO_HEADER[k]] = k; });
@@ -708,10 +708,10 @@ var FIELD_ALIASES = {
   pol: ['POL'], pod: ['POD'], docCls: ['DOCCLS','DOC CLS','서류마감일','서류 마감일','서류마감'], cfsCls: ['CFSCLS','CFS CLS'], etd: ['ETD'],
   etaPort: ['ETA(PORT)','ETAPORT','ETA PORT','ETA'], etaDoor: ['ETA(DOOR)','ETADOOR','ETA DOOR','DELIVERY'],
   lineBookingNo: ['LINEBOOKINGNO','LINE BOOKING NO','LINE BOOKING NUMBER'],
-  hbl: ['HOUSEB/LNO','HOUSE B/L NO','HBL'], mbl: ['MASTERB/LNO','MASTER B/L NO','MBL'],
+  hbl: ['HOUSEB/LNO','HOUSE B/L NO','HBL'], mbl: ['MASTERB/LNO','MASTER B/L NO','MBL'], poNo: ['PONO','PO NO','PO 번호','PO번호','PO NUMBER'],
   carrier: ['선사'], forwarder: ['운송사'], vessel: ['VESSEL'], terminal: ['터미널'], note: ['특이사항']
 };
-var REQUIRED_HEADER_DISPLAY = ['관리번호','루틴','서비스','수출입','거래처코드','거래처명','담당자','POL','POD','DOC CLS','CFS CLS','ETD','ETA(PORT)','ETA(DOOR)','Line Booking No','House B/L No','Master B/L No','선사','운송사','VESSEL','터미널','특이사항'];
+var REQUIRED_HEADER_DISPLAY = ['관리번호','루틴','서비스','수출입','거래처코드','거래처명','담당자','POL','POD','DOC CLS','CFS CLS','ETD','ETA(PORT)','ETA(DOOR)','Line Booking No','House B/L No','Master B/L No','PO No','선사','운송사','VESSEL','터미널','특이사항'];
 function normHeader(h){ return String(h||'').trim().replace(/\s+/g,'').toUpperCase(); }
 
 /* ================= state ================= */
@@ -744,6 +744,7 @@ function selKey(id,itemKey){ return id+'::'+itemKey; }
 function getSel(sectionId){ if(!selection[sectionId]) selection[sectionId]={}; return selection[sectionId]; }
 function selCount(sectionId){ return Object.keys(getSel(sectionId)).length; }
 var myClientCodes = [];  // 서버(설정 시트)에서 불러온 "내 거래처 코드" 목록
+var poNoteClientCodes = [];   // "내 거래처 관리"에서 PO→비고에 체크한 화주 코드 — 엑셀의 PO No를 비고에 자동 입력(서버 upsertMany_에서 처리)
 var preAlertClientCodes = [];  // "내 거래처 관리"에서 PRE-ALERT에 체크한 화주 코드 — 서버가 신규·기존(미지정) 건에 프리알러트필요=YES를 걸어줌
 var dispatchClientCodes = [];  // "내 거래처 관리"에서 배차에 체크한 화주 코드 — 엑셀 업로드 신규 건에 배차필요=YES가 자동으로 걸림(서버 upsertMany_에서 처리)
 function loadMyOnlyPref(){ try{ var v = localStorage.getItem('fw_myClientsOnly'); return v===null ? true : v==='1'; }catch(e){ return true; } }
@@ -882,7 +883,9 @@ function matchesSearch(s,q){
          String(s.manager||'').toLowerCase().indexOf(q)>=0 ||
          String(s.lineBookingNo||'').toLowerCase().indexOf(q)>=0 ||
          String(s.hbl||'').toLowerCase().indexOf(q)>=0 ||
-         String(s.mbl||'').toLowerCase().indexOf(q)>=0;
+         String(s.mbl||'').toLowerCase().indexOf(q)>=0 ||
+         String(s.poNo||'').toLowerCase().indexOf(q)>=0 ||
+         String(s.note||'').toLowerCase().indexOf(q)>=0;
 }
 function searchResults(q){ if(!q) return []; return allShipments.filter(function(s){ return matchesSearch(s,q); }); }
 function activeShipments(){ return allShipments.filter(function(s){return statusOf(s)==='active';}); }
@@ -1005,23 +1008,12 @@ function feedDispatch(){
   return out;
 }
 /* "PRE-ALERT 추적"으로 지정된 건(거래처 관리에서 PRE-ALERT에 체크한 화주의 건 또는 건 상세에서 YES)만 모음.
-   PRE-ALERT는 출항(ETD) 이틀 전(PREALERT_LEAD_DAYS)까지는 끝나 있어야 하는 일이라, 그 "기한일"(ETD-2일)이 오늘이거나
-   지난 건부터 오늘 할 일에 노출함. 기한일이 공휴일·주말이면 그날은 처리할 수 없으므로 그 전 마지막 영업일을 사실상의
-   기한으로 보고 앞당겨 노출함 — 예: ETD 10/11 → 기한 10/9, 10/9가 공휴일이면 10/8에 노출.
-   ETD 값이 없으면 판단 근거가 없으므로 안전하게 그대로 노출함. 청구전용 건은 제외. */
-var PREALERT_LEAD_DAYS = 2;
-/* 기한일로부터 이 일수 이상 지난 PRE-ALERT 건은 "오늘 할 일(01)"이 아니라 별도 섹션(02)에 분리해서 보여줌 */
+   기준일(D-DAY)은 서류마감일(DOC CLS) — 서류마감 업무구분과 동일하게, 서류마감일이 오늘이거나 지난 건부터 오늘 할 일에 노출함.
+   서류마감일이 공휴일이면 그날은 처리할 수 없으므로 그 전 마지막 영업일 기준으로 앞당겨 노출(effectiveDeadlineInfo).
+   서류마감일 자체가 비어 있는 건도 숨기지 않고 그대로 노출해서 빠뜨린 입력을 알아차리게 함. 청구전용 건은 제외. */
+/* 기준일로부터 이 일수 이상 지난 PRE-ALERT 건은 "오늘 할 일(01)"이 아니라 별도 섹션(02)에 분리해서 보여줌 */
 var PREALERT_OLD_FROM_DAYS = 7;
-function preAlertDueInfo(etdVal){
-  var raw = toDate(etdVal);
-  if(!raw) return {dd:null, shifted:false};
-  var due = dayFloor(raw); due.setDate(due.getDate()-PREALERT_LEAD_DAYS);
-  var eff = new Date(due), shifted = false, why = '';
-  if(isHolidayDate(due)) why = holidayDateSet[toYmd(due)]||'공휴일'; else if(isWeekendDate(due)) why = '주말';
-  while(isWeekendDate(eff) || isHolidayDate(eff)){ eff.setDate(eff.getDate()-1); shifted = true; }
-  var dd = Math.round((eff - dayFloor(new Date()))/86400000);
-  return {dd:dd, shifted:shifted, effDate:eff, dueDate:due, holidayTitle:why};
-}
+function preAlertDueInfo(docClsVal){ return effectiveDeadlineInfo(docClsVal); }
 function feedPreAlert(){
   var out=[];
   activeShipments().forEach(function(s){
@@ -1034,9 +1026,9 @@ function feedPreAlert(){
     if(!chk[key]){ stepKey = key; stepLabel = 'PRE-ALERT 발송'; }
     else if(!chk[PREALERT_FINAL_KEY]){ stepKey = PREALERT_FINAL_KEY; stepLabel = '최종 PRE-ALERT 발송'; }
     else return;
-    var info = preAlertDueInfo(s.etd);
+    var info = preAlertDueInfo(s.docCls);
     if(info.dd!==null && info.dd>0) return;
-    out.push({s:s, dd:info.dd, itemKey:stepKey, itemLabel:stepLabel, holidayShift:info.shifted, holidayEffDate:info.effDate, holidayTitle:info.holidayTitle, dueDate:info.dueDate});
+    out.push({s:s, dd:info.dd, itemKey:stepKey, itemLabel:stepLabel, holidayShift:info.shifted, holidayEffDate:info.effDate, holidayTitle:info.holidayTitle});
   });
   out.sort(function(a,b){ var av=a.dd===null?9999:a.dd, bv=b.dd===null?9999:b.dd; return av-bv; });
   return out;
@@ -1110,7 +1102,7 @@ function feedTodayAll(){
   feedDispatch().forEach(function(x){ out.push({type:'dispatch', s:x.s, item:{key:x.itemKey, label:'배차'}, dd:x.dd, field:'docCls', sortKey:(x.dd===null?9999:x.dd)}); });
   feedBlIssue().forEach(function(x){ out.push({type:'blissue', s:x.s, item:{key:x.item.key, label:x.item.label}, dd:x.dd, field:'etd', sortKey:x.dd, holding:x.holding, old:(x.dd<=-BLISSUE_OLD_FROM_DAYS)}); });
   feedJigyeolAll().forEach(function(x){ if(x.dd===null || x.dd<=0) out.push({type:'jigyeol', s:x.s, item:{key:x.item.key, label:x.item.label}, dd:x.dd, field:'etd', sortKey:(x.dd===null?9999:x.dd)}); });
-  feedPreAlert().forEach(function(x){ out.push({type:'prealert', s:x.s, item:{key:x.itemKey, label:x.itemLabel}, dd:x.dd, field:'dueDate', sortKey:(x.dd===null?9999:x.dd), holidayShift:x.holidayShift, holidayEffDate:x.holidayEffDate, holidayTitle:x.holidayTitle, dueDate:x.dueDate, old:(x.dd!==null && x.dd<=-PREALERT_OLD_FROM_DAYS)}); });
+  feedPreAlert().forEach(function(x){ out.push({type:'prealert', s:x.s, item:{key:x.itemKey, label:x.itemLabel}, dd:x.dd, field:'docCls', sortKey:(x.dd===null?9999:x.dd), holidayShift:x.holidayShift, holidayEffDate:x.holidayEffDate, holidayTitle:x.holidayTitle, old:(x.dd!==null && x.dd<=-PREALERT_OLD_FROM_DAYS)}); });
   feedIsfTracking().forEach(function(x){ out.push({type:'isf', s:x.s, item:{key:US_ISF_ITEM_KEY, label:US_ISF_ITEM_LABEL}, dd:x.dd, field:'docCls', sortKey:(x.dd===null?9999:x.dd), holidayShift:x.holidayShift, holidayEffDate:x.holidayEffDate, holidayTitle:x.holidayTitle}); });
   return out;
 }
@@ -1171,13 +1163,13 @@ function feedRemainingAll(){
         if(dcd!==null && dcd>DISPATCH_ALERT_WINDOW_DAYS) add('dispatch', s, {key:dk, label:'배차'}, dcd, 'docCls');
       }
     }
-    // PRE-ALERT: 기한일이 아직 오지 않은 건
+    // PRE-ALERT: 서류마감일이 아직 오지 않은 건
     if(s.preAlertNeeded && !s.billingOnly){
       var pk = preAlertItemKeyFor(s.routeType), stepKey, stepLabel;
       if(!chk[pk]){ stepKey=pk; stepLabel='PRE-ALERT 발송'; } else if(!chk[PREALERT_FINAL_KEY]){ stepKey=PREALERT_FINAL_KEY; stepLabel='최종 PRE-ALERT 발송'; }
       if(stepKey){
-        var pi = preAlertDueInfo(s.etd);
-        if(pi.dd!==null && pi.dd>0) add('prealert', s, {key:stepKey, label:stepLabel}, pi.dd, 'dueDate', {holidayShift:pi.shifted, holidayEffDate:pi.effDate, holidayTitle:pi.holidayTitle, dueDate:pi.dueDate});
+        var pi = preAlertDueInfo(s.docCls);
+        if(pi.dd!==null && pi.dd>0) add('prealert', s, {key:stepKey, label:stepLabel}, pi.dd, 'docCls', {holidayShift:pi.shifted, holidayEffDate:pi.effDate, holidayTitle:pi.holidayTitle});
       }
     }
   });
@@ -1572,9 +1564,9 @@ var TODAY_SORT_GETTERS = {
   etd: function(x){ return toDate(refInfoOf(x).val); }
 };
 /* 맨 오른쪽 "기준일" 칸 — 업무구분마다 "오늘 할 일"로 뜨는 기준이 되는 날짜가 다르므로(출항안내=ETD 등,
-   서류마감·배차·ISF=DOC CLS, 도착확인=ETA, PRE-ALERT=발송기한(ETD-2일), 청구대기·비엘발행=ETD)
+   서류마감·배차·ISF=DOC CLS, 도착확인=ETA, PRE-ALERT=DOC CLS, 청구대기·비엘발행=ETD)
    어떤 날짜인지 작은 태그로 항상 함께 표시하고, 그 아래에 남은 일수(D-n)/경과 일수(n일 지남·D+n일)를 붙임. */
-var REF_KIND_LABEL = {etd:'ETD', docCls:'DOC CLS', etaPort:'ETA(PORT)', etaDoor:'ETA(DOOR)', dueDate:'발송기한'};
+var REF_KIND_LABEL = {etd:'ETD', docCls:'DOC CLS', etaPort:'ETA(PORT)', etaDoor:'ETA(DOOR)'};
 function blHoldTagHtml(x){
   if(!x || !x.holding) return '';
   var rel = !!((x.s.checklist||{})[BL_RELEASED_ITEM_KEY]);
@@ -1585,14 +1577,14 @@ function refInfoOf(x){
   if(x.type==='door'){ var e=doorEtaOf(s); return {kind: e.fromPort?'ETA(PORT)':'ETA(DOOR)', val:e.val, missing:'ETA 미입력'}; }
   if(x.type==='billing') return {kind:'ETD', val:s.etd, missing:'ETD 미입력'};
   var f = x.field || 'etd';
-  var val = f==='dueDate' ? x.dueDate : s[f];
+  var val = s[f];
   return {kind:REF_KIND_LABEL[f]||f, val:val, missing:(REF_KIND_LABEL[f]||f)+' 미입력'};
 }
 function refCellHtml(x){
   var r = refInfoOf(x);
   var d = toDate(r.val) ? fmtDate(r.val) : null;
   var kindHtml = '<span class="eta-src-tag ref-kind" style="margin-left:0;">'+escapeHtml(r.kind)+'</span>';
-  var dateHtml = d ? ('<span class="mono">'+d.date+(d.time?(' '+d.time):'')+'</span>') : '<span class="mono" style="color:var(--ink-soft);">'+escapeHtml(r.missing)+'</span>';
+  var dateHtml = d ? ('<span class="mono">'+d.date+(d.time?(' '+d.time):'')+'</span>') : '<span class="mono" style="color:var(--danger);font-weight:700;" title="기준일이 입력되지 않은 건 — 건 상세/수정에서 입력하면 D-day가 표시됨">'+escapeHtml(r.missing)+'</span>';
   var badge = (x.type==='billing' && !x.remaining) ? ddayBadge(x.aging,{aging:true}) : ddayBadge(x.dd,{plus:(x.type==='blissue')});
   return kindHtml+dateHtml+badge;
 }
@@ -1636,7 +1628,7 @@ function todayTable(list, sectionId, tableKey){
       '<span class="bl-cell mono" title="'+escapeHtml(s.mbl||'')+'">'+escapeHtml(s.mbl||'-')+'</span>'+
       '<span class="mgr" title="'+escapeHtml(s.pod||'')+'">'+escapeHtml(s.pod||'-')+'</span>'+
       '<span class="type-tag '+x.type+'">'+TYPE_LABEL[x.type]+'</span>'+
-      '<span class="item-label">'+escapeHtml(it.label)+(it.billing?'<span class="billing-tag">청구</span>':'')+(x.dueDate?'<span class="billing-tag" style="background:var(--surface-2);color:var(--ink-soft);" title="출항(ETD) '+PREALERT_LEAD_DAYS+'일 전까지 완료">기한 '+fmtDate(x.dueDate).date+'</span>':'')+holidayTagHtml(x)+blHoldTagHtml(x)+'</span>'+
+      '<span class="item-label">'+escapeHtml(it.label)+(it.billing?'<span class="billing-tag">청구</span>':'')+holidayTagHtml(x)+blHoldTagHtml(x)+'</span>'+
       '<span class="date-badge-cell">'+refCellHtml(x)+'</span>'+
       '<button class="edit-btn" data-act="editnote" data-id="'+escapeHtml(s.id)+'" title="비고 입력·수정"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M11 2l3 3-8 8-3.5.5.5-3.5z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg></button>'+
       '</div>';
@@ -1782,14 +1774,14 @@ function renderTodayTab(board, q){
   var sections=[];
   if(q){
     var results = searchResults(q);
-    sections.push({id:'sec-search', tag:'Q', title:'검색 결과', sub:'관리번호(FILE No) · Line Booking No · House B/L No · Master B/L No · 거래처 · 담당자 — 상태(완료·캔슬 포함) 전체에서 검색', color:'teal', body:searchResultTable(results), count:results.length});
+    sections.push({id:'sec-search', tag:'Q', title:'검색 결과', sub:'관리번호(FILE No) · Line Booking No · House B/L No · Master B/L No · PO No · 비고 · 거래처 · 담당자 — 상태(완료·캔슬 포함) 전체에서 검색', color:'teal', body:searchResultTable(results), count:results.length});
   }
   if(activeFilter==='ALL'){
     var unassigned=feedUnassigned().filter(function(s){return matchesSearch(s,q);});
     sections.push({id:'sec-unassigned', tag:'!', title:'루틴 미지정', sub:'업로드 시 루틴을 인식하지 못했거나, 아직 지정하지 않은 건 · "전체" 탭에서만 표시됨', color:'danger', alert:true, body:unassignedTable(unassigned), count:unassigned.length});
   }
   var today=feedToday().filter(function(x){return matchesSearch(x.s,q);});
-  var typeLbl = activeType==='ALL' ? '출항안내·청구대기·도착확인·ISF·PRE-ALERT·비엘발행·지결 통합' : TYPE_LABEL[activeType]+(activeType==='blissue' ? ' (출항 D+'+BLISSUE_AFTER_DAYS+'일 — D+'+BLISSUE_OLD_FROM_DAYS+'일 이상은 아래 별도 섹션)' : (activeType==='prealert' ? ' (기한일 당일~'+(PREALERT_OLD_FROM_DAYS-1)+'일 경과 — '+PREALERT_OLD_FROM_DAYS+'일 이상은 아래 별도 섹션)' : ''));
+  var typeLbl = activeType==='ALL' ? '출항안내·청구대기·도착확인·ISF·PRE-ALERT·비엘발행·지결 통합' : TYPE_LABEL[activeType]+(activeType==='blissue' ? ' (출항 D+'+BLISSUE_AFTER_DAYS+'일 — D+'+BLISSUE_OLD_FROM_DAYS+'일 이상은 아래 별도 섹션)' : (activeType==='prealert' ? ' (서류마감일 당일~'+(PREALERT_OLD_FROM_DAYS-1)+'일 경과 — '+PREALERT_OLD_FROM_DAYS+'일 이상은 아래 별도 섹션)' : ''));
   sections.push({id:'sec-today', tag:'01', title:'오늘 할 일', sub:typeLbl+' · 체크박스로 여러 건을 한 번에 선택해 일괄 완료 처리 가능', color:'steel', body:todayTable(today,'sec-today'), count:today.length, bulk:{items:today.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
   // 출항안내·서류마감·도착확인·ISF는 기한 전엔 "오늘 할 일"에 아예 안 보이므로, 앞으로 지정 기간
   // 내로 다가온 것만 따로 모아 미리 준비할 수 있게 보여줌 — 청구대기·배차는 원래 기한과
@@ -1804,7 +1796,7 @@ function renderTodayTab(board, q){
   function nextTag_(){ var n = sections.filter(function(x){return /^\d+$/.test(x.tag);}).length+1; return (n<10?'0':'')+n; }
   if(activeType==='ALL' || activeType==='prealert'){
     var paOld = feedPreAlertOld().filter(function(x){return matchesSearch(x.s,q);});
-    sections.push({id:'sec-prealert-old', tag:nextTag_(), title:'기한일로부터 '+PREALERT_OLD_FROM_DAYS+'일 이상 지난 건 (PRE-ALERT)', sub:'PRE-ALERT 기한일(ETD-'+PREALERT_LEAD_DAYS+'일, 공휴일·주말이면 앞당긴 날)로부터 '+PREALERT_OLD_FROM_DAYS+'일 이상 지났는데 아직 발송이 끝나지 않은 건 · 오래된 건이 맨 위', color:'rose', body:todayTable(paOld,'sec-prealert-old'), count:paOld.length, bulk:{items:paOld.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
+    sections.push({id:'sec-prealert-old', tag:nextTag_(), title:'기준일(서류마감일)로부터 '+PREALERT_OLD_FROM_DAYS+'일 이상 지난 건 (PRE-ALERT)', sub:'PRE-ALERT 기준일(서류마감일, 공휴일이면 앞당긴 날)로부터 '+PREALERT_OLD_FROM_DAYS+'일 이상 지났는데 아직 발송이 끝나지 않은 건 · 오래된 건이 맨 위', color:'rose', body:todayTable(paOld,'sec-prealert-old'), count:paOld.length, bulk:{items:paOld.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
   }
   // 비엘발행: 출항 D+1일은 위 "오늘 할 일"에, D+2일 이상 지난 건은 이 별도 섹션에 모아서 보여줌.
   if(activeType==='ALL' || activeType==='blissue'){
@@ -2034,7 +2026,7 @@ function renderChecklistTab(board, q){
   var sections=[];
   if(q){
     var results = searchResults(q);
-    sections.push({id:'sec-search', tag:'Q', title:'검색 결과', sub:'관리번호(FILE No) · Line Booking No · House B/L No · Master B/L No · 거래처 · 담당자 — 상태(완료·캔슬 포함) 전체에서 검색', color:'teal', body:searchResultTable(results), count:results.length});
+    sections.push({id:'sec-search', tag:'Q', title:'검색 결과', sub:'관리번호(FILE No) · Line Booking No · House B/L No · Master B/L No · PO No · 비고 · 거래처 · 담당자 — 상태(완료·캔슬 포함) 전체에서 검색', color:'teal', body:searchResultTable(results), count:results.length});
   }
   if(!q){
     var ckRoutes = overviewRoutesToShow();
@@ -2094,7 +2086,7 @@ function renderBlHoldingTab(board, q){
   var sections=[];
   if(q){
     var results = searchResults(q);
-    sections.push({id:'sec-search', tag:'Q', title:'검색 결과', sub:'관리번호(FILE No) · Line Booking No · House B/L No · Master B/L No · 거래처 · 담당자 — 상태(완료·캔슬 포함) 전체에서 검색', color:'teal', body:searchResultTable(results), count:results.length});
+    sections.push({id:'sec-search', tag:'Q', title:'검색 결과', sub:'관리번호(FILE No) · Line Booking No · House B/L No · Master B/L No · PO No · 비고 · 거래처 · 담당자 — 상태(완료·캔슬 포함) 전체에서 검색', color:'teal', body:searchResultTable(results), count:results.length});
   }
   if(!q){
     var list = feedBlHolding();
@@ -2752,6 +2744,7 @@ async function refreshFromServer(silent, retryCount){
     if(json.myClients) myClientCodes = json.myClients;
     if(json.dispatchClients) dispatchClientCodes = json.dispatchClients;
     if(json.preAlertClients) preAlertClientCodes = json.preAlertClients;
+    if(json.poNoteClients) poNoteClientCodes = json.poNoteClients;
     applyItemLabelOverrides(json.labelOverrides||[]);
     bookingHolds = mergeBookingHolds_(json.bookingHolds||[]);
     applyHolidays_(json.holidays||[]);
@@ -2841,6 +2834,7 @@ var INFO_FIELDS = [
   {k:'lineBookingNo', label:'Line Booking No', type:'text'},
   {k:'hbl', label:'House B/L No', type:'text'},
   {k:'mbl', label:'Master B/L No', type:'text'},
+  {k:'poNo', label:'PO No', type:'text'},
   {k:'carrier', label:'선사', type:'text'},
   {k:'forwarder', label:'운송사', type:'text'},
   {k:'vessel', label:'VESSEL', type:'text'},
@@ -3056,7 +3050,7 @@ function openModal(id){
     '<div id="dispatchArea">'+dispatchAreaHtml(defaultDispatchNeeded, s.routeType, s.checklist)+'</div>'+
     '</div>'+
     '<div class="modal-group">'+
-    '<div class="select-row"><span class="yn-label">PRE-ALERT 필요</span>'+ynSelectHtml('fld_preAlertNeeded', defaultPreAlertNeeded)+'<span style="color:var(--ink-soft);">— YES 선택 시, 출항(ETD) 2일 전(기한일이 공휴일·주말이면 그 전 영업일)부터 미완료면 "오늘 할 일 > PRE-ALERT" 목록에 표시됨</span></div>'+
+    '<div class="select-row"><span class="yn-label">PRE-ALERT 필요</span>'+ynSelectHtml('fld_preAlertNeeded', defaultPreAlertNeeded)+'<span style="color:var(--ink-soft);">— YES 선택 시, 서류마감일(DOC CLS)부터 미완료면 "오늘 할 일 > PRE-ALERT" 목록에 표시됨(서류마감일이 비어 있어도 표시)</span></div>'+
     '<div id="preAlertArea">'+preAlertAreaHtml(defaultPreAlertNeeded, s.routeType, s.checklist)+'</div>'+
     '</div>'+
     '<div class="modal-group">'+
@@ -3304,11 +3298,12 @@ function collectKnownClients(){
 function openMyClientsModal(){
   editingId = null;
   var known = collectKnownClients();
-  var extra = myClientCodes.concat(dispatchClientCodes, preAlertClientCodes).filter(function(c, i, arr){ return arr.indexOf(c)===i && !known.some(function(k){return k.code===c;}); }).map(function(c){ return {code:c, name:''}; });
+  var extra = myClientCodes.concat(dispatchClientCodes, preAlertClientCodes, poNoteClientCodes).filter(function(c, i, arr){ return arr.indexOf(c)===i && !known.some(function(k){return k.code===c;}); }).map(function(c){ return {code:c, name:''}; });
   var allRows = known.concat(extra);
   var workingSet = {}; myClientCodes.forEach(function(c){ workingSet[c]=true; });
   var dispatchSet = {}; dispatchClientCodes.forEach(function(c){ dispatchSet[c]=true; });
   var preAlertSet = {}; preAlertClientCodes.forEach(function(c){ preAlertSet[c]=true; });
+  var poNoteSet = {}; poNoteClientCodes.forEach(function(c){ poNoteSet[c]=true; });
 
   function renderRows(filterQ){
     var q=(filterQ||'').trim().toLowerCase();
@@ -3321,10 +3316,11 @@ function openMyClientsModal(){
         '<span class="lbl" style="color:var(--ink-soft);margin-left:8px;">'+escapeHtml(r.name||'(대시보드에 등록된 건 없음)')+'</span></label>'+
         '<label style="display:flex;align-items:center;justify-content:center;width:48px;flex:none;cursor:pointer;" title="체크하면 이 화주의 신규 건에 배차 필요=YES가 자동으로 걸립니다"><input type="checkbox" data-dispatch-code="'+escapeHtml(r.code)+'" '+(dispatchSet[r.code]?'checked':'')+'></label>'+
         '<label style="display:flex;align-items:center;justify-content:center;width:72px;flex:none;cursor:pointer;" title="체크하면 이 화주의 건에 PRE-ALERT 필요=YES가 자동으로 걸립니다"><input type="checkbox" data-prealert-code="'+escapeHtml(r.code)+'" '+(preAlertSet[r.code]?'checked':'')+'></label>'+
+        '<label style="display:flex;align-items:center;justify-content:center;width:72px;flex:none;cursor:pointer;" title="체크하면 이 화주 건의 엑셀 PO No가 비고(특이사항)에 자동으로 들어갑니다"><input type="checkbox" data-ponote-code="'+escapeHtml(r.code)+'" '+(poNoteSet[r.code]?'checked':'')+'></label>'+
         '</div>';
     }).join('');
   }
-  function updateCount(){ document.getElementById('mcCount').textContent = Object.keys(workingSet).length+'개 선택됨 · 배차 '+Object.keys(dispatchSet).length+'개 · PRE-ALERT '+Object.keys(preAlertSet).length+'개'; }
+  function updateCount(){ document.getElementById('mcCount').textContent = Object.keys(workingSet).length+'개 선택됨 · 배차 '+Object.keys(dispatchSet).length+'개 · PRE-ALERT '+Object.keys(preAlertSet).length+'개 · PO→비고 '+Object.keys(poNoteSet).length+'개'; }
   function wireRows(){
     document.querySelectorAll('#mcList input[data-code]').forEach(function(el){
       el.addEventListener('change', function(){
@@ -3335,6 +3331,12 @@ function openMyClientsModal(){
     document.querySelectorAll('#mcList input[data-dispatch-code]').forEach(function(el){
       el.addEventListener('change', function(){
         if(el.checked) dispatchSet[el.dataset.dispatchCode]=true; else delete dispatchSet[el.dataset.dispatchCode];
+        updateCount();
+      });
+    });
+    document.querySelectorAll('#mcList input[data-ponote-code]').forEach(function(el){
+      el.addEventListener('change', function(){
+        if(el.checked) poNoteSet[el.dataset.ponoteCode]=true; else delete poNoteSet[el.dataset.ponoteCode];
         updateCount();
       });
     });
@@ -3351,9 +3353,10 @@ function openMyClientsModal(){
     '<div class="modal-body">'+
     '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;">체크한 거래처 코드만 "내 거래처만 보기" 상태에서 대시보드 메인 화면(KPI·출항안내·체크리스트 현황판·청구대기·도착추적·루틴미지정)에 표시됩니다. 검색과 전체 건 목록은 항상 전체가 보입니다.</div>'+
     '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;"><b>배차</b>에 체크한 화주는 앞으로 엑셀에서 새로 불러오는 건에 "배차 필요"가 자동으로 YES로 걸려 "오늘 할 일 > 배차"에서 추적됩니다(이미 있는 건 중 값이 비어 있는 건도 함께 적용, 직접 NO로 둔 건·이미 출항한 건·-X01 등 청구전용 건 제외).</div>'+
-    '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;"><b>PRE-ALERT</b>도 같은 방식입니다 — 체크한 화주의 건만 "오늘 할 일 > PRE-ALERT"에서 출항(ETD) 2일 전(기한일이 공휴일·주말이면 그 전 영업일)부터 추적됩니다.</div>'+
+    '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;"><b>PRE-ALERT</b>도 같은 방식입니다 — 체크한 화주의 건만 "오늘 할 일 > PRE-ALERT"에서 서류마감일(DOC CLS)부터 추적됩니다(서류마감일이 비어 있는 건도 표시).</div>'+
+    '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;"><b>PO→비고</b>에 체크한 화주는 엑셀의 <b>PO No</b>(예: 풍산의 INV 번호)가 비고(특이사항)에 자동으로 들어가고, 검색에서도 찾아집니다. 비고에 이미 다른 메모가 있으면 지우지 않고 뒤에 덧붙입니다.</div>'+
     '<input class="search" id="mcSearch" type="search" placeholder="거래처명·코드로 찾기" style="width:100%;margin-bottom:10px;">'+
-    '<div style="display:flex;justify-content:flex-end;font-size:11px;font-weight:700;color:var(--ink-soft);padding:0 2px 4px;"><span style="width:48px;text-align:center;">배차</span><span style="width:72px;text-align:center;white-space:nowrap;">PRE-ALERT</span></div>'+
+    '<div style="display:flex;justify-content:flex-end;font-size:11px;font-weight:700;color:var(--ink-soft);padding:0 2px 4px;"><span style="width:48px;text-align:center;">배차</span><span style="width:72px;text-align:center;white-space:nowrap;">PRE-ALERT</span><span style="width:72px;text-align:center;white-space:nowrap;">PO→비고</span></div>'+
     '<div id="mcList" style="max-height:280px;overflow-y:auto;">'+renderRows('')+'</div>'+
     '<div style="display:flex;gap:8px;margin-top:12px;">'+
       '<input type="text" id="mcNewCode" placeholder="목록에 없는 거래처 코드 직접 추가" style="flex:1;border:1px solid var(--line-strong);border-radius:2px;padding:7px 9px;background:var(--surface);color:var(--ink);">'+
@@ -3383,11 +3386,13 @@ function openMyClientsModal(){
     try{
       var dispatchCodes = Object.keys(dispatchSet);
       var preAlertCodes = Object.keys(preAlertSet);
-      await apiPost({action:'setMyClients', codes: codes, dispatchCodes: dispatchCodes, preAlertCodes: preAlertCodes});
+      var poNoteCodes = Object.keys(poNoteSet);
+      await apiPost({action:'setMyClients', codes: codes, dispatchCodes: dispatchCodes, preAlertCodes: preAlertCodes, poNoteCodes: poNoteCodes});
       myClientCodes = codes;
       dispatchClientCodes = dispatchCodes;
       preAlertClientCodes = preAlertCodes;
-      toast('내 거래처 목록을 저장했습니다 ('+codes.length+'건, 배차 '+dispatchCodes.length+'건, PRE-ALERT '+preAlertCodes.length+'건).');
+      poNoteClientCodes = poNoteCodes;
+      toast('내 거래처 목록을 저장했습니다 ('+codes.length+'건, 배차 '+dispatchCodes.length+'건, PRE-ALERT '+preAlertCodes.length+'건, PO→비고 '+poNoteCodes.length+'건).');
       closeModal();
       renderAll();
     }catch(e){ toast('저장 실패: '+e.message, {err:true}); }
