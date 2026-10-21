@@ -114,7 +114,15 @@ img{max-width:100%;}
 }
 .search::placeholder{color:var(--ink-soft);}
 
-.chip-row{display:flex; flex-wrap:wrap; gap:7px; margin-bottom:22px;}
+.chip-row{display:flex; flex-wrap:wrap; gap:7px; margin-bottom:22px; align-items:center;}
+.client-filter{margin-left:auto; display:inline-flex; align-items:center; gap:6px; padding:3px 4px 3px 10px; border:1px solid var(--line); border-radius:16px; background:var(--surface);}
+.client-filter label{font-size:11.5px; font-weight:700; color:var(--ink-soft); letter-spacing:.3px;}
+.client-filter input{border:none; background:transparent; font:inherit; font-size:13px; color:var(--ink); width:190px; padding:4px 2px; outline:none;}
+.client-filter:focus-within{border-color:var(--steel);}
+.client-filter.on{border-color:var(--brass); background:var(--brass-soft);}
+.client-filter.on label{color:var(--brass);}
+.client-filter button{font:inherit; font-size:11.5px; border:none; background:var(--ink); color:var(--surface); border-radius:12px; padding:4px 9px; cursor:pointer;}
+.client-filter button[hidden]{display:none;}
 .chip{
   border:1px solid var(--line-strong); background:var(--surface); color:var(--ink-soft); border-radius:20px;
   padding:6px 13px; font-size:12px; font-weight:600;
@@ -537,6 +545,7 @@ var ROUTES = {
   SEA_EXP_FCL: {label:'해상수출 FCL', items:[
     {key:'myeonjang', label:'면장'},
     {key:'docCls', label:'서류마감', anchor:'DOC CLS'},
+    {key:'chkBl', label:'CHK BL'},
     {key:'jigyeol', label:'지결'},
     {key:'ichejeung', label:'이체증'},
     {key:'chulhang', label:'출항', anchor:'ETD'},
@@ -546,6 +555,7 @@ var ROUTES = {
   SEA_EXP_LCL: {label:'해상수출 LCL', items:[
     {key:'myeonjang', label:'면장'},
     {key:'docCls', label:'서류마감', anchor:'DOC CLS'},
+    {key:'chkBl', label:'CHK BL'},
     {key:'jigyeol', label:'지결'},
     {key:'chulhang', label:'출항', anchor:'ETD'},
     {key:'blIssue', label:'비엘발행'},
@@ -762,7 +772,21 @@ var dispatchClientCodes = [];  // "내 거래처 관리"에서 배차에 체크�
 function loadMyOnlyPref(){ try{ var v = localStorage.getItem('fw_myClientsOnly'); return v===null ? true : v==='1'; }catch(e){ return true; } }
 function saveMyOnlyPref(v){ try{ localStorage.setItem('fw_myClientsOnly', v?'1':'0'); }catch(e){} }
 var showMyClientsOnly = loadMyOnlyPref();
+/* 거래처 필터 — 루틴 단추 옆 입력칸에 쓴 글자(예: 풍산)가 거래처명·거래처코드에 들어간 건만 보여줌.
+   matchesMyClients 안에서 함께 검사하므로 오늘 할 일(모든 업무구분 단추·01/02/03), 체크리스트 보드, 비엘홀딩중 탭,
+   KPI·단추 숫자까지 한꺼번에 같은 기준으로 걸러짐. 띄어쓰기·대소문자는 무시. 새로고침하면 해제됨(저장 안 함 —
+   필터를 잊은 채로 다른 거래처 건이 가려져 놓치는 일이 없도록). */
+var clientFilterText = '';
+var clientFilterKey = '';
+function normClientKey_(v){ return String(v||'').toLowerCase().replace(/\s+/g,''); }
+function setClientFilter(v){ clientFilterText = String(v||''); clientFilterKey = normClientKey_(clientFilterText); }
+function matchesClientFilter(s){
+  if(!clientFilterKey) return true;
+  return normClientKey_(s.client).indexOf(clientFilterKey)>=0 || normClientKey_(s.clientCode).indexOf(clientFilterKey)>=0;
+}
+function clientFilterNote(){ return clientFilterKey ? ' · 거래처 필터("'+clientFilterText.trim()+'") 적용 중' : ''; }
 function matchesMyClients(s){
+  if(!matchesClientFilter(s)) return false;
   if(!showMyClientsOnly) return true;
   if(!myClientCodes.length) return true; // 아직 목록을 설정하지 않았으면 필터링하지 않음
   return myClientCodes.indexOf(String(s.clientCode||'').trim())>=0;
@@ -829,6 +853,21 @@ function effectiveDeadlineInfo(val){
   var dd = Math.round((eff - dayFloor(new Date()))/86400000);
   return {dd:dd, shifted:true, effDate:eff, holidayTitle: holidayDateSet[toYmd(floored)]};
 }
+/* 영업일 기준 경과일 — 날짜(val) 다음날부터 오늘까지 "일하는 날(평일이면서 공휴일이 아닌 날)"이 며칠인지 센 값.
+   출항일이 오늘이거나 앞이면 0. 주말·공휴일은 세지 않으므로, 연휴 때문에 못 본 출항 건들이 연휴 직후 첫 출근일에도
+   "아직 1영업일째"로 계산되어 오늘 할 일(01)에 남음. (today는 테스트용으로 날짜를 직접 줄 때만 사용) */
+function bizAgingSince(val, today){
+  var d = toDate(val); if(!d) return null;
+  var from = dayFloor(d), to = dayFloor(today||new Date());
+  if(from>=to) return 0;
+  var n=0, cur=new Date(from);
+  for(var guard=0; guard<800; guard++){
+    cur.setDate(cur.getDate()+1);
+    if(cur>to) break;
+    if(!isWeekendDate(cur) && !isHolidayDate(cur)) n++;
+  }
+  return n;
+}
 function fmtDate(val){
   var d = toDate(val); if(!d) return {date:'—', time:''};
   var mm=d.getMonth()+1, dd=d.getDate();
@@ -866,10 +905,10 @@ function relevantItems(s){ return routeItems(s.routeType, !!s.billingOnly); }
 /* ===== 서류마감 묶음 — 서류마감 업무구분에서는 "면장 + 서류마감(+ CHK BL)"을 한 묶음으로 보고,
    묶음 안의 항목이 전부 체크되어야 "오늘 할 일 > 서류마감"에서 빠짐(PRE-ALERT 2단계와 같은 취지, 단 순서는 자유).
    항목 자체는 체크리스트에 그대로 각각 남아 있고(체크리스트 보드·상세 창은 그대로), 서류마감 목록에서만 묶어서 판단함.
-   해당 루틴: 해상수출 FCL/LCL(면장·서류마감), 항공수출(면장·서류마감·CHK BL). 수입 루틴은 묶지 않음. */
+   해당 루틴: 해상수출 FCL/LCL·항공수출(모두 면장·서류마감·CHK BL). 수입 루틴은 묶지 않음. */
 var DOC_GROUP_KEYS = {
-  SEA_EXP_FCL:['myeonjang','docCls'],
-  SEA_EXP_LCL:['myeonjang','docCls'],
+  SEA_EXP_FCL:['myeonjang','docCls','chkBl'],
+  SEA_EXP_LCL:['myeonjang','docCls','chkBl'],
   AIR_EXP:['myeonjang','airDocCls','chkBl']
 };
 function docGroupOf(s){
@@ -925,7 +964,7 @@ function matchesSearch(s,q){
          String(s.poNo||'').toLowerCase().indexOf(q)>=0 ||
          String(s.note||'').toLowerCase().indexOf(q)>=0;
 }
-function searchResults(q){ if(!q) return []; return allShipments.filter(function(s){ return matchesSearch(s,q); }); }
+function searchResults(q){ if(!q) return []; return allShipments.filter(function(s){ return matchesClientFilter(s) && matchesSearch(s,q); }); }
 function activeShipments(){ return allShipments.filter(function(s){return statusOf(s)==='active';}); }
 function feedUnassigned(){ return allShipments.filter(function(s){return statusOf(s)==='unassigned' && matchesMyClients(s);}); }
 function feedDueSoon(){
@@ -1076,9 +1115,11 @@ function feedPreAlert(){
    (2) 비엘 홀딩중 건: 홀딩 YES로 저장하면 "비엘발행"은 자동 완료 처리되지만 실제로는 아직 화주 확인 대기 상태이므로,
        "최종 비엘 발행 완료"가 체크될 때까지 계속 노출하고 목록에서 "비엘홀딩중"으로 바로 알아볼 수 있게 표시함.
    ETD 값이 없으면 지났는지 알 수 없으므로 노출하지 않음. 청구전용·캔슬 건은 제외.
-   D+1(dd=-1)은 "오늘 할 일(01)"에, D+2 이상(dd<=-2)은 별도 섹션에 분리해서 보여줌(BLISSUE_OLD_FROM_DAYS). */
-var BLISSUE_AFTER_DAYS = 1;
-var BLISSUE_OLD_FROM_DAYS = 2;
+   출항일 당일(D-DAY)~D+2는 "오늘 할 일(01)"에, D+3 이상은 별도 섹션(02)에 분리해서 보여줌(BLISSUE_OLD_FROM_DAYS).
+   경과일은 달력일이 아니라 "영업일"(주말·공휴일 제외, bizAgingSince)로 셈 — 연휴·주말 때문에 못 본 건이 연휴 직후
+   첫 출근일에 바로 02로 밀리지 않고 01에 남아서 놓치지 않게 함. */
+var BLISSUE_AFTER_DAYS = 0;
+var BLISSUE_OLD_FROM_DAYS = 3;
 function feedBlIssue(){
   var out=[];
   activeShipments().forEach(function(s){
@@ -1087,14 +1128,15 @@ function feedBlIssue(){
     var chk = s.checklist||{};
     var dd = getDday(s.etd);
     if(dd===null || dd > -BLISSUE_AFTER_DAYS) return;
+    var biz = bizAgingSince(s.etd);
     if(s.blHolding){
       if(chk[BL_HOLDING_FINAL_ITEM_KEY]) return;
-      out.push({s:s, dd:dd, item:{key:BL_HOLDING_FINAL_ITEM_KEY, label:BL_HOLDING_FINAL_ITEM_LABEL}, holding:true});
+      out.push({s:s, dd:dd, biz:biz, item:{key:BL_HOLDING_FINAL_ITEM_KEY, label:BL_HOLDING_FINAL_ITEM_LABEL}, holding:true});
       return;
     }
     var it = relevantItems(s).filter(function(x){ return x.key==='blIssue'; })[0];
     if(!it || chk.blIssue) return;
-    out.push({s:s, dd:dd, item:it, holding:false});
+    out.push({s:s, dd:dd, biz:biz, item:it, holding:false});
   });
   out.sort(function(a,b){ return a.dd-b.dd; });
   return out;
@@ -1107,6 +1149,8 @@ function feedBlHolding(){
   activeShipments().forEach(function(s){
     if(!matchesFilter(s) || !matchesMyClients(s)) return;
     if(!s.blHolding) return;
+    // 홀딩하다가 최종 비엘 발행까지 끝난 건은 더 이상 홀딩 상태가 아니므로 이 탭에서 뺌(체크를 되돌리면 다시 나타남)
+    if((s.checklist||{})[BL_HOLDING_FINAL_ITEM_KEY]) return;
     out.push({s:s});
   });
   out.sort(function(a,b){ var ad=toDate(a.s.etd), bd=toDate(b.s.etd); if(!ad&&!bd) return 0; if(!ad) return 1; if(!bd) return -1; return ad-bd; });
@@ -1138,7 +1182,7 @@ function feedTodayAll(){
   feedBilling().forEach(function(x){ out.push({type:'billing', s:x.s, item:x.item, aging:x.aging, sortKey:-(x.aging===null?-9999:x.aging)}); });
   feedDoorTracking().forEach(function(x){ out.push({type:'door', s:x.s, item:{key:'doorArrival', label:'도착 확인·정산 완료'}, dd:x.dd, sortKey:(x.dd===null?9999:x.dd)}); });
   feedDispatch().forEach(function(x){ out.push({type:'dispatch', s:x.s, item:{key:x.itemKey, label:'배차'}, dd:x.dd, field:'docCls', sortKey:(x.dd===null?9999:x.dd)}); });
-  feedBlIssue().forEach(function(x){ out.push({type:'blissue', s:x.s, item:{key:x.item.key, label:x.item.label}, dd:x.dd, field:'etd', sortKey:x.dd, holding:x.holding, old:(x.dd<=-BLISSUE_OLD_FROM_DAYS)}); });
+  feedBlIssue().forEach(function(x){ out.push({type:'blissue', s:x.s, item:{key:x.item.key, label:x.item.label}, dd:x.dd, biz:x.biz, field:'etd', sortKey:x.dd, holding:x.holding, old:(x.biz>=BLISSUE_OLD_FROM_DAYS)}); });
   feedJigyeolAll().forEach(function(x){ if(x.dd===null || x.dd<=0) out.push({type:'jigyeol', s:x.s, item:{key:x.item.key, label:x.item.label}, dd:x.dd, field:'etd', sortKey:(x.dd===null?9999:x.dd)}); });
   feedPreAlert().forEach(function(x){ out.push({type:'prealert', s:x.s, item:{key:x.itemKey, label:x.itemLabel}, dd:x.dd, field:'docCls', sortKey:(x.dd===null?9999:x.dd), holidayShift:x.holidayShift, holidayEffDate:x.holidayEffDate, holidayTitle:x.holidayTitle, old:(x.dd!==null && x.dd<=-PREALERT_OLD_FROM_DAYS)}); });
   feedIsfTracking().forEach(function(x){ out.push({type:'isf', s:x.s, item:{key:US_ISF_ITEM_KEY, label:US_ISF_ITEM_LABEL}, dd:x.dd, field:'docCls', sortKey:(x.dd===null?9999:x.dd), holidayShift:x.holidayShift, holidayEffDate:x.holidayEffDate, holidayTitle:x.holidayTitle}); });
@@ -1294,10 +1338,43 @@ function renderChips(){
   var chips=[{key:'ALL',label:'전체'}].concat(ROUTE_ORDER.map(function(k){return {key:k,label:ROUTES[k].label};}));
   el.innerHTML = chips.map(function(c){
     return '<button class="chip'+(activeFilter===c.key?' active':'')+'" data-chip="'+c.key+'" '+(c.disabled?'disabled':'')+'>'+c.label+'</button>';
-  }).join('');
+  }).join('')+
+    '<span class="client-filter'+(clientFilterKey?' on':'')+'">'+
+      '<label for="clientFilterInput">거래처</label>'+
+      '<input id="clientFilterInput" type="text" list="clientFilterList" autocomplete="off" placeholder="거래처 걸러보기 (예: 풍산)" value="'+escapeHtml(clientFilterText)+'">'+
+      '<button type="button" id="clientFilterClear" title="거래처 필터 해제"'+(clientFilterKey?'':' hidden')+'>&times; 해제</button>'+
+      '<datalist id="clientFilterList">'+clientNameOptionsHtml_()+'</datalist>'+
+    '</span>';
+  wireClientFilter_();
   document.querySelectorAll('[data-chip]').forEach(function(btn){
     btn.addEventListener('click', function(){ activeFilter=btn.dataset.chip; renderChips(); renderBoard(); renderKpis(); });
   });
+}
+/* 입력칸 자동완성 목록 — 지금 불러온 건들의 거래처명(중복 제거, 가나다순) */
+function clientNameOptionsHtml_(){
+  var seen = {}, names = [];
+  allShipments.forEach(function(s){ var n = String(s.client||'').trim(); if(n && !seen[n]){ seen[n]=1; names.push(n); } });
+  names.sort(function(a,b){ return a.localeCompare(b,'ko'); });
+  return names.map(function(n){ return '<option value="'+escapeHtml(n)+'"></option>'; }).join('');
+}
+var clientFilterTimer = null;
+function applyClientFilterNow_(){
+  var el = document.getElementById('clientFilterInput');
+  var box = document.querySelector('#chipRow .client-filter');
+  var clr = document.getElementById('clientFilterClear');
+  if(box) box.classList.toggle('on', !!clientFilterKey);
+  if(clr) clr.hidden = !clientFilterKey;
+  renderAll();
+}
+function wireClientFilter_(){
+  var el = document.getElementById('clientFilterInput'); if(!el) return;
+  el.addEventListener('input', function(){
+    setClientFilter(el.value);
+    if(clientFilterTimer) clearTimeout(clientFilterTimer);
+    clientFilterTimer = setTimeout(applyClientFilterNow_, 180); // 한 글자씩 칠 때마다 전체를 다시 그리지 않도록 잠깐 기다림
+  });
+  var clr = document.getElementById('clientFilterClear');
+  if(clr) clr.addEventListener('click', function(){ setClientFilter(''); el.value=''; applyClientFilterNow_(); });
 }
 var TYPE_DEFS = [
   {key:'ALL', label:'전체'},
@@ -1608,6 +1685,12 @@ var TODAY_SORT_GETTERS = {
    서류마감·배차·ISF=DOC CLS, 도착확인=ETA, PRE-ALERT=DOC CLS, 청구대기·비엘발행=ETD)
    어떤 날짜인지 작은 태그로 항상 함께 표시하고, 그 아래에 남은 일수(D-n)/경과 일수(n일 지남·D+n일)를 붙임. */
 var REF_KIND_LABEL = {etd:'ETD', docCls:'DOC CLS', etaPort:'ETA(PORT)', etaDoor:'ETA(DOOR)'};
+function blBizTagHtml(x){
+  if(!x || x.type!=='blissue' || x.biz===undefined || x.biz===null || x.dd===null || x.dd===undefined) return '';
+  var cal = -x.dd;
+  if(x.biz>=cal || cal<=0) return '';
+  return '<span class="billing-tag" style="background:var(--warn-soft);color:var(--warn);" title="주말·공휴일을 빼면 출항 후 '+x.biz+'영업일째라서(달력으로는 '+cal+'일) 오늘 할 일에 그대로 남겨둠">영업일 '+x.biz+'일째</span>';
+}
 function blHoldTagHtml(x){
   if(!x || !x.holding) return '';
   var rel = !!((x.s.checklist||{})[BL_RELEASED_ITEM_KEY]);
@@ -1710,7 +1793,7 @@ function todayTable(list, sectionId, tableKey){
       '<span class="bl-cell mono" title="'+escapeHtml(s.mbl||'')+'">'+escapeHtml(s.mbl||'-')+'</span>'+
       '<span class="mgr" title="'+escapeHtml(s.pod||'')+'">'+podCellInner(s)+'</span>'+
       '<span class="type-tag '+x.type+'">'+TYPE_LABEL[x.type]+'</span>'+
-      '<span class="item-label">'+escapeHtml(it.label)+(it.billing?'<span class="billing-tag">청구</span>':'')+holidayTagHtml(x)+blHoldTagHtml(x)+docSubHtml(x)+'</span>'+
+      '<span class="item-label">'+escapeHtml(it.label)+(it.billing?'<span class="billing-tag">청구</span>':'')+holidayTagHtml(x)+blHoldTagHtml(x)+blBizTagHtml(x)+docSubHtml(x)+'</span>'+
       (showEtaCol()?'<span class="eta-cell">'+etaSmallHtml(s)+'</span>':'')+
       '<span class="date-badge-cell">'+refCellHtml(x)+'</span>'+
       '<button class="edit-btn" data-act="editnote" data-id="'+escapeHtml(s.id)+'" title="비고 입력·수정"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M11 2l3 3-8 8-3.5.5.5-3.5z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg></button>'+
@@ -1756,7 +1839,7 @@ function upcomingTable(list, sectionId){
       '<span class="bl-cell mono" title="'+escapeHtml(s.mbl||'')+'">'+escapeHtml(s.mbl||'-')+'</span>'+
       '<span class="mgr" title="'+escapeHtml(s.pod||'')+'">'+podCellInner(s)+'</span>'+
       '<span class="type-tag '+x.type+'">'+TYPE_LABEL[x.type]+'</span>'+
-      '<span class="item-label">'+escapeHtml(it.label)+(it.billing?'<span class="billing-tag">청구</span>':'')+holidayTagHtml(x)+blHoldTagHtml(x)+docSubHtml(x)+'</span>'+
+      '<span class="item-label">'+escapeHtml(it.label)+(it.billing?'<span class="billing-tag">청구</span>':'')+holidayTagHtml(x)+blHoldTagHtml(x)+blBizTagHtml(x)+docSubHtml(x)+'</span>'+
       (showEtaCol()?'<span class="eta-cell">'+etaSmallHtml(s)+'</span>':'')+
       '<span class="date-badge-cell">'+refCellHtml(x)+'</span>'+
       '<button class="edit-btn" data-act="editnote" data-id="'+escapeHtml(s.id)+'" title="비고 입력·수정"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M11 2l3 3-8 8-3.5.5.5-3.5z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg></button>'+
@@ -1859,14 +1942,14 @@ function renderTodayTab(board, q){
   var sections=[];
   if(q){
     var results = searchResults(q);
-    sections.push({id:'sec-search', tag:'Q', title:'검색 결과', sub:'관리번호(FILE No) · Line Booking No · House B/L No · Master B/L No · PO No · 비고 · 거래처 · 담당자 — 상태(완료·캔슬 포함) 전체에서 검색', color:'teal', body:searchResultTable(results), count:results.length});
+    sections.push({id:'sec-search', tag:'Q', title:'검색 결과', sub:'관리번호(FILE No) · Line Booking No · House B/L No · Master B/L No · PO No · 비고 · 거래처 · 담당자 — 상태(완료·캔슬 포함) 전체에서 검색'+clientFilterNote(), color:'teal', body:searchResultTable(results), count:results.length});
   }
   if(activeFilter==='ALL'){
     var unassigned=feedUnassigned().filter(function(s){return matchesSearch(s,q);});
     sections.push({id:'sec-unassigned', tag:'!', title:'루틴 미지정', sub:'업로드 시 루틴을 인식하지 못했거나, 아직 지정하지 않은 건 · "전체" 탭에서만 표시됨', color:'danger', alert:true, body:unassignedTable(unassigned), count:unassigned.length});
   }
   var today=feedToday().filter(function(x){return matchesSearch(x.s,q);});
-  var typeLbl = activeType==='ALL' ? '출항안내·청구대기·도착확인·ISF·PRE-ALERT·비엘발행·지결 통합' : TYPE_LABEL[activeType]+(activeType==='blissue' ? ' (출항 D+'+BLISSUE_AFTER_DAYS+'일 — D+'+BLISSUE_OLD_FROM_DAYS+'일 이상은 아래 별도 섹션)' : (activeType==='prealert' ? ' (서류마감일 당일~'+(PREALERT_OLD_FROM_DAYS-1)+'일 경과 — '+PREALERT_OLD_FROM_DAYS+'일 이상은 아래 별도 섹션)' : ''));
+  var typeLbl = activeType==='ALL' ? '출항안내·청구대기·도착확인·ISF·PRE-ALERT·비엘발행·지결 통합' : TYPE_LABEL[activeType]+(activeType==='blissue' ? ' (출항 D-DAY~D+'+(BLISSUE_OLD_FROM_DAYS-1)+'일 — D+'+BLISSUE_OLD_FROM_DAYS+'일 이상은 아래 별도 섹션 · 주말·공휴일은 세지 않음)' : (activeType==='prealert' ? ' (서류마감일 당일~'+(PREALERT_OLD_FROM_DAYS-1)+'일 경과 — '+PREALERT_OLD_FROM_DAYS+'일 이상은 아래 별도 섹션)' : ''));
   sections.push({id:'sec-today', tag:'01', title:'오늘 할 일', sub:typeLbl+' · 체크박스로 여러 건을 한 번에 선택해 일괄 완료 처리 가능', color:'steel', body:todayTable(today,'sec-today'), count:today.length, bulk:{items:today.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
   // 출항안내·서류마감·도착확인·ISF는 기한 전엔 "오늘 할 일"에 아예 안 보이므로, 앞으로 지정 기간
   // 내로 다가온 것만 따로 모아 미리 준비할 수 있게 보여줌 — 청구대기·배차는 원래 기한과
@@ -1886,7 +1969,7 @@ function renderTodayTab(board, q){
   // 비엘발행: 출항 D+1일은 위 "오늘 할 일"에, D+2일 이상 지난 건은 이 별도 섹션에 모아서 보여줌.
   if(activeType==='ALL' || activeType==='blissue'){
     var blOld = feedBlIssueOld().filter(function(x){return matchesSearch(x.s,q);});
-    sections.push({id:'sec-blissue-old', tag:nextTag_(), title:'출항 D+'+BLISSUE_OLD_FROM_DAYS+'일 이상 지난 건 (비엘발행)', sub:'출항일(ETD)로부터 '+BLISSUE_OLD_FROM_DAYS+'일 이상 지났는데 비엘이 아직 최종 발행되지 않은 건 · 오래된 건이 맨 위 · 비엘홀딩중인 건은 "비엘홀딩중" 표시', color:'brass', body:todayTable(blOld,'sec-blissue-old'), count:blOld.length, bulk:{items:blOld.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
+    sections.push({id:'sec-blissue-old', tag:nextTag_(), title:'출항 D+'+BLISSUE_OLD_FROM_DAYS+'일 이상 지난 건 (비엘발행)', sub:'출항일(ETD)로부터 '+BLISSUE_OLD_FROM_DAYS+'일(주말·공휴일 제외 영업일 기준) 이상 지났는데 비엘이 아직 최종 발행되지 않은 건 · 오래된 건이 맨 위 · 비엘홀딩중인 건은 "비엘홀딩중" 표시', color:'brass', body:todayTable(blOld,'sec-blissue-old'), count:blOld.length, bulk:{items:blOld.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
   }
   // [03] 그 외 전체 — 01·02(및 기한 지난 건 섹션)에 해당하지 않는 모든 대기 건(기준일이 아직 많이 남은 건 등)
   var rem = feedRemaining().filter(function(x){return matchesSearch(x.s,q);});
@@ -2111,7 +2194,7 @@ function renderChecklistTab(board, q){
   var sections=[];
   if(q){
     var results = searchResults(q);
-    sections.push({id:'sec-search', tag:'Q', title:'검색 결과', sub:'관리번호(FILE No) · Line Booking No · House B/L No · Master B/L No · PO No · 비고 · 거래처 · 담당자 — 상태(완료·캔슬 포함) 전체에서 검색', color:'teal', body:searchResultTable(results), count:results.length});
+    sections.push({id:'sec-search', tag:'Q', title:'검색 결과', sub:'관리번호(FILE No) · Line Booking No · House B/L No · Master B/L No · PO No · 비고 · 거래처 · 담당자 — 상태(완료·캔슬 포함) 전체에서 검색'+clientFilterNote(), color:'teal', body:searchResultTable(results), count:results.length});
   }
   if(!q){
     var ckRoutes = overviewRoutesToShow();
@@ -2172,7 +2255,7 @@ function renderBlHoldingTab(board, q){
   var sections=[];
   if(q){
     var results = searchResults(q);
-    sections.push({id:'sec-search', tag:'Q', title:'검색 결과', sub:'관리번호(FILE No) · Line Booking No · House B/L No · Master B/L No · PO No · 비고 · 거래처 · 담당자 — 상태(완료·캔슬 포함) 전체에서 검색', color:'teal', body:searchResultTable(results), count:results.length});
+    sections.push({id:'sec-search', tag:'Q', title:'검색 결과', sub:'관리번호(FILE No) · Line Booking No · House B/L No · Master B/L No · PO No · 비고 · 거래처 · 담당자 — 상태(완료·캔슬 포함) 전체에서 검색'+clientFilterNote(), color:'teal', body:searchResultTable(results), count:results.length});
   }
   if(!q){
     var list = feedBlHolding();
@@ -2641,7 +2724,13 @@ function saveRemarkFromEditor(){
   renderAll();
 }
 
-function renderAll(){ renderMyClientsToggle(); renderKpis(); renderTabRow(); renderTypeChips(); renderBoard(); renderArchive(); renderRouteDocs(); }
+var lastClientOptsKey = '';
+function refreshClientDatalist_(){
+  var dl = document.getElementById('clientFilterList'); if(!dl) return;
+  var html = clientNameOptionsHtml_();
+  if(html!==lastClientOptsKey){ dl.innerHTML = html; lastClientOptsKey = html; }
+}
+function renderAll(){ refreshClientDatalist_(); renderMyClientsToggle(); renderKpis(); renderTabRow(); renderTypeChips(); renderBoard(); renderArchive(); renderRouteDocs(); }
 function wireBoardEvents(){
   // renderSections()와 renderArchive() 양쪽에서 호출될 수 있어, 같은 화면 갱신 주기 안에서
   // 이미 배선된 요소를 다시 배선하면 리스너가 중복으로 쌓일 수 있음 — wired 플래그로 방지.
