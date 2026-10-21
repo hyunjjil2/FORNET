@@ -191,6 +191,12 @@ img{max-width:100%;}
 .trow.empty{color:var(--ink-soft); font-size:12.5px; padding:16px; grid-template-columns:1fr; min-width:0; justify-items:center;}
 .trow:not(.head):not(.empty):hover{background:var(--surface-2);}
 .trow.today{grid-template-columns:22px 40px 134px 150px 108px 74px 148px 148px 148px 100px 84px 168px 118px 34px; align-items:start; padding-top:11px; padding-bottom:11px;}
+.trow.today.eta2{grid-template-columns:22px 40px 134px 150px 108px 74px 122px 122px 122px 100px 84px 168px 112px 118px 34px;}
+.eta-cell{display:flex; flex-direction:column; align-items:center; gap:3px;}
+.eta-cell .mono{font-size:10.5px; color:var(--ink-soft);}
+.eta-cell .eta-src-tag{font-size:9px; opacity:.85;}
+.trow.today.eta2 .date-badge-cell .mono{font-size:13px; font-weight:700; color:var(--ink);}
+.eta-line{display:flex; align-items:center; gap:4px; margin-top:2px;}
 .trow.today.head{padding-top:8px; padding-bottom:8px; align-items:center;}
 .trow.today.head span{white-space:normal; line-height:1.25;}
 .sort-head{display:inline-flex; align-items:center; gap:2px; cursor:pointer; user-select:none;}
@@ -238,6 +244,12 @@ img{max-width:100%;}
 .trow.today .route-pill{white-space:normal; word-break:break-word; font-size:11.5px; line-height:1.3; padding:3px 8px;}
 .trow.today .item-label{white-space:normal; word-break:break-word; overflow:visible; text-overflow:clip; font-size:13.5px; line-height:1.3;}
 .trow.today .type-tag{font-size:11.5px; white-space:normal; line-height:1.3;}
+.deliv-line{display:block; margin-top:4px; padding:3px 7px; border-radius:4px; background:var(--brass-soft); font-size:13px; font-weight:700; line-height:1.3; color:var(--ink); word-break:break-word;}
+.deliv-line b{display:block; font-size:10px; font-weight:800; letter-spacing:.6px; color:var(--brass); margin-bottom:1px;}
+.doc-sub-wrap{display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;}
+.doc-sub{font:inherit; font-size:11.5px; line-height:1.2; padding:3px 7px; border-radius:10px; border:1px solid var(--line); background:var(--surface); color:var(--ink); cursor:pointer;}
+.doc-sub.todo:hover{border-color:var(--steel); color:var(--steel);}
+.doc-sub.done{background:var(--teal-soft,#dff1ee); color:var(--teal); border-color:transparent; cursor:default; text-decoration:line-through;}
 .date-badge-cell{display:flex; flex-direction:column; align-items:center; gap:3px;}
 .date-badge-cell .mono{font-size:11.5px; color:var(--ink-soft);}
 .date-badge-cell .dday{font-size:12px;}
@@ -638,12 +650,12 @@ function routeItems(routeType, billingOnly){
 }
 
 /* 프론트 <-> 시트 헤더/필드 매핑 */
-var INFO_HEADERS = ['관리번호','루틴','청구전용','캔슬','서비스','수출입','거래처코드','거래처명','담당자','POL','POD',
+var INFO_HEADERS = ['관리번호','루틴','청구전용','캔슬','서비스','수출입','거래처코드','거래처명','담당자','POL','POD','Delivery',
   'DOC CLS','CFS CLS','ETD','ETA(PORT)','ETA(DOOR)','Door배송','Line Booking No','House B/L No','Master B/L No','PO No','선사','운송사','VESSEL','터미널','특이사항',
   '생성일시','수정일시'];
 var FIELD_TO_HEADER = {
   managementNo:'관리번호', routeType:'루틴', billingOnly:'청구전용', cancelled:'캔슬',
-  service:'서비스', tradeType:'수출입', clientCode:'거래처코드', client:'거래처명', manager:'담당자', pol:'POL', pod:'POD',
+  service:'서비스', tradeType:'수출입', clientCode:'거래처코드', client:'거래처명', manager:'담당자', pol:'POL', pod:'POD', delivery:'Delivery',
   docCls:'DOC CLS', cfsCls:'CFS CLS', etd:'ETD', etaPort:'ETA(PORT)', etaDoor:'ETA(DOOR)', doorEligible:'Door배송', dispatchNeeded:'배차필요', preAlertNeeded:'프리알러트필요', blHolding:'비엘홀딩',
   lineBookingNo:'Line Booking No', hbl:'House B/L No', mbl:'Master B/L No', poNo:'PO No', carrier:'선사', forwarder:'운송사', vessel:'VESSEL', terminal:'터미널', note:'특이사항',
   createdAt:'생성일시', updatedAt:'수정일시'
@@ -705,8 +717,8 @@ var FIELD_ALIASES = {
   service: ['서비스'], tradeType: ['수출입'],
   clientCode: ['거래처코드','거래처 코드','거래처','CLIENTCODE','CLIENT CODE'],
   client: ['거래처명','거래처 명'], manager: ['담당자'],
-  pol: ['POL'], pod: ['POD'], docCls: ['DOCCLS','DOC CLS','서류마감일','서류 마감일','서류마감'], cfsCls: ['CFSCLS','CFS CLS'], etd: ['ETD'],
-  etaPort: ['ETA(PORT)','ETAPORT','ETA PORT','ETA'], etaDoor: ['ETA(DOOR)','ETADOOR','ETA DOOR','DELIVERY'],
+  pol: ['POL'], pod: ['POD'], delivery: ['DELIVERY','배송지','최종도착지','최종 도착지'], docCls: ['DOCCLS','DOC CLS','서류마감일','서류 마감일','서류마감'], cfsCls: ['CFSCLS','CFS CLS'], etd: ['ETD'],
+  etaPort: ['ETA(PORT)','ETAPORT','ETA PORT','ETA'], etaDoor: ['ETA(DOOR)','ETADOOR','ETA DOOR'],
   lineBookingNo: ['LINEBOOKINGNO','LINE BOOKING NO','LINE BOOKING NUMBER'],
   hbl: ['HOUSEB/LNO','HOUSE B/L NO','HBL'], mbl: ['MASTERB/LNO','MASTER B/L NO','MBL'], poNo: ['PONO','PO NO','PO 번호','PO번호','PO NUMBER'],
   carrier: ['선사'], forwarder: ['운송사'], vessel: ['VESSEL'], terminal: ['터미널'], note: ['특이사항']
@@ -851,6 +863,32 @@ function holidayTagHtml(x){
 /* ================= shipment derived state ================= */
 function isBillingOnlyByNo(no){ return /-X\d+$/i.test(String(no||'').trim()); }
 function relevantItems(s){ return routeItems(s.routeType, !!s.billingOnly); }
+/* ===== 서류마감 묶음 — 서류마감 업무구분에서는 "면장 + 서류마감(+ CHK BL)"을 한 묶음으로 보고,
+   묶음 안의 항목이 전부 체크되어야 "오늘 할 일 > 서류마감"에서 빠짐(PRE-ALERT 2단계와 같은 취지, 단 순서는 자유).
+   항목 자체는 체크리스트에 그대로 각각 남아 있고(체크리스트 보드·상세 창은 그대로), 서류마감 목록에서만 묶어서 판단함.
+   해당 루틴: 해상수출 FCL/LCL(면장·서류마감), 항공수출(면장·서류마감·CHK BL). 수입 루틴은 묶지 않음. */
+var DOC_GROUP_KEYS = {
+  SEA_EXP_FCL:['myeonjang','docCls'],
+  SEA_EXP_LCL:['myeonjang','docCls'],
+  AIR_EXP:['myeonjang','airDocCls','chkBl']
+};
+function docGroupOf(s){
+  var keys = DOC_GROUP_KEYS[s.routeType]; if(!keys) return null;
+  var items = relevantItems(s);
+  var members = [];
+  keys.forEach(function(k){ items.forEach(function(it){ if(it.key===k) members.push(it); }); });
+  var hasMain = members.some(function(it){ return it.anchor==='DOC CLS'; });
+  return (hasMain && members.length>1) ? members : null;
+}
+/* 항목 하나가 "완료"인지 — 서류마감(DOC CLS) 항목은 묶음 전체가 끝나야 완료로 취급, 그 외는 자기 체크만 봄 */
+function itemDoneForFeed(s, it){
+  var chk = s.checklist||{};
+  if(it.anchor==='DOC CLS'){
+    var g = docGroupOf(s);
+    if(g) return g.every(function(m){ return !!chk[m.key]; });
+  }
+  return !!chk[it.key];
+}
 /* 완료 판정은 루틴의 기본 체크리스트뿐 아니라, 이 건에 해당하는 부가 항목(Door 배송
    해당 시 "도착 확인·정산 완료", 배차 필요 시 "배차 완료", 비엘 홀딩중 지정 시 "최종 비엘
    발행 완료", 미주(ISF 대상) 건은 "ISF 신고 완료")까지 전부 끝나야 함. 이걸 빼먹으면 기본
@@ -922,7 +960,7 @@ function feedDocCls(){
     if(!matchesFilter(s) || !matchesMyClients(s)) return;
     var chk=s.checklist||{};
     relevantItems(s).forEach(function(it){
-      if(!it.anchor || it.anchor!=='DOC CLS' || chk[it.key]) return;
+      if(!it.anchor || it.anchor!=='DOC CLS' || itemDoneForFeed(s,it)) return;
       var field = ANCHOR_FIELD[it.anchor];
       var info = effectiveDeadlineInfo(s[field]);
       if(info.dd===null || info.dd<=0) out.push({s:s,item:it,dd:info.dd,field:field,holidayShift:info.shifted,holidayEffDate:info.effDate,holidayTitle:info.holidayTitle});
@@ -1117,7 +1155,7 @@ function feedRemainingAll(){
     if(!matchesFilter(s) || !matchesMyClients(s)) return;
     var chk=s.checklist||{};
     relevantItems(s).forEach(function(it){
-      if(chk[it.key]) return;
+      if(itemDoneForFeed(s,it)) return;
       // 출항안내·서류마감: 앞으로 7일 내(02)보다 더 먼 건
       if(it.anchor){
         var field = ANCHOR_FIELD[it.anchor];
@@ -1212,7 +1250,7 @@ function feedUpcoming(){
     if(!matchesFilter(s) || !matchesMyClients(s)) return;
     var chk=s.checklist||{};
     relevantItems(s).forEach(function(it){
-      if(!it.anchor || chk[it.key]) return;
+      if(!it.anchor || itemDoneForFeed(s,it)) return;
       var field = ANCHOR_FIELD[it.anchor];
       var info = (it.anchor==='ETD' || it.anchor==='DOC CLS') ? effectiveDeadlineInfo(s[field]) : {dd:getDday(s[field]), shifted:false};
       if(info.dd===null || info.dd<=0 || info.dd>UPCOMING_WINDOW_DAYS) return;
@@ -1296,7 +1334,7 @@ function renderTypeChips(){
     return '<button class="chip type-chip'+(activeType===t.key?' active':'')+'" data-type-chip="'+t.key+'"'+style+'>'+t.label+'<span class="chip-count mono'+(c>0?' has-count':'')+'">'+c+'</span></button>';
   }).join('');
   document.querySelectorAll('[data-type-chip]').forEach(function(btn){
-    btn.addEventListener('click', function(){ activeType=btn.dataset.typeChip; renderTypeChips(); renderBoard(); });
+    btn.addEventListener('click', function(){ activeType=btn.dataset.typeChip; TODAY_TAB_SECTIONS.forEach(function(id){ delete sectionCollapsedOverride[id]; }); renderTypeChips(); renderBoard(); });
   });
 }
 /* 체크리스트 보드탭 전용 "업무구분탭" — 오늘 할 일의 업무구분탭 자리(같은 row)를 재사용하되, 내용은
@@ -1432,7 +1470,9 @@ function goToSection(id){
    사용자가 이번 화면에서 직접 펼치거나 접은 것은 sectionCollapsedOverride에 기록되어 그 동안은 유지되지만,
    실제로 페이지를 새로고침하면 이 값도 초기화되어 다시 기본값으로 돌아감. */
 var sectionCollapsedOverride = {};
-function defaultSectionCollapsed(id){ if(id==='sec-remaining') return activeType==='ALL'; return id!=='sec-today' && id!=='sec-search' && id!=='sec-booking-hold' && id!=='sec-bl-holding' && id!=='sec-blissue-old' && id!=='sec-prealert-old'; }
+/* 오늘 할 일 탭의 섹션(01·02·03 및 기한 지난 건 별도 섹션)은 업무구분 단추(전체 포함)를 누르면 항상 모두 펼쳐진 상태로 시작함 */
+var TODAY_TAB_SECTIONS = ['sec-today','sec-upcoming','sec-remaining','sec-prealert-old','sec-blissue-old'];
+function defaultSectionCollapsed(id){ if(TODAY_TAB_SECTIONS.indexOf(id)>=0) return false; return id!=='sec-today' && id!=='sec-search' && id!=='sec-booking-hold' && id!=='sec-bl-holding' && id!=='sec-blissue-old' && id!=='sec-prealert-old'; }
 function routePillHtml(s){
   var lcl = isLclRoute(s.routeType);
   var doorBadge = '';
@@ -1561,7 +1601,8 @@ var TODAY_SORT_GETTERS = {
   pod: function(x){ return x.s.pod||''; },
   type: function(x){ return TYPE_LABEL[x.type]||''; },
   item: function(x){ return x.item.label||''; },
-  etd: function(x){ return toDate(refInfoOf(x).val); }
+  etd: function(x){ return toDate(refInfoOf(x).val); },
+  eta: function(x){ return toDate(doorEtaOf(x.s).val); }
 };
 /* 맨 오른쪽 "기준일" 칸 — 업무구분마다 "오늘 할 일"로 뜨는 기준이 되는 날짜가 다르므로(출항안내=ETD 등,
    서류마감·배차·ISF=DOC CLS, 도착확인=ETA, PRE-ALERT=DOC CLS, 청구대기·비엘발행=ETD)
@@ -1571,6 +1612,15 @@ function blHoldTagHtml(x){
   if(!x || !x.holding) return '';
   var rel = !!((x.s.checklist||{})[BL_RELEASED_ITEM_KEY]);
   return '<span class="flag-pill bl-holding" style="margin-left:6px;" title="화주 확인 대기 중인 비엘 홀딩 건 — 홀딩 해제 후 최종 비엘 발행 완료 처리">비엘홀딩중'+(rel?' · 해제됨':'')+'</span>';
+}
+/* 비엘발행 건 전용 ETA 표시 — ETA(DOOR)가 있으면 그것을, 없으면 ETA(PORT)를 보여주고 어느 쪽인지 작은 태그로 구분함.
+   비엘발행의 기준일은 ETD라서 ETA는 참고용 — 비어 있어도 빨간 경고 없이 "-"만 표시. */
+function showEtaCol(){ return activeType==='blissue' || activeType==='duesoon'; }
+function etaSmallHtml(s, inline){
+  var e = doorEtaOf(s);
+  if(!e.val) return (inline?'<span class="eta-src-tag ref-kind" style="margin-left:0;">ETA</span>':'')+'<span class="mono" style="color:var(--ink-soft);">-</span>';
+  var f = fmtDate(e.val);
+  return '<span class="eta-src-tag ref-kind" style="margin-left:0;">'+(e.fromPort?'ETA(PORT)':'ETA(DOOR)')+'</span><span class="mono">'+f.date+(f.time?(' '+f.time):'')+'</span>';
 }
 function refInfoOf(x){
   var s=x.s;
@@ -1586,7 +1636,8 @@ function refCellHtml(x){
   var kindHtml = '<span class="eta-src-tag ref-kind" style="margin-left:0;">'+escapeHtml(r.kind)+'</span>';
   var dateHtml = d ? ('<span class="mono">'+d.date+(d.time?(' '+d.time):'')+'</span>') : '<span class="mono" style="color:var(--danger);font-weight:700;" title="기준일이 입력되지 않은 건 — 건 상세/수정에서 입력하면 D-day가 표시됨">'+escapeHtml(r.missing)+'</span>';
   var badge = (x.type==='billing' && !x.remaining) ? ddayBadge(x.aging,{aging:true}) : ddayBadge(x.dd,{plus:(x.type==='blissue')});
-  return kindHtml+dateHtml+badge;
+  var extra = ((x.type==='blissue' || (x.type==='duesoon' && r.kind==='ETD')) && !showEtaCol()) ? '<span class="eta-line">'+etaSmallHtml(x.s,true)+'</span>' : '';
+  return kindHtml+dateHtml+badge+extra;
 }
 /* "오늘 할 일"/"앞으로 N일 내" 표의 맨 오른쪽 날짜 열 헤더 라벨 — 도착확인(door)만 필터링해서
    볼 때는 실제로 표시되는 날짜가 ETD가 아니라 ETA(DOOR)이고, ISF(isf)만 필터링해서 볼 때는
@@ -1594,7 +1645,7 @@ function refCellHtml(x){
 function todayDateColLabel(){ return '기준일'; }
 function todayHeadHtml(tk){
   tk = tk||'today';
-  return '<div class="trow today head">'+
+  return '<div class="trow today head'+(showEtaCol()?' eta2':'')+'">'+
     '<span></span><span></span>'+
     '<span>'+sortHeadHtml(tk,'mgmtno','관리번호')+'</span>'+
     '<span>'+sortHeadHtml(tk,'client','거래처명')+'</span>'+
@@ -1606,9 +1657,40 @@ function todayHeadHtml(tk){
     '<span>'+sortHeadHtml(tk,'pod','POD')+'</span>'+
     '<span>'+sortHeadHtml(tk,'type','구분')+'</span>'+
     '<span>'+sortHeadHtml(tk,'item','항목')+'</span>'+
+    (showEtaCol()?'<span>'+sortHeadHtml(tk,'eta','ETA')+'</span>':'')+
     '<span>'+sortHeadHtml(tk,'etd',todayDateColLabel())+'</span>'+
     '<span></span>'+
     '</div>';
+}
+/* 서류마감 행의 "묶음" 표시 — 면장·서류마감(·CHK BL) 각각의 완료 여부를 작은 알약으로 보여주고, 안 된 것은 눌러서 바로 체크 */
+function docSubHtml(x){
+  if(x.type!=='docCls') return '';
+  var g = docGroupOf(x.s); if(!g) return '';
+  var chk = x.s.checklist||{};
+  return '<div class="doc-sub-wrap">'+g.map(function(m){
+    return chk[m.key]
+      ? '<span class="doc-sub done" title="'+escapeHtml(m.label)+' 완료">✓ '+escapeHtml(m.label)+'</span>'
+      : '<button class="doc-sub todo" data-act="toggle" data-id="'+escapeHtml(x.s.id)+'" data-item="'+m.key+'" title="'+escapeHtml(m.label)+' 완료 처리">'+escapeHtml(m.label)+'</button>';
+  }).join('')+'</div>';
+}
+function docMainCheckHtml(x){
+  var it=x.item, s=x.s;
+  var svg = '<svg width="12" height="12" viewBox="0 0 16 16"><path d="M2 8l4 4 8-8" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  if(x.type==='docCls' && docGroupOf(s)){
+    return '<button class="check" data-act="togglegroup" data-id="'+escapeHtml(s.id)+'" title="남은 항목(면장·서류마감 등)을 모두 완료 처리">'+svg+'</button>';
+  }
+  return '<button class="check" data-act="toggle" data-id="'+escapeHtml(s.id)+'" data-item="'+it.key+'" title="'+escapeHtml(it.label)+' 완료 처리">'+svg+'</button>';
+}
+/* POD 칸 — POD와 DELIVERY(최종 배송지)가 같거나 DELIVERY가 비어 있으면 POD만, 다르면 POD 밑에 DELIVERY명을 작게 같이 표시.
+   비교는 대소문자·공백을 무시함("TOKYO(NARITA),JAPAN" = "Tokyo (Narita), Japan"). */
+function normPlace_(v){ return String(v||'').toUpperCase().replace(/\s+/g,''); }
+function podCellInner(s){
+  var pod = s.pod||'', dv = String(s.delivery||'').trim();
+  var base = escapeHtml(pod||'-');
+  if(dv && normPlace_(dv)!==normPlace_(pod)){
+    return base+'<span class="deliv-line" title="DELIVERY(최종 배송지): '+escapeHtml(dv)+'"><b>DELIVERY</b> '+escapeHtml(dv)+'</span>';
+  }
+  return base;
 }
 function todayTable(list, sectionId, tableKey){
   tableKey = tableKey||'today';
@@ -1616,9 +1698,9 @@ function todayTable(list, sectionId, tableKey){
   if(list.length===0) return '<div class="trow empty">해당 항목 없음</div>';
   var rows = list.map(function(x){
     var s=x.s, it=x.item;
-    return '<div class="trow today">'+
+    return '<div class="trow today'+(showEtaCol()?' eta2':'')+'">'+
       selectCbHtml(sectionId, s.id, it.key)+
-      '<button class="check" data-act="toggle" data-id="'+escapeHtml(s.id)+'" data-item="'+it.key+'" title="'+escapeHtml(it.label)+' 완료 처리"><svg width="12" height="12" viewBox="0 0 16 16"><path d="M2 8l4 4 8-8" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'+
+      docMainCheckHtml(x)+
       '<span class="mgmtno mono">'+escapeHtml(s.managementNo||s.id)+'</span>'+
       '<span class="client-cell"><button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="'+escapeHtml(s.client||'')+'">'+escapeHtml(s.client||'-')+'</button>'+(s.note?'<div class="note-line" title="'+escapeHtml(s.note)+'">'+escapeHtml(s.note)+'</div>':'')+'</span>'+
       routePillHtml(s)+
@@ -1626,9 +1708,10 @@ function todayTable(list, sectionId, tableKey){
       '<span class="bl-cell mono" title="'+escapeHtml(s.lineBookingNo||'')+'">'+escapeHtml(s.lineBookingNo||'-')+'</span>'+
       '<span class="bl-cell mono" title="'+escapeHtml(s.hbl||'')+'">'+escapeHtml(s.hbl||'-')+'</span>'+
       '<span class="bl-cell mono" title="'+escapeHtml(s.mbl||'')+'">'+escapeHtml(s.mbl||'-')+'</span>'+
-      '<span class="mgr" title="'+escapeHtml(s.pod||'')+'">'+escapeHtml(s.pod||'-')+'</span>'+
+      '<span class="mgr" title="'+escapeHtml(s.pod||'')+'">'+podCellInner(s)+'</span>'+
       '<span class="type-tag '+x.type+'">'+TYPE_LABEL[x.type]+'</span>'+
-      '<span class="item-label">'+escapeHtml(it.label)+(it.billing?'<span class="billing-tag">청구</span>':'')+holidayTagHtml(x)+blHoldTagHtml(x)+'</span>'+
+      '<span class="item-label">'+escapeHtml(it.label)+(it.billing?'<span class="billing-tag">청구</span>':'')+holidayTagHtml(x)+blHoldTagHtml(x)+docSubHtml(x)+'</span>'+
+      (showEtaCol()?'<span class="eta-cell">'+etaSmallHtml(s)+'</span>':'')+
       '<span class="date-badge-cell">'+refCellHtml(x)+'</span>'+
       '<button class="edit-btn" data-act="editnote" data-id="'+escapeHtml(s.id)+'" title="비고 입력·수정"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M11 2l3 3-8 8-3.5.5.5-3.5z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg></button>'+
       '</div>';
@@ -1639,7 +1722,7 @@ function todayTable(list, sectionId, tableKey){
    'today'와 공유하면 "오늘 할 일"을 정렬했을 때 이 섹션도 같이 바뀌어버리므로 'upcoming'이라는
    별도의 tableKey를 써서 두 섹션의 정렬이 서로 영향을 주지 않게 함. */
 function upcomingHeadHtml(){
-  return '<div class="trow today head">'+
+  return '<div class="trow today head'+(showEtaCol()?' eta2':'')+'">'+
     '<span></span><span></span>'+
     '<span>'+sortHeadHtml('upcoming','mgmtno','관리번호')+'</span>'+
     '<span>'+sortHeadHtml('upcoming','client','거래처명')+'</span>'+
@@ -1651,6 +1734,7 @@ function upcomingHeadHtml(){
     '<span>'+sortHeadHtml('upcoming','pod','POD')+'</span>'+
     '<span>'+sortHeadHtml('upcoming','type','구분')+'</span>'+
     '<span>'+sortHeadHtml('upcoming','item','항목')+'</span>'+
+    (showEtaCol()?'<span>'+sortHeadHtml('upcoming','eta','ETA')+'</span>':'')+
     '<span>'+sortHeadHtml('upcoming','etd',todayDateColLabel())+'</span>'+
     '<span></span>'+
     '</div>';
@@ -1660,9 +1744,9 @@ function upcomingTable(list, sectionId){
   if(list.length===0) return '<div class="trow empty">해당 항목 없음</div>';
   var rows = list.map(function(x){
     var s=x.s, it=x.item;
-    return '<div class="trow today">'+
+    return '<div class="trow today'+(showEtaCol()?' eta2':'')+'">'+
       selectCbHtml(sectionId, s.id, it.key)+
-      '<button class="check" data-act="toggle" data-id="'+escapeHtml(s.id)+'" data-item="'+it.key+'" title="'+escapeHtml(it.label)+' 완료 처리"><svg width="12" height="12" viewBox="0 0 16 16"><path d="M2 8l4 4 8-8" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'+
+      docMainCheckHtml(x)+
       '<span class="mgmtno mono">'+escapeHtml(s.managementNo||s.id)+'</span>'+
       '<span class="client-cell"><button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="'+escapeHtml(s.client||'')+'">'+escapeHtml(s.client||'-')+'</button>'+(s.note?'<div class="note-line" title="'+escapeHtml(s.note)+'">'+escapeHtml(s.note)+'</div>':'')+'</span>'+
       routePillHtml(s)+
@@ -1670,9 +1754,10 @@ function upcomingTable(list, sectionId){
       '<span class="bl-cell mono" title="'+escapeHtml(s.lineBookingNo||'')+'">'+escapeHtml(s.lineBookingNo||'-')+'</span>'+
       '<span class="bl-cell mono" title="'+escapeHtml(s.hbl||'')+'">'+escapeHtml(s.hbl||'-')+'</span>'+
       '<span class="bl-cell mono" title="'+escapeHtml(s.mbl||'')+'">'+escapeHtml(s.mbl||'-')+'</span>'+
-      '<span class="mgr" title="'+escapeHtml(s.pod||'')+'">'+escapeHtml(s.pod||'-')+'</span>'+
+      '<span class="mgr" title="'+escapeHtml(s.pod||'')+'">'+podCellInner(s)+'</span>'+
       '<span class="type-tag '+x.type+'">'+TYPE_LABEL[x.type]+'</span>'+
-      '<span class="item-label">'+escapeHtml(it.label)+(it.billing?'<span class="billing-tag">청구</span>':'')+holidayTagHtml(x)+blHoldTagHtml(x)+'</span>'+
+      '<span class="item-label">'+escapeHtml(it.label)+(it.billing?'<span class="billing-tag">청구</span>':'')+holidayTagHtml(x)+blHoldTagHtml(x)+docSubHtml(x)+'</span>'+
+      (showEtaCol()?'<span class="eta-cell">'+etaSmallHtml(s)+'</span>':'')+
       '<span class="date-badge-cell">'+refCellHtml(x)+'</span>'+
       '<button class="edit-btn" data-act="editnote" data-id="'+escapeHtml(s.id)+'" title="비고 입력·수정"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M11 2l3 3-8 8-3.5.5.5-3.5z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg></button>'+
       '</div>';
@@ -1734,7 +1819,7 @@ function searchResultTable(list){
       '<span class="mono" style="font-size:11.5px;">'+escapeHtml(s.hbl||'-')+'</span>'+
       '<span class="mono" style="font-size:11.5px;">'+escapeHtml(s.mbl||'-')+'</span>'+
       '<span class="mgr" style="white-space:normal;word-break:break-word;font-size:12.5px;" title="'+escapeHtml(s.pol||'')+'">'+escapeHtml(s.pol||'-')+'</span>'+
-      '<span class="mgr" style="white-space:normal;word-break:break-word;font-size:12.5px;" title="'+escapeHtml(s.pod||'')+'">'+escapeHtml(s.pod||'-')+'</span>'+
+      '<span class="mgr" style="white-space:normal;word-break:break-word;font-size:12.5px;" title="'+escapeHtml(s.pod||'')+'">'+podCellInner(s)+'</span>'+
       searchDateHtml_(s.etd)+
       searchDateHtml_(s.docCls)+
       '<button class="edit-btn" data-act="editnote" data-id="'+escapeHtml(s.id)+'" title="비고 입력·수정"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M11 2l3 3-8 8-3.5.5.5-3.5z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg></button>'+
@@ -2039,11 +2124,11 @@ function renderChecklistTab(board, q){
    YES/NO은 체크리스트 보드의 LCL/DOOR/배차와 같은 방식(overview 플래그 셀 또는 상세 모달)으로 지정.
    맨 앞 칸은 Door의 "도착 확인·정산 완료"와 동일한 구조의 별도 확인 항목 — 홀딩중이던 비엘이
    실제로 최종 발행됐는지를 체크(한 번 체크하면 완료 배지로 바뀜, 되돌리려면 상세 모달에서 해제). */
-var BL_HOLD_GRID = 'grid-template-columns:60px 132px minmax(130px,1fr) 150px 74px 140px 140px 140px 70px minmax(110px,1fr) 100px;min-width:1290px;';
+var BL_HOLD_GRID = 'grid-template-columns:60px 132px minmax(130px,1fr) 150px 74px 140px 140px 140px 70px 128px minmax(110px,1fr) 100px;min-width:1420px;';
 function blHoldingHeadHtml(){
   return '<div class="trow head bl-hold-row" style="'+BL_HOLD_GRID+'">'+
     '<span style="text-align:center;">발행완료</span><span>관리번호</span><span>거래처명</span><span>루틴</span><span>담당자</span>'+
-    '<span>Line Booking No</span><span>House B/L No</span><span>Master B/L No</span><span style="text-align:center;">ETD</span><span>비고</span><span></span>'+
+    '<span>Line Booking No</span><span>House B/L No</span><span>Master B/L No</span><span style="text-align:center;">ETD</span><span style="text-align:center;">ETA</span><span>비고</span><span></span>'+
     '</div>';
 }
 function blHoldingTable(list){
@@ -2077,6 +2162,7 @@ function blHoldingTable(list){
       '<span class="bl-cell mono" title="'+escapeHtml(s.hbl||'')+'">'+escapeHtml(s.hbl||'-')+'</span>'+
       '<span class="bl-cell mono" title="'+escapeHtml(s.mbl||'')+'">'+escapeHtml(s.mbl||'-')+'</span>'+
       '<span class="mono" style="font-size:11px;text-align:center;">'+(etdFmt.date==='—'?'-':escapeHtml(etdFmt.date))+'</span>'+
+      '<span class="eta-cell">'+etaSmallHtml(s)+'</span>'+
       remarkCellHtml(s)+
       releaseCell+
       '</div>';
@@ -2166,6 +2252,16 @@ async function bulkApply(sectionId){
   var sel = getSel(sectionId);
   var entries = Object.keys(sel).map(function(k){ return sel[k]; });
   if(entries.length===0) return;
+  var pickedCount = entries.length;
+  // 서류마감 묶음 건은 선택한 행 하나가 묶음 전체(면장·서류마감·CHK BL)를 뜻하므로 남은 항목을 모두 포함시킴
+  var expanded = [], seenKey = {};
+  entries.forEach(function(en){
+    var s0 = byId[en.id], g0 = s0 ? docGroupOf(s0) : null;
+    var isMain = !!(g0 && g0.some(function(m){ return m.key===en.item && m.anchor==='DOC CLS'; }));
+    var list = isMain ? g0.filter(function(m){ return !(s0.checklist||{})[m.key]; }).map(function(m){ return {id:en.id, item:m.key, managementNo:en.managementNo}; }) : [en];
+    list.forEach(function(e2){ var k2=e2.id+'|'+e2.item; if(!seenKey[k2]){ seenKey[k2]=1; expanded.push(e2); } });
+  });
+  entries = expanded;
   var prevStates = entries.map(function(en){
     var s = byId[en.id];
     return {id:en.id, item:en.item, prevChecklist: s ? Object.assign({}, s.checklist||{}) : null};
@@ -2182,7 +2278,7 @@ async function bulkApply(sectionId){
     var items = entries.map(function(en){ var s=byId[en.id]; return {managementNo: s?s.managementNo:en.id, itemKey: en.item}; });
     await apiPost({action:'toggleMany', items: items, value:true});
     pKeys.forEach(function(k){ delete pendingChecklistWrites[k]; }); // 저장 확정
-    toast(entries.length+'건을 일괄 완료 처리했습니다.');
+    toast(pickedCount+'건을 일괄 완료 처리했습니다.');
     refreshFromServer(true);
   }catch(e){
     pKeys.forEach(function(k){ delete pendingChecklistWrites[k]; });
@@ -2557,6 +2653,14 @@ function wireBoardEvents(){
       setTimeout(function(){ toggleItem(btn.dataset.id, btn.dataset.item); }, 320);
     });
   });
+  document.querySelectorAll('[data-act="togglegroup"]').forEach(function(btn){
+    if(btn.dataset.wired) return; btn.dataset.wired='1';
+    btn.addEventListener('click', function(){
+      if(btn.classList.contains('flash')) return;
+      btn.classList.add('flash');
+      setTimeout(function(){ completeDocGroup(btn.dataset.id); }, 320);
+    });
+  });
   document.querySelectorAll('[data-act="edit"]').forEach(function(el){
     if(el.dataset.wired) return; el.dataset.wired='1';
     el.addEventListener('click', function(){ openModal(el.dataset.id); });
@@ -2785,6 +2889,31 @@ function startPolling(){
 }
 
 /* ================= actions ================= */
+/* 서류마감 행의 왼쪽 큰 체크 — 묶음 안에서 아직 안 된 항목(면장·서류마감·CHK BL)을 한 번에 모두 완료 처리 */
+function completeDocGroup(id){
+  var s = byId[id]; if(!s) return;
+  var g = docGroupOf(s); if(!g){ renderAll(); return; }
+  var prevChecklist = Object.assign({}, s.checklist||{});
+  var pend = g.filter(function(m){ return !prevChecklist[m.key]; });
+  if(pend.length===0){ renderAll(); return; }
+  var nc = Object.assign({}, prevChecklist);
+  var pKeys = pend.map(function(m){ return pendingWriteKey(id, m.key); });
+  pend.forEach(function(m,i){ nc[m.key]=true; pendingChecklistWrites[pKeys[i]]=true; });
+  s.checklist = nc; renderAll();
+  var items = pend.map(function(m){ return {managementNo:s.managementNo, itemKey:m.key}; });
+  apiPost({action:'toggleMany', items:items, value:true})
+    .then(function(){
+      pKeys.forEach(function(k){ delete pendingChecklistWrites[k]; });
+      toast('"'+(s.managementNo||id)+'" 서류마감 묶음('+pend.map(function(m){return m.label;}).join('·')+') 완료 처리', {undo:function(){
+        pKeys.forEach(function(k){ pendingChecklistWrites[k]=false; });
+        s.checklist = prevChecklist; renderAll();
+        apiPost({action:'toggleMany', items:items, value:false})
+          .then(function(){ pKeys.forEach(function(k){ delete pendingChecklistWrites[k]; }); })
+          .catch(function(){ pKeys.forEach(function(k){ delete pendingChecklistWrites[k]; }); });
+      }});
+    })
+    .catch(function(e){ pKeys.forEach(function(k){ delete pendingChecklistWrites[k]; }); s.checklist=prevChecklist; renderAll(); toast('저장 실패: '+e.message, {err:true}); });
+}
 function toggleItem(id, itemKey){
   var s = byId[id]; if(!s) return;
   // 비엘홀딩중 건은 "홀딩 해제"를 먼저 해야만 최종 비엘 발행완료 처리 가능
@@ -2826,6 +2955,7 @@ var INFO_FIELDS = [
   {k:'manager', label:'담당자', type:'text'},
   {k:'pol', label:'POL', type:'text'},
   {k:'pod', label:'POD', type:'text'},
+  {k:'delivery', label:'DELIVERY', type:'text'},
   {k:'docCls', label:'DOC CLS', type:'datetime'},
   {k:'cfsCls', label:'CFS CLS', type:'datetime'},
   {k:'etd', label:'ETD', type:'datetime'},
