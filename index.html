@@ -1077,9 +1077,10 @@ function feedDispatch(){
     var key = dispatchItemKeyFor(s.routeType);
     var chk=s.checklist||{};
     if(chk[key]) return;
-    var docClsDd = getDday(s.docCls);
+    var dinfo = effectiveDeadlineInfo(s.docCls); // 서류마감이 공휴일이면 직전 영업일 기준으로 당겨서 계산
+    var docClsDd = dinfo.dd;
     if(docClsDd!==null && docClsDd>DISPATCH_ALERT_WINDOW_DAYS) return;
-    out.push({s:s, dd:docClsDd, itemKey:key}); // 기준일 = 서류마감(DOC CLS)
+    out.push({s:s, dd:docClsDd, itemKey:key, holidayShift:dinfo.shifted, holidayEffDate:dinfo.effDate, holidayTitle:dinfo.holidayTitle}); // 기준일 = 서류마감(DOC CLS)
   });
   out.sort(function(a,b){ var av=a.dd===null?9999:a.dd, bv=b.dd===null?9999:b.dd; return av-bv; });
   return out;
@@ -1168,7 +1169,8 @@ function feedJigyeolAll(){
     var chk=s.checklist||{};
     relevantItems(s).forEach(function(it){
       if(!isJigyeolItem(it) || chk[it.key]) return;
-      out.push({s:s, item:it, dd:getDday(s.etd)});
+      var jinfo = effectiveDeadlineInfo(s.etd); // 출항일이 공휴일이면 직전 영업일 기준
+      out.push({s:s, item:it, dd:jinfo.dd, holidayShift:jinfo.shifted, holidayEffDate:jinfo.effDate, holidayTitle:jinfo.holidayTitle});
     });
   });
   return out;
@@ -1181,9 +1183,9 @@ function feedTodayAll(){
   feedDocCls().forEach(function(x){ out.push({type:'docCls', s:x.s, item:x.item, dd:x.dd, field:x.field, sortKey:(x.dd===null?9999:x.dd), holidayShift:x.holidayShift, holidayEffDate:x.holidayEffDate, holidayTitle:x.holidayTitle}); });
   feedBilling().forEach(function(x){ out.push({type:'billing', s:x.s, item:x.item, aging:x.aging, sortKey:-(x.aging===null?-9999:x.aging)}); });
   feedDoorTracking().forEach(function(x){ out.push({type:'door', s:x.s, item:{key:'doorArrival', label:'도착 확인·정산 완료'}, dd:x.dd, sortKey:(x.dd===null?9999:x.dd)}); });
-  feedDispatch().forEach(function(x){ out.push({type:'dispatch', s:x.s, item:{key:x.itemKey, label:'배차'}, dd:x.dd, field:'docCls', sortKey:(x.dd===null?9999:x.dd)}); });
+  feedDispatch().forEach(function(x){ out.push({type:'dispatch', s:x.s, item:{key:x.itemKey, label:'배차'}, dd:x.dd, field:'docCls', sortKey:(x.dd===null?9999:x.dd), holidayShift:x.holidayShift, holidayEffDate:x.holidayEffDate, holidayTitle:x.holidayTitle}); });
   feedBlIssue().forEach(function(x){ out.push({type:'blissue', s:x.s, item:{key:x.item.key, label:x.item.label}, dd:x.dd, biz:x.biz, field:'etd', sortKey:x.dd, holding:x.holding, old:(x.biz>=BLISSUE_OLD_FROM_DAYS)}); });
-  feedJigyeolAll().forEach(function(x){ if(x.dd===null || x.dd<=0) out.push({type:'jigyeol', s:x.s, item:{key:x.item.key, label:x.item.label}, dd:x.dd, field:'etd', sortKey:(x.dd===null?9999:x.dd)}); });
+  feedJigyeolAll().forEach(function(x){ if(x.dd===null || x.dd<=0) out.push({type:'jigyeol', s:x.s, item:{key:x.item.key, label:x.item.label}, dd:x.dd, field:'etd', sortKey:(x.dd===null?9999:x.dd), holidayShift:x.holidayShift, holidayEffDate:x.holidayEffDate, holidayTitle:x.holidayTitle}); });
   feedPreAlert().forEach(function(x){ out.push({type:'prealert', s:x.s, item:{key:x.itemKey, label:x.itemLabel}, dd:x.dd, field:'docCls', sortKey:(x.dd===null?9999:x.dd), holidayShift:x.holidayShift, holidayEffDate:x.holidayEffDate, holidayTitle:x.holidayTitle, old:(x.dd!==null && x.dd<=-PREALERT_OLD_FROM_DAYS)}); });
   feedIsfTracking().forEach(function(x){ out.push({type:'isf', s:x.s, item:{key:US_ISF_ITEM_KEY, label:US_ISF_ITEM_LABEL}, dd:x.dd, field:'docCls', sortKey:(x.dd===null?9999:x.dd), holidayShift:x.holidayShift, holidayEffDate:x.holidayEffDate, holidayTitle:x.holidayTitle}); });
   return out;
@@ -1213,8 +1215,9 @@ function feedRemainingAll(){
       }
       // 지결: 출항일(ETD) D-7보다 먼 건
       if(isJigyeolItem(it)){
-        var jd = getDday(s.etd);
-        if(jd!==null && jd>UPCOMING_WINDOW_DAYS) add('jigyeol', s, {key:it.key, label:it.label}, jd, 'etd');
+        var jinfo = effectiveDeadlineInfo(s.etd);
+        var jd = jinfo.dd;
+        if(jd!==null && jd>UPCOMING_WINDOW_DAYS) add('jigyeol', s, {key:it.key, label:it.label}, jd, 'etd', {holidayShift:jinfo.shifted, holidayEffDate:jinfo.effDate, holidayTitle:jinfo.holidayTitle});
       }
       // 비엘발행: 아직 출항 전·당일(D+1 전)인 건
       if(it.key==='blIssue' && !s.billingOnly && !s.blHolding){
@@ -1241,8 +1244,9 @@ function feedRemainingAll(){
     if(s.dispatchNeeded && !s.billingOnly){
       var dk = dispatchItemKeyFor(s.routeType);
       if(!chk[dk]){
-        var dcd = getDday(s.docCls);
-        if(dcd!==null && dcd>DISPATCH_ALERT_WINDOW_DAYS) add('dispatch', s, {key:dk, label:'배차'}, dcd, 'docCls');
+        var dinfo = effectiveDeadlineInfo(s.docCls);
+        var dcd = dinfo.dd;
+        if(dcd!==null && dcd>DISPATCH_ALERT_WINDOW_DAYS) add('dispatch', s, {key:dk, label:'배차'}, dcd, 'docCls', {holidayShift:dinfo.shifted, holidayEffDate:dinfo.effDate, holidayTitle:dinfo.holidayTitle});
       }
     }
     // PRE-ALERT: 서류마감일이 아직 오지 않은 건
@@ -1312,8 +1316,9 @@ function feedUpcoming(){
     // 지결도 출항일(ETD) 기준 D-7 이내로 다가온 건을 미리 보여줌
     relevantItems(s).forEach(function(it){
       if(!isJigyeolItem(it) || chk[it.key]) return;
-      var jd = getDday(s.etd);
-      if(jd!==null && jd>0 && jd<=UPCOMING_WINDOW_DAYS) out.push({type:'jigyeol', s:s, item:{key:it.key, label:it.label}, dd:jd, field:'etd', sortKey:jd});
+      var jinfo = effectiveDeadlineInfo(s.etd);
+      var jd = jinfo.dd;
+      if(jd!==null && jd>0 && jd<=UPCOMING_WINDOW_DAYS) out.push({type:'jigyeol', s:s, item:{key:it.key, label:it.label}, dd:jd, field:'etd', sortKey:jd, holidayShift:jinfo.shifted, holidayEffDate:jinfo.effDate, holidayTitle:jinfo.holidayTitle});
     });
     // ISF(미주)도 동일한 기준 — 서류마감(DOC CLS)이 아직 D-7 이내로만 다가온 건을 미리 보여줌.
     // 서류마감이 공휴일과 겹치면 effectiveDeadlineInfo가 마지막 영업일 기준으로 당겨줌.
