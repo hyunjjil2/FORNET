@@ -69,7 +69,7 @@ button{font-family:inherit; font-size:inherit; cursor:pointer;}
 input,select,textarea{font-family:inherit; font-size:inherit;}
 img{max-width:100%;}
 
-.app{max-width:1680px; margin:0 auto; padding:20px 22px 64px;}
+.app{max-width:1920px; margin:0 auto; padding:20px 16px 64px;}
 
 .gate-overlay{position:fixed; inset:0; z-index:95; background:var(--paper); display:flex; align-items:center; justify-content:center; padding:16px;}
 .gate-overlay[hidden]{display:none !important;}
@@ -222,10 +222,10 @@ img{max-width:100%;}
 .trow.head{background:var(--surface-2); font-size:10.5px; font-weight:600; color:var(--ink-soft); letter-spacing:.3px; padding:7px 16px;}
 .trow.empty{color:var(--ink-soft); font-size:12.5px; padding:16px; grid-template-columns:1fr; min-width:0; justify-items:center;}
 .trow:not(.head):not(.empty):hover{background:var(--surface-2);}
-.trow.today{grid-template-columns:22px 40px 118px 140px 100px 70px var(--w-lb,148px) var(--w-hb,148px) var(--w-mb,148px) 100px 84px 168px 118px 34px; align-items:start; padding-top:11px; padding-bottom:11px;
-  min-width:calc(1040px + var(--w-lb,148px) + var(--w-hb,148px) + var(--w-mb,148px));}
-.trow.today.eta2{grid-template-columns:22px 40px 118px 140px 100px 70px var(--w-lb,148px) var(--w-hb,148px) var(--w-mb,148px) 100px 84px 168px 112px 118px 34px;
-  min-width:calc(1160px + var(--w-lb,148px) + var(--w-hb,148px) + var(--w-mb,148px));}
+.trow.today{grid-template-columns:22px 40px 118px 140px 100px 70px var(--w-lb,148px) var(--w-hb,148px) var(--w-mb,148px) 100px 178px 112px 34px; align-items:start; padding-top:11px; padding-bottom:11px;
+  min-width:calc(948px + var(--w-lb,148px) + var(--w-hb,148px) + var(--w-mb,148px));}
+.trow.today.eta2{grid-template-columns:22px 40px 118px 140px 100px 70px var(--w-lb,148px) var(--w-hb,148px) var(--w-mb,148px) 100px 178px 104px 112px 34px;
+  min-width:calc(1044px + var(--w-lb,148px) + var(--w-hb,148px) + var(--w-mb,148px));}
 /* Line Booking / House B/L / Master B/L 은 절대 줄바꿈·생략 없이 한 줄로 전부 보임 (칸 너비는 실제 값에 맞춰 자동 조절: fitRefCols_) */
 .trow.today .bl-cell, .bl-hold-row .bl-cell{white-space:nowrap; overflow:visible; text-overflow:clip;}
 /* 나머지 칸은 길면 줄바꿈해서라도 전부 표시 */
@@ -233,6 +233,8 @@ img{max-width:100%;}
 .trow.today .mgmtno, .bl-hold-row .mgmtno{white-space:normal; overflow-wrap:anywhere;}
 .trow.today .mgr, .trow.today .client-name, .trow.today .note-line, .trow.today .item-label, .trow.today .type-tag{overflow-wrap:anywhere;}
 
+.ti-cell{display:flex; flex-direction:column; align-items:flex-start; gap:4px; min-width:0;}
+.ti-cell .item-label:empty{display:none;}
 .eta-cell{display:flex; flex-direction:column; align-items:center; gap:3px;}
 .eta-cell .mono{font-size:10.5px; color:var(--ink-soft);}
 .eta-cell .eta-src-tag{font-size:9px; opacity:.85;}
@@ -1847,8 +1849,7 @@ function todayHeadHtml(tk){
     '<span>'+sortHeadHtml(tk,'hbl','House B/L No')+'</span>'+
     '<span>'+sortHeadHtml(tk,'mbl','Master B/L No')+'</span>'+
     '<span>'+sortHeadHtml(tk,'pod','POD')+'</span>'+
-    '<span>'+sortHeadHtml(tk,'type','구분')+'</span>'+
-    '<span>'+sortHeadHtml(tk,'item','항목')+'</span>'+
+    '<span>'+sortHeadHtml(tk,'type','구분')+' · '+sortHeadHtml(tk,'item','항목')+'</span>'+
     (showEtaCol()?'<span>'+sortHeadHtml(tk,'eta','ETA')+'</span>':'')+
     '<span>'+sortHeadHtml(tk,'etd',todayDateColLabel())+'</span>'+
     '<span></span>'+
@@ -1884,6 +1885,15 @@ function podCellInner(s){
   }
   return base;
 }
+/* 구분(색 블록)과 항목을 한 칸에 합침 — 항목 이름이 구분과 같으면(예: 서류마감/서류마감) 중복해서 쓰지 않고 색 블록 하나만 보여주고,
+   그 밑에 면장·서류마감·CHK BL 같은 세부 알약이나 태그만 이어서 보여줌. 다르면(예: 출항안내/출항) 블록 밑에 항목 이름도 같이 보여줌. */
+function typeItemCellHtml(x){
+  var it = x.item, tl = TYPE_LABEL[x.type];
+  var norm = function(v){ return String(v||'').replace(/[\s\-_]/g,'').toLowerCase(); };
+  var same = norm(it.label)===norm(tl);
+  return '<span class="ti-cell"><span class="type-tag '+x.type+'">'+tl+'</span>'+
+    '<span class="item-label">'+(same?'':escapeHtml(it.label))+(it.billing?'<span class="billing-tag">청구</span>':'')+holidayTagHtml(x)+blHoldTagHtml(x)+blBizTagHtml(x)+docSubHtml(x)+'</span></span>';
+}
 function todayTable(list, sectionId, tableKey){
   tableKey = tableKey||'today';
   list = applySort(tableKey, list, TODAY_SORT_GETTERS);
@@ -1901,8 +1911,7 @@ function todayTable(list, sectionId, tableKey){
       '<span class="bl-cell mono ref-hb" title="'+escapeHtml(s.hbl||'')+'">'+escapeHtml(s.hbl||'-')+'</span>'+
       '<span class="bl-cell mono ref-mb" title="'+escapeHtml(s.mbl||'')+'">'+escapeHtml(s.mbl||'-')+'</span>'+
       '<span class="mgr" title="'+escapeHtml(s.pod||'')+'">'+podCellInner(s)+'</span>'+
-      '<span class="type-tag '+x.type+'">'+TYPE_LABEL[x.type]+'</span>'+
-      '<span class="item-label">'+escapeHtml(it.label)+(it.billing?'<span class="billing-tag">청구</span>':'')+holidayTagHtml(x)+blHoldTagHtml(x)+blBizTagHtml(x)+docSubHtml(x)+'</span>'+
+      typeItemCellHtml(x)+
       (showEtaCol()?'<span class="eta-cell">'+etaSmallHtml(s)+'</span>':'')+
       '<span class="date-badge-cell">'+refCellHtml(x)+'</span>'+
       '<button class="edit-btn" data-act="editnote" data-id="'+escapeHtml(s.id)+'" title="비고 입력·수정"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M11 2l3 3-8 8-3.5.5.5-3.5z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg></button>'+
@@ -1924,8 +1933,7 @@ function upcomingHeadHtml(){
     '<span>'+sortHeadHtml('upcoming','hbl','House B/L No')+'</span>'+
     '<span>'+sortHeadHtml('upcoming','mbl','Master B/L No')+'</span>'+
     '<span>'+sortHeadHtml('upcoming','pod','POD')+'</span>'+
-    '<span>'+sortHeadHtml('upcoming','type','구분')+'</span>'+
-    '<span>'+sortHeadHtml('upcoming','item','항목')+'</span>'+
+    '<span>'+sortHeadHtml('upcoming','type','구분')+' · '+sortHeadHtml('upcoming','item','항목')+'</span>'+
     (showEtaCol()?'<span>'+sortHeadHtml('upcoming','eta','ETA')+'</span>':'')+
     '<span>'+sortHeadHtml('upcoming','etd',todayDateColLabel())+'</span>'+
     '<span></span>'+
@@ -1947,8 +1955,7 @@ function upcomingTable(list, sectionId){
       '<span class="bl-cell mono ref-hb" title="'+escapeHtml(s.hbl||'')+'">'+escapeHtml(s.hbl||'-')+'</span>'+
       '<span class="bl-cell mono ref-mb" title="'+escapeHtml(s.mbl||'')+'">'+escapeHtml(s.mbl||'-')+'</span>'+
       '<span class="mgr" title="'+escapeHtml(s.pod||'')+'">'+podCellInner(s)+'</span>'+
-      '<span class="type-tag '+x.type+'">'+TYPE_LABEL[x.type]+'</span>'+
-      '<span class="item-label">'+escapeHtml(it.label)+(it.billing?'<span class="billing-tag">청구</span>':'')+holidayTagHtml(x)+blHoldTagHtml(x)+blBizTagHtml(x)+docSubHtml(x)+'</span>'+
+      typeItemCellHtml(x)+
       (showEtaCol()?'<span class="eta-cell">'+etaSmallHtml(s)+'</span>':'')+
       '<span class="date-badge-cell">'+refCellHtml(x)+'</span>'+
       '<button class="edit-btn" data-act="editnote" data-id="'+escapeHtml(s.id)+'" title="비고 입력·수정"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M11 2l3 3-8 8-3.5.5.5-3.5z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg></button>'+
