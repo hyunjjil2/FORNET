@@ -598,7 +598,7 @@ details.help[open] summary:before{content:"–";}
    ===================================================================== */
 /* 접속 암호(가벼운 문단속): 암호 자체는 파일에 없고 해시값만 있음. ''이면 암호 없이 열림.
    파일을 직접 열어보는 사람은 우회할 수 있으므로 "남이 그냥 열어 쓰는 것"을 막는 정도의 장치임. */
-var GATE_HASH = '';
+var GATE_HASH = '164edeb95460027eed925d56b5c03b9c33cb51dccaeedfd1429cbf8be9c48e93';
 var GATE_KEY = 'fw_gate_ok';
 function gateOk_(){
   if(!GATE_HASH) return true;
@@ -3045,7 +3045,7 @@ function showConnect_(mode){
   document.getElementById('connectInputLabel').textContent = first ? '웹 앱 주소' : '새 웹 앱 주소';
   document.getElementById('connectInput').value = '';
   var msg = document.getElementById('connectMsg'); msg.className='connect-msg'; msg.textContent='';
-  document.getElementById('connectSaveBtn').textContent = first ? '연결하기' : '이 주소로 바꾸기';
+  document.getElementById('connectSaveBtn').textContent = first ? '연결하기' : '이 주소로 바꾸기'; connectForceUrl_ = '';
   document.getElementById('connectCopyBtn').hidden = first || !WEBAPP_URL;
   document.getElementById('connectResetBtn').hidden = first || !WEBAPP_URL;
   document.getElementById('connectCloseBtn').hidden = first;
@@ -3054,21 +3054,35 @@ function showConnect_(mode){
 }
 function hideConnect_(){ document.getElementById('connectOverlay').hidden = true; }
 function setConnectMsg_(text, kind){ var m=document.getElementById('connectMsg'); m.textContent=text; m.className='connect-msg'+(kind?(' '+kind):''); }
+var connectForceUrl_ = ''; // 응답이 없어서 확인 못 한 주소 — 같은 주소로 한 번 더 누르면 확인 없이 저장
+function resetConnectForce_(){
+  connectForceUrl_ = '';
+  var b = document.getElementById('connectSaveBtn');
+  if(b) b.textContent = (document.getElementById('connectTitle').textContent==='내 시트 연결하기') ? '연결하기' : '이 주소로 바꾸기';
+}
 async function saveConnect_(){
   var input = document.getElementById('connectInput');
   var url = String(input.value||'').trim();
   if(!url){ setConnectMsg_('웹 앱 주소를 입력해 주세요.', 'err'); return; }
   if(!isValidWebappUrl_(url)){ setConnectMsg_('주소 모양이 달라요. https://script.google.com/macros/s/…/exec 로 끝나는 웹 앱 URL을 그대로 붙여넣어 주세요 (스프레드시트 주소나 GitHub 주소가 아니에요).', 'err'); return; }
   var btn = document.getElementById('connectSaveBtn'); btn.disabled = true;
-  setConnectMsg_('연결을 확인하는 중…');
-  try{
-    var res = await fetchWithTimeout_(url + (url.indexOf('?')>=0?'&':'?') + '_=' + Date.now());
-    var json = parseApiResponse_(await res.text());
-    if(!json || !json.ok) throw new Error((json && json.error) || '응답이 올바르지 않아요');
-  }catch(e){
-    btn.disabled = false;
-    setConnectMsg_('연결을 확인하지 못했어요: '+e.message+' — 웹 앱을 배포했는지, 액세스 권한이 "모든 사용자"인지, 시트 탭 이름이 "업무원본"인지 확인해 주세요.', 'err');
-    return;
+  if(connectForceUrl_ !== url){
+    setConnectMsg_('연결을 확인하는 중… (처음에는 최대 30초 걸릴 수 있어요)');
+    try{
+      var res = await fetchWithTimeout_(url + (url.indexOf('?')>=0?'&':'?') + '_=' + Date.now());
+      var json = parseApiResponse_(await res.text());
+      if(!json || !json.ok) throw new Error((json && json.error) || '응답이 올바르지 않아요');
+    }catch(e){
+      btn.disabled = false;
+      var noReply = (e && (e.name==='AbortError' || /abort|failed to fetch|networkerror|load failed/i.test(String(e.message||e))));
+      if(noReply){
+        connectForceUrl_ = url; btn.textContent = '그래도 이 주소로 저장';
+        setConnectMsg_('30초 안에 시트가 응답하지 않았어요. 주소창에 이 주소를 직접 열었을 때 {"ok":true… 로 시작하는 글자가 보이면 주소는 맞는 거예요(처음 한 번은 느릴 수 있어요). 맞다면 아래 "그래도 이 주소로 저장"을 누르세요. 안 보이면 웹 앱 배포(액세스 권한 "모든 사용자")를 확인해 주세요.', 'err');
+      } else {
+        setConnectMsg_('연결을 확인하지 못했어요: '+e.message+' — 웹 앱을 배포했는지, 액세스 권한이 "모든 사용자"인지, 시트 탭 이름이 "업무원본"인지 확인해 주세요.', 'err');
+      }
+      return;
+    }
   }
   try{ localStorage.setItem(WEBAPP_URL_KEY, url); }
   catch(e){ btn.disabled = false; setConnectMsg_('이 브라우저가 주소 저장을 막고 있어요(시크릿 모드 등). 일반 창에서 다시 시도해 주세요.', 'err'); return; }
@@ -3078,6 +3092,7 @@ async function saveConnect_(){
 function wireConnect_(){
   document.getElementById('connectSaveBtn').addEventListener('click', saveConnect_);
   document.getElementById('connectInput').addEventListener('keydown', function(e){ if(e.key==='Enter') saveConnect_(); });
+  document.getElementById('connectInput').addEventListener('input', function(){ if(connectForceUrl_ && this.value.trim()!==connectForceUrl_) resetConnectForce_(); });
   document.getElementById('connectCloseBtn').addEventListener('click', hideConnect_);
   document.getElementById('connectCopyBtn').addEventListener('click', function(){
     var link = location.origin + location.pathname + '?api=' + encodeURIComponent(WEBAPP_URL);
