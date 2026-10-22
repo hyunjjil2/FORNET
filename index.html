@@ -70,6 +70,22 @@ img{max-width:100%;}
 
 .app{max-width:1680px; margin:0 auto; padding:20px 22px 64px;}
 
+.connect-overlay{position:fixed; inset:0; z-index:80; background:rgba(15,18,28,.6); display:flex; align-items:center; justify-content:center; padding:16px;}
+.connect-overlay[hidden], .connect-card [hidden], .setup-banner[hidden]{display:none !important;}
+.connect-card{background:var(--surface); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:24px 26px; width:min(560px,100%); box-shadow:0 24px 70px rgba(0,0,0,.35); max-height:92vh; overflow:auto;}
+.connect-card h2{margin:0 0 10px; font-size:19px;}
+.connect-desc{margin:0 0 14px; font-size:13.5px; line-height:1.6; color:var(--ink-soft);}
+.connect-desc code, .connect-current code{background:var(--surface-2); padding:1px 5px; border-radius:3px; font-size:12px; word-break:break-all;}
+.connect-current{margin:0 0 12px; font-size:12.5px; color:var(--ink-soft); line-height:1.5;}
+.connect-label{display:block; font-size:12px; font-weight:700; margin:4px 0 5px; color:var(--ink-soft);}
+#connectInput{width:100%; box-sizing:border-box; padding:10px 12px; border:1px solid var(--line); border-radius:6px; background:var(--surface); color:var(--ink); font:inherit; font-size:13px;}
+#connectInput:focus{outline:2px solid var(--steel); outline-offset:0;}
+.connect-msg{min-height:20px; margin:8px 0 4px; font-size:12.5px; line-height:1.5;}
+.connect-msg.err{color:var(--danger);}
+.connect-msg.ok{color:var(--teal);}
+.connect-actions{display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;}
+.sync-status{cursor:pointer;}
+.sync-status:hover #syncLabel{text-decoration:underline;}
 .setup-banner{
   background:var(--danger-soft); color:var(--danger); border:1px solid var(--danger); border-radius:3px;
   padding:12px 16px; margin-bottom:16px; font-size:13px; line-height:1.6;
@@ -449,11 +465,25 @@ details.help[open] summary:before{content:"–";}
 
 <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
 
-<div class="app">
-  <div id="setupBanner" class="setup-banner" hidden>
-    Apps Script 웹 앱 URL이 설정되지 않았습니다. 이 파일 맨 아래 스크립트에서
-    <code>var WEBAPP_URL = '여기에_배포된_웹앱_URL';</code> 부분을 실제 배포 URL로 바꿔서 다시 올려주세요.
+<div class="connect-overlay" id="connectOverlay" hidden>
+  <div class="connect-card" role="dialog" aria-labelledby="connectTitle">
+    <h2 id="connectTitle">내 시트 연결하기</h2>
+    <p class="connect-desc" id="connectDesc">이 대시보드는 사용자마다 <b>자기 구글 시트</b>에 연결돼요. 본인의 Apps Script 웹 앱 주소(<code>.../exec</code>로 끝나는 주소)를 한 번만 입력하면 이 브라우저가 기억해요. 다른 사람의 데이터와는 섞이지 않아요.</p>
+    <div id="connectCurrent" class="connect-current" hidden></div>
+    <label for="connectInput" class="connect-label" id="connectInputLabel">웹 앱 주소</label>
+    <input id="connectInput" type="text" autocomplete="off" spellcheck="false" placeholder="https://script.google.com/macros/s/.../exec">
+    <div id="connectMsg" class="connect-msg" role="status"></div>
+    <div class="connect-actions">
+      <button class="btn btn-primary" id="connectSaveBtn">연결하기</button>
+      <button class="btn" id="connectCopyBtn" hidden>내 주소 링크 복사</button>
+      <button class="btn" id="connectResetBtn" hidden>연결 해제</button>
+      <button class="btn btn-ghost" id="connectCloseBtn" hidden>닫기</button>
+    </div>
   </div>
+</div>
+
+<div class="app">
+  <div id="versionBanner" class="setup-banner" hidden></div>
 
   <div class="topbar">
     <div class="brand">
@@ -534,10 +564,44 @@ details.help[open] summary:before{content:"–";}
 "use strict";
 
 /* =====================================================================
-   여기만 바꾸면 됩니다: Apps Script 배포 후 나오는 웹 앱 URL을 붙여넣으세요.
-   예: https://script.google.com/macros/s/AKfycbxxxxxxxxxxxxxxxxxxxx/exec
+   Apps Script 웹 앱 주소(…/exec)는 이 파일에 적지 않습니다. 사용자마다 처음 한 번 화면에서 입력하면
+   각자의 브라우저가 기억하고(localStorage), 주소 뒤에 ?api=주소 를 붙여 열면 자동으로 저장됩니다.
+   그래서 이 파일은 모든 사용자가 똑같이 쓰고, 각자의 시트 주소만 다릅니다.
    ===================================================================== */
-var WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwyA1J7HErlYdfxT5Bvrp1IhtZwAK84q7tUFAXeEjdR9_129dnQaqC2vlRTHLzN6rwS/exec';
+var WEBAPP_URL_KEY = 'fw_webapp_url';
+var EXPECTED_SERVER_VERSION = 20261022; // Code.gs의 SERVER_VERSION과 맞춤 — Code.gs를 바꿀 때마다 둘 다 올림
+function isValidWebappUrl_(u){
+  u = String(u||'').trim();
+  if(/^https:\/\/script\.google\.com\/(a\/macros\/[^\/\s]+\/|macros\/)s\/[A-Za-z0-9_\-]+\/exec$/.test(u)) return true;
+  // 내 컴퓨터(localhost)에서 열어 테스트할 때만 허용 — 배포된 GitHub 주소에서는 해당 없음
+  if(location.hostname==='localhost' || location.hostname==='127.0.0.1'){
+    return /^(https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?)?\/exec$/.test(u);
+  }
+  return false;
+}
+function loadWebappUrl_(){
+  var fromParam = '';
+  try{
+    var sp = new URLSearchParams(location.search);
+    if(sp.has('api')){
+      fromParam = String(sp.get('api')||'').trim();
+      sp.delete('api');
+      var qs = sp.toString();
+      // 주소창에서 주소를 지워 눈에 안 남게 함(북마크·히스토리에 시트 주소가 남지 않도록)
+      history.replaceState(null, '', location.pathname + (qs?('?'+qs):'') + location.hash);
+    }
+  }catch(e){}
+  if(fromParam && isValidWebappUrl_(fromParam)){
+    try{ localStorage.setItem(WEBAPP_URL_KEY, fromParam); }catch(e){}
+    return fromParam;
+  }
+  try{
+    var saved = localStorage.getItem(WEBAPP_URL_KEY);
+    if(saved && isValidWebappUrl_(saved)) return saved;
+  }catch(e){}
+  return '';
+}
+var WEBAPP_URL = loadWebappUrl_();
 var POLL_MS = 20000;
 
 /* ================= route / checklist config (Code.gs / xlsx 템플릿과 동일하게 유지) ================= */
@@ -2796,7 +2860,7 @@ function toast(msg, opts){
 }
 
 /* ================= backend I/O ================= */
-function webappReady(){ return WEBAPP_URL && WEBAPP_URL.indexOf('PASTE_YOUR') !== 0; }
+function webappReady(){ return !!WEBAPP_URL; }
 
 /* 관리번호·Line Booking No·B/L No 등은 숫자만 입력하면 구글시트가 자동으로 "숫자" 형식
    셀로 저장해버릴 수 있음 — 이 경우 서버에서 내려오는 값이 문자열이 아니라 순수 숫자(Number)가
@@ -2896,6 +2960,75 @@ async function apiGet(){
   return json;
 }
 
+/* Code.gs(시트 쪽)가 화면 파일보다 오래된 버전이면 위쪽에 알림 — 각자 재배포해야 하는 부분이라 놓치지 않게 함 */
+function checkServerVersion_(json){
+  var b = document.getElementById('versionBanner'); if(!b) return;
+  var v = json && json.serverVersion ? Number(json.serverVersion) : 0;
+  if(v < EXPECTED_SERVER_VERSION){
+    b.hidden = false;
+    b.innerHTML = '내 시트의 <b>Code.gs</b>가 예전 버전이에요 (현재 '+(v||'버전 표시 없음')+' / 필요 '+EXPECTED_SERVER_VERSION+'). 최신 Code.gs로 교체해 저장한 뒤 <b>배포 &gt; 배포 관리 &gt; 연필 아이콘 &gt; 새 버전</b>으로 다시 배포해 주세요. 그 전에는 새 기능이 일부 동작하지 않을 수 있어요.';
+  } else { b.hidden = true; b.innerHTML = ''; }
+}
+/* 시트 연결(웹 앱 주소) 입력·관리 창 — mode: 'first'(처음, 닫을 수 없음) | 'change'(연결 상태 클릭) */
+function showConnect_(mode){
+  var ov = document.getElementById('connectOverlay'); if(!ov) return;
+  var first = (mode==='first');
+  document.getElementById('connectTitle').textContent = first ? '내 시트 연결하기' : '시트 연결 관리';
+  document.getElementById('connectDesc').hidden = !first;
+  var cur = document.getElementById('connectCurrent');
+  cur.hidden = first || !WEBAPP_URL;
+  if(!first && WEBAPP_URL) cur.innerHTML = '지금 연결된 주소: <code>'+escapeHtml(WEBAPP_URL.length>70 ? WEBAPP_URL.slice(0,38)+'…'+WEBAPP_URL.slice(-14) : WEBAPP_URL)+'</code><br>주소를 바꾸려면 아래에 새 주소를 입력하세요.';
+  document.getElementById('connectInputLabel').textContent = first ? '웹 앱 주소' : '새 웹 앱 주소';
+  document.getElementById('connectInput').value = '';
+  var msg = document.getElementById('connectMsg'); msg.className='connect-msg'; msg.textContent='';
+  document.getElementById('connectSaveBtn').textContent = first ? '연결하기' : '이 주소로 바꾸기';
+  document.getElementById('connectCopyBtn').hidden = first || !WEBAPP_URL;
+  document.getElementById('connectResetBtn').hidden = first || !WEBAPP_URL;
+  document.getElementById('connectCloseBtn').hidden = first;
+  ov.hidden = false;
+  setTimeout(function(){ document.getElementById('connectInput').focus(); }, 30);
+}
+function hideConnect_(){ document.getElementById('connectOverlay').hidden = true; }
+function setConnectMsg_(text, kind){ var m=document.getElementById('connectMsg'); m.textContent=text; m.className='connect-msg'+(kind?(' '+kind):''); }
+async function saveConnect_(){
+  var input = document.getElementById('connectInput');
+  var url = String(input.value||'').trim();
+  if(!url){ setConnectMsg_('웹 앱 주소를 입력해 주세요.', 'err'); return; }
+  if(!isValidWebappUrl_(url)){ setConnectMsg_('주소 모양이 달라요. https://script.google.com/macros/s/…/exec 로 끝나는 웹 앱 URL을 그대로 붙여넣어 주세요 (스프레드시트 주소나 GitHub 주소가 아니에요).', 'err'); return; }
+  var btn = document.getElementById('connectSaveBtn'); btn.disabled = true;
+  setConnectMsg_('연결을 확인하는 중…');
+  try{
+    var res = await fetchWithTimeout_(url + (url.indexOf('?')>=0?'&':'?') + '_=' + Date.now());
+    var json = parseApiResponse_(await res.text());
+    if(!json || !json.ok) throw new Error((json && json.error) || '응답이 올바르지 않아요');
+  }catch(e){
+    btn.disabled = false;
+    setConnectMsg_('연결을 확인하지 못했어요: '+e.message+' — 웹 앱을 배포했는지, 액세스 권한이 "모든 사용자"인지, 시트 탭 이름이 "업무원본"인지 확인해 주세요.', 'err');
+    return;
+  }
+  try{ localStorage.setItem(WEBAPP_URL_KEY, url); }
+  catch(e){ btn.disabled = false; setConnectMsg_('이 브라우저가 주소 저장을 막고 있어요(시크릿 모드 등). 일반 창에서 다시 시도해 주세요.', 'err'); return; }
+  setConnectMsg_('연결됐어요! 불러오는 중…', 'ok');
+  setTimeout(function(){ location.reload(); }, 250);
+}
+function wireConnect_(){
+  document.getElementById('connectSaveBtn').addEventListener('click', saveConnect_);
+  document.getElementById('connectInput').addEventListener('keydown', function(e){ if(e.key==='Enter') saveConnect_(); });
+  document.getElementById('connectCloseBtn').addEventListener('click', hideConnect_);
+  document.getElementById('connectCopyBtn').addEventListener('click', function(){
+    var link = location.origin + location.pathname + '?api=' + encodeURIComponent(WEBAPP_URL);
+    var done = function(){ setConnectMsg_('링크를 복사했어요. 다른 기기나 브라우저에서 이 링크를 한 번 열면 같은 시트에 연결돼요. 이 링크에는 내 시트 주소가 들어 있으니 다른 사람에게 보내지 마세요.', 'ok'); };
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(link).then(done, function(){ window.prompt('이 링크를 복사하세요', link); }); }
+    else { window.prompt('이 링크를 복사하세요', link); }
+  });
+  document.getElementById('connectResetBtn').addEventListener('click', function(){
+    if(!window.confirm('이 브라우저의 시트 연결을 해제할까요? (시트의 데이터는 지워지지 않아요)')) return;
+    try{ localStorage.removeItem(WEBAPP_URL_KEY); }catch(e){}
+    location.reload();
+  });
+  var ss = document.querySelector('.sync-status');
+  if(ss){ ss.title = '시트 연결 관리 (주소 바꾸기·링크 복사)'; ss.addEventListener('click', function(){ showConnect_(webappReady()?'change':'first'); }); }
+}
 var refreshRetryTimer = null;
 /* 20초마다 도는 폴링(startPolling)이 이전 refreshFromServer 호출(재시도 포함)이 아직 끝나지도
    않았는데 새 호출을 또 시작해버리는 문제가 있었음 — 앱스스크립트 응답이 느려지면(콜드
@@ -2935,6 +3068,7 @@ async function refreshFromServer(silent, retryCount){
     var fetchStartedAt = Date.now();
     var json = await apiGet();
     if(refreshRetryTimer){ clearTimeout(refreshRetryTimer); refreshRetryTimer = null; }
+    checkServerVersion_(json);
     allShipments = (json.rows||[]).map(sheetRowToShipment);
     byId = {}; allShipments.forEach(function(s){ byId[s.id]=s; });
     reapplyRecentSaves(fetchStartedAt);
@@ -3467,7 +3601,7 @@ function setUploadBtnBusy(busy){
   btn.textContent = busy ? '업로드 중…' : '엑셀 업로드';
 }
 async function handleFile(file){
-  if(!webappReady()){ toast('먼저 Apps Script 웹 앱 URL을 설정해 주세요 (페이지 상단 안내 참고).', {err:true}); return; }
+  if(!webappReady()){ toast('먼저 내 시트(Apps Script 웹 앱 주소)를 연결해 주세요.', {err:true}); showConnect_('first'); return; }
   setUploadBtnBusy(true);
   uploadStatusStep('엑셀 파일 읽는 중…', escapeHtml(file.name));
   try{
@@ -3748,11 +3882,12 @@ document.getElementById('archiveCleanupBtn').addEventListener('click', async fun
 
 renderChips();
 renderRouteDocs();
+wireConnect_();
 if(!webappReady()){
-  document.getElementById('setupBanner').hidden = false;
   document.getElementById('syncDot').className = 'sync-dot local';
-  document.getElementById('syncLabel').textContent = '웹앱 URL 미설정';
+  document.getElementById('syncLabel').textContent = '시트 연결 필요';
   renderAll();
+  showConnect_('first');
 } else {
   refreshFromServer(false);
   startPolling();
