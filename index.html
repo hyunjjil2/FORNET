@@ -17,7 +17,7 @@
   --brass:#A9762A; --brass-soft:#E9D9B8;
   --teal:#1F6B68; --teal-soft:#D7E8E6;
   --plum:#6B4E7C; --plum-soft:#E7DEEC;
-  --indigo:#4C58A6; --indigo-soft:#E1E4F4;
+  --indigo:#4C58A6; --indigo-soft:#E1E4F4; --sky:#2B7A9E; --sky-soft:#DCEEF6;
   --steel:#386693; --steel-soft:#DCE6EE;
   --slate:#565B5F; --slate-soft:#E4E3DF;
   --danger:#A93A2C; --danger-soft:#F3DCD5;
@@ -38,7 +38,7 @@
     --danger:#DD6A55; --danger-soft:#3A2420;
     --warn:#DDAE52; --warn-soft:#362C18;
     --rose:#E68FBB; --rose-soft:#3A2430;
-    --indigo:#9AA5E6; --indigo-soft:#232744;
+    --indigo:#9AA5E6; --indigo-soft:#232744; --sky:#7CC0E0; --sky-soft:#1D3340;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.28);
     color-scheme: dark;
   }
@@ -54,7 +54,7 @@
   --danger:#DD6A55; --danger-soft:#3A2420;
   --warn:#DDAE52; --warn-soft:#362C18;
   --rose:#E68FBB; --rose-soft:#3A2430;
-  --indigo:#9AA5E6; --indigo-soft:#232744;
+  --indigo:#9AA5E6; --indigo-soft:#232744; --sky:#7CC0E0; --sky-soft:#1D3340;
   --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.28);
   color-scheme: dark;
 }
@@ -328,6 +328,8 @@ img{max-width:100%;}
 .flag-pill.prealert-done{background:var(--teal-soft); color:var(--teal);}
 .flag-pill.ins-pending{background:var(--indigo-soft); color:var(--indigo);}
 .flag-pill.ins-done{background:var(--teal-soft); color:var(--teal);}
+.flag-pill.ft-pending{background:var(--sky-soft); color:var(--sky);}
+.flag-pill.ft-done{background:var(--teal-soft); color:var(--teal);}
 .flag-pill.bl-holding{background:var(--rose-soft); color:var(--rose);}
 .route-pill.lcl{background:var(--plum-soft); color:var(--plum);}
 .type-tag{font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:3px; white-space:nowrap; border:1px solid currentColor;}
@@ -343,6 +345,7 @@ img{max-width:100%;}
 .type-tag.blissue{color:var(--steel); background:var(--steel-soft); border-color:transparent;}
 .type-tag.prealert{color:var(--rose); background:var(--rose-soft); border-color:transparent;}
 .type-tag.insurance{color:var(--indigo); background:var(--indigo-soft); border-color:transparent;}
+.type-tag.freetime{color:var(--sky); background:var(--sky-soft); border-color:transparent;}
 .type-tag.dispatch{color:var(--teal); background:var(--teal-soft); border-color:transparent;}
 .type-tag.isf{color:var(--slate); background:var(--slate-soft); border-color:transparent;}
 
@@ -617,7 +620,7 @@ async function gateHash_(pw){
   return Array.prototype.map.call(new Uint8Array(buf), function(b){ return ('0'+b.toString(16)).slice(-2); }).join('');
 }
 var WEBAPP_URL_KEY = 'fw_webapp_url';
-var EXPECTED_SERVER_VERSION = 20261023; // Code.gs의 SERVER_VERSION과 맞춤 — Code.gs를 바꿀 때마다 둘 다 올림
+var EXPECTED_SERVER_VERSION = 20261024; // Code.gs의 SERVER_VERSION과 맞춤 — Code.gs를 바꿀 때마다 둘 다 올림
 function isValidWebappUrl_(u){
   u = String(u||'').trim();
   if(/^https:\/\/script\.google\.com\/(a\/macros\/[^\/\s]+\/|macros\/)s\/[A-Za-z0-9_\-]+\/exec$/.test(u)) return true;
@@ -778,7 +781,7 @@ var INFO_HEADERS = ['관리번호','루틴','청구전용','캔슬','서비스',
 var FIELD_TO_HEADER = {
   managementNo:'관리번호', routeType:'루틴', billingOnly:'청구전용', cancelled:'캔슬',
   service:'서비스', tradeType:'수출입', clientCode:'거래처코드', client:'거래처명', manager:'담당자', pol:'POL', pod:'POD', delivery:'Delivery',
-  docCls:'DOC CLS', cfsCls:'CFS CLS', etd:'ETD', etaPort:'ETA(PORT)', etaDoor:'ETA(DOOR)', doorEligible:'Door배송', dispatchNeeded:'배차필요', preAlertNeeded:'프리알러트필요', insuranceNeeded:'보험필요', blHolding:'비엘홀딩',
+  docCls:'DOC CLS', cfsCls:'CFS CLS', etd:'ETD', etaPort:'ETA(PORT)', etaDoor:'ETA(DOOR)', doorEligible:'Door배송', dispatchNeeded:'배차필요', preAlertNeeded:'프리알러트필요', insuranceNeeded:'보험필요', freeTimeNeeded:'프리타임필요', blHolding:'비엘홀딩',
   lineBookingNo:'Line Booking No', hbl:'House B/L No', mbl:'Master B/L No', poNo:'PO No', carrier:'선사', forwarder:'운송사', vessel:'VESSEL', terminal:'터미널', note:'특이사항',
   createdAt:'생성일시', updatedAt:'수정일시'
 };
@@ -816,6 +819,10 @@ function preAlertDone(s){ var chk=s.checklist||{}; return !!chk[preAlertItemKeyF
 var INSURANCE_ITEM_KEY = 'insurance';
 var INSURANCE_ITEM_LABEL = '보험가입';
 function insuranceDone(s){ return !!(s.checklist||{})[INSURANCE_ITEM_KEY]; }
+/* "프리타임 추적" 건(내 거래처 관리에서 프리타임에 체크한 화주의 건 또는 건 상세에서 YES) — 기준일은 출항일(ETD). 완료 체크 키 freetime (Code.gs의 isRowDone_와 동일) */
+var FREETIME_ITEM_KEY = 'freetime';
+var FREETIME_ITEM_LABEL = '프리타임 신청';
+function freeTimeDone(s){ return !!(s.checklist||{})[FREETIME_ITEM_KEY]; }
 
 /* "미주"(ISF 대상) 판정 — DOOR/배차/비엘홀딩처럼 사람이 직접 YES/NO를 지정하는 게 아니라,
    루틴(해상수출·항공수출)과 POD(도착지) 값만으로 자동 판정함. ISF(10+2)는 미국행 수출 건에만
@@ -835,7 +842,7 @@ function isUsPod(pod){
 }
 function isUsBoundShipment(s){ return isUsBoundRoute(s.routeType) && isUsPod(s.pod) && !s.billingOnly; }
 var US_ISF_ITEM_KEY = 'isfFiling';
-var US_ISF_ITEM_LABEL = 'ISF 신고 완료';
+var US_ISF_ITEM_LABEL = 'ISF 신고';
 
 var FIELD_ALIASES = {
   managementNo: ['관리번호','FILENO','FILE No','파일번호'],
@@ -884,6 +891,7 @@ function selCount(sectionId){ return Object.keys(getSel(sectionId)).length; }
 var myClientCodes = [];  // 서버(설정 시트)에서 불러온 "내 거래처 코드" 목록
 var poNoteClientCodes = [];   // "내 거래처 관리"에서 PO→비고에 체크한 화주 코드 — 엑셀의 PO No를 비고에 자동 입력(서버 upsertMany_에서 처리)
 var preAlertClientCodes = [];  // "내 거래처 관리"에서 PRE-ALERT에 체크한 화주 코드 — 서버가 신규·기존(미지정) 건에 프리알러트필요=YES를 걸어줌
+var freeTimeClientCodes = [];  // "내 거래처 관리"에서 프리타임에 체크한 화주 코드
 var insuranceClientCodes = [];  // "내 거래처 관리"에서 보험에 체크한 화주 코드 — 서버가 신규·기존(미지정) 건에 보험필요=YES를 걸어줌
 var dispatchClientCodes = [];  // "내 거래처 관리"에서 배차에 체크한 화주 코드 — 엑셀 업로드 신규 건에 배차필요=YES가 자동으로 걸림(서버 upsertMany_에서 처리)
 function loadMyOnlyPref(){ try{ var v = localStorage.getItem('fw_myClientsOnly'); return v===null ? true : v==='1'; }catch(e){ return true; } }
@@ -1060,6 +1068,7 @@ function isDone(s){
   if(s.dispatchNeeded && !s.billingOnly && !chk[dispatchItemKeyFor(s.routeType)]) return false;
   if(s.preAlertNeeded && !s.billingOnly && !preAlertDone(s)) return false;
   if(s.insuranceNeeded && !s.billingOnly && !insuranceDone(s)) return false;
+  if(s.freeTimeNeeded && !s.billingOnly && !freeTimeDone(s)) return false;
   if(s.blHolding && !chk[BL_HOLDING_FINAL_ITEM_KEY]) return false;
   if(isUsBoundShipment(s) && !chk[US_ISF_ITEM_KEY]) return false;
   return true;
@@ -1233,6 +1242,22 @@ function feedPreAlert(){
    PRE-ALERT와 같은 방식: 기준일(D-DAY)은 서류마감일(DOC CLS)이고 서류마감일이 오늘이거나 지난 건부터 노출하며(공휴일이면 앞당김),
    서류마감일이 비어 있는 건도 숨기지 않음. 기준일로부터 INSURANCE_OLD_FROM_DAYS일 이상 지난 건은 별도 섹션에 분리. 청구전용 건은 제외. */
 var INSURANCE_OLD_FROM_DAYS = 7;
+/* "프리타임 추적" — 기준일은 출항일(ETD)이 D-DAY. 프리타임 신청이 끝나지 않은 건을 ETD 당일~(ETD+6일)까지는 오늘 할 일(01),
+   ETD 7일 전부터는 "앞으로 7일 내 예정"(02)에 미리 보여주고, ETD+7일 이상 지난 건은 별도 섹션. ETD가 비어 있어도 숨기지 않음. */
+var FREETIME_OLD_FROM_DAYS = 7;
+function feedFreeTime(){
+  var out=[];
+  activeShipments().forEach(function(s){
+    if(!matchesFilter(s) || !matchesMyClients(s)) return;
+    if(!s.freeTimeNeeded || s.billingOnly) return;
+    if(freeTimeDone(s)) return;
+    var info = effectiveDeadlineInfo(s.etd);
+    if(info.dd!==null && info.dd>0) return;
+    out.push({s:s, dd:info.dd, holidayShift:info.shifted, holidayEffDate:info.effDate, holidayTitle:info.holidayTitle});
+  });
+  out.sort(function(a,b){ var av=a.dd===null?9999:a.dd, bv=b.dd===null?9999:b.dd; return av-bv; });
+  return out;
+}
 function feedInsurance(){
   var out=[];
   activeShipments().forEach(function(s){
@@ -1311,7 +1336,7 @@ function feedJigyeolAll(){
   return out;
 }
 /* ================= "오늘 할 일" 통합 피드 (타입 태그: duesoon/docCls/billing/door/dispatch/isf/prealert/blissue) ================= */
-var TYPE_LABEL = {duesoon:'출항안내', docCls:'서류마감', billing:'청구대기', door:'도착확인', dispatch:'배차', isf:'ISF', prealert:'PRE-ALERT', blissue:'비엘발행', jigyeol:'지결', insurance:'보험'};
+var TYPE_LABEL = {duesoon:'출항안내', docCls:'서류마감', billing:'청구대기', door:'도착확인', dispatch:'배차', isf:'ISF', prealert:'PRE-ALERT', blissue:'비엘발행', jigyeol:'지결', insurance:'보험', freetime:'프리타임'};
 function feedTodayAll(){
   var out=[];
   feedDueSoon().forEach(function(x){ out.push({type:'duesoon', s:x.s, item:x.item, dd:x.dd, field:x.field, sortKey:(x.dd===null?9999:x.dd), holidayShift:x.holidayShift, holidayEffDate:x.holidayEffDate, holidayTitle:x.holidayTitle}); });
@@ -1323,6 +1348,7 @@ function feedTodayAll(){
   feedJigyeolAll().forEach(function(x){ if(x.dd===null || x.dd<=0) out.push({type:'jigyeol', s:x.s, item:{key:x.item.key, label:x.item.label}, dd:x.dd, field:'etd', sortKey:(x.dd===null?9999:x.dd), holidayShift:x.holidayShift, holidayEffDate:x.holidayEffDate, holidayTitle:x.holidayTitle}); });
   feedPreAlert().forEach(function(x){ out.push({type:'prealert', s:x.s, item:{key:x.itemKey, label:x.itemLabel}, dd:x.dd, field:'docCls', sortKey:(x.dd===null?9999:x.dd), holidayShift:x.holidayShift, holidayEffDate:x.holidayEffDate, holidayTitle:x.holidayTitle, old:(x.dd!==null && x.dd<=-PREALERT_OLD_FROM_DAYS)}); });
   feedInsurance().forEach(function(x){ out.push({type:'insurance', s:x.s, item:{key:INSURANCE_ITEM_KEY, label:INSURANCE_ITEM_LABEL}, dd:x.dd, field:'docCls', sortKey:(x.dd===null?9999:x.dd), holidayShift:x.holidayShift, holidayEffDate:x.holidayEffDate, holidayTitle:x.holidayTitle, old:(x.dd!==null && x.dd<=-INSURANCE_OLD_FROM_DAYS)}); });
+  feedFreeTime().forEach(function(x){ out.push({type:'freetime', s:x.s, item:{key:FREETIME_ITEM_KEY, label:FREETIME_ITEM_LABEL}, dd:x.dd, field:'etd', sortKey:(x.dd===null?9999:x.dd), holidayShift:x.holidayShift, holidayEffDate:x.holidayEffDate, holidayTitle:x.holidayTitle, old:(x.dd!==null && x.dd<=-FREETIME_OLD_FROM_DAYS)}); });
   feedIsfTracking().forEach(function(x){ out.push({type:'isf', s:x.s, item:{key:US_ISF_ITEM_KEY, label:US_ISF_ITEM_LABEL}, dd:x.dd, field:'docCls', sortKey:(x.dd===null?9999:x.dd), holidayShift:x.holidayShift, holidayEffDate:x.holidayEffDate, holidayTitle:x.holidayTitle}); });
   return out;
 }
@@ -1399,6 +1425,11 @@ function feedRemainingAll(){
       var ni = effectiveDeadlineInfo(s.docCls);
       if(ni.dd!==null && ni.dd>0) add('insurance', s, {key:INSURANCE_ITEM_KEY, label:INSURANCE_ITEM_LABEL}, ni.dd, 'docCls', {holidayShift:ni.shifted, holidayEffDate:ni.effDate, holidayTitle:ni.holidayTitle});
     }
+    // 프리타임: 출항일(ETD)이 7일보다 더 남은 건 (7일 이내는 02 "앞으로 7일 내 예정")
+    if(s.freeTimeNeeded && !s.billingOnly && !chk[FREETIME_ITEM_KEY]){
+      var fi = effectiveDeadlineInfo(s.etd);
+      if(fi.dd!==null && fi.dd>UPCOMING_WINDOW_DAYS) add('freetime', s, {key:FREETIME_ITEM_KEY, label:FREETIME_ITEM_LABEL}, fi.dd, 'etd', {holidayShift:fi.shifted, holidayEffDate:fi.effDate, holidayTitle:fi.holidayTitle});
+    }
   });
   return out;
 }
@@ -1424,6 +1455,7 @@ function feedOldByType(type){
 function feedBlIssueOld(){ return feedOldByType('blissue'); }
 function feedPreAlertOld(){ return feedOldByType('prealert'); }
 function feedInsuranceOld(){ return feedOldByType('insurance'); }
+function feedFreeTimeOld(){ return feedOldByType('freetime'); }
 /* ================= "앞으로 N일 내" 사전 알림 피드 =================
    "오늘 할 일"(feedDueSoon·feedDocCls·feedDoorTracking)은 기한(dd)이 이미 됐거나 지난
    항목(dd<=0, 또는 판단 기준 날짜 자체가 없는 항목)만 보여주므로, 아직 기한 전인 항목은
@@ -1435,6 +1467,12 @@ function feedInsuranceOld(){ return feedOldByType('insurance'); }
    도착확인(door) 세 타입에 적용됨. */
 var UPCOMING_WINDOW_DAYS = 7;
 function feedUpcoming(){
+  var out = feedUpcomingAll();
+  if(activeType!=='ALL') out = out.filter(function(x){return x.type===activeType;});
+  out.sort(function(a,b){ return a.sortKey-b.sortKey; });
+  return out;
+}
+function feedUpcomingAll(){
   var out=[];
   activeShipments().forEach(function(s){
     if(!matchesFilter(s) || !matchesMyClients(s)) return;
@@ -1470,9 +1508,14 @@ function feedUpcoming(){
         out.push({type:'isf', s:s, item:{key:US_ISF_ITEM_KEY, label:US_ISF_ITEM_LABEL}, dd:isfInfo.dd, field:'docCls', sortKey:isfInfo.dd, holidayShift:isfInfo.shifted, holidayEffDate:isfInfo.effDate, holidayTitle:isfInfo.holidayTitle});
       }
     }
+    // 프리타임: 출항일(ETD) 7일 전부터 미리 보여줌 — ETD 당일이 되면 오늘 할 일(01)로 넘어감
+    if(s.freeTimeNeeded && !s.billingOnly && !chk[FREETIME_ITEM_KEY]){
+      var ftInfo = effectiveDeadlineInfo(s.etd);
+      if(ftInfo.dd!==null && ftInfo.dd>0 && ftInfo.dd<=UPCOMING_WINDOW_DAYS){
+        out.push({type:'freetime', s:s, item:{key:FREETIME_ITEM_KEY, label:FREETIME_ITEM_LABEL}, dd:ftInfo.dd, field:'etd', sortKey:ftInfo.dd, holidayShift:ftInfo.shifted, holidayEffDate:ftInfo.effDate, holidayTitle:ftInfo.holidayTitle});
+      }
+    }
   });
-  if(activeType!=='ALL') out = out.filter(function(x){return x.type===activeType;});
-  out.sort(function(a,b){ return a.sortKey-b.sortKey; });
   return out;
 }
 
@@ -1530,6 +1573,7 @@ var TYPE_DEFS = [
   {key:'dispatch', label:'배차', color:'teal'},
   {key:'billing', label:'청구대기', color:'brass'},
   {key:'jigyeol', label:'지결', color:'brass'},
+  {key:'freetime', label:'프리타임', color:'sky'},
   {key:'isf', label:'ISF', color:'slate'},
   {key:'prealert', label:'PRE-ALERT', color:'rose'},
   {key:'insurance', label:'보험', color:'indigo'},
@@ -1539,7 +1583,7 @@ var TYPE_DEFS = [
 /* 업무구분탭(전체/출항안내/서류마감/청구대기/도착확인/배차/ISF)별 "오늘 할 일" 남은 건수 —
    feedTodayAll()을 한 번만 돌려서 타입별로 집계함(각 타입마다 별도 feed 함수를 다시 호출하지 않음). */
 function typeChipCounts(){
-  var counts = {ALL:0, duesoon:0, docCls:0, billing:0, door:0, dispatch:0, isf:0, prealert:0, insurance:0, blissue:0, jigyeol:0};
+  var counts = {ALL:0, duesoon:0, docCls:0, billing:0, door:0, dispatch:0, isf:0, prealert:0, insurance:0, freetime:0, blissue:0, jigyeol:0};
   feedTodayAll().forEach(function(x){
     counts.ALL++;
     if(counts[x.type]!==undefined) counts[x.type]++;
@@ -1553,7 +1597,12 @@ function renderTypeChips(){
   if(activeTab!=='TODAY'){ row.innerHTML=''; row.style.display='none'; return; }
   row.style.display='';
   var counts = typeChipCounts();
-  row.innerHTML = TYPE_DEFS.map(function(t){
+  // 오늘 할 일(01)·앞으로 7일 내(02)·기한 지난 건 섹션 어디에도 할 일이 없는 업무구분 단추는 숨김 — 할 일이 생기면 다시 나타남.
+  // (지금 선택해 둔 단추는 보던 화면이 갑자기 바뀌지 않도록 비어도 그대로 둠)
+  var upCounts = {}; feedUpcomingAll().forEach(function(x){ upCounts[x.type] = (upCounts[x.type]||0)+1; });
+  row.innerHTML = TYPE_DEFS.filter(function(t){
+    return t.key==='ALL' || t.key===activeType || (counts[t.key]||0)>0 || (upCounts[t.key]||0)>0;
+  }).map(function(t){
     var style = t.color ? ' style="--sc:var(--'+t.color+')"' : '';
     var c = counts[t.key]||0;
     return '<button class="chip type-chip'+(activeType===t.key?' active':'')+'" data-type-chip="'+t.key+'"'+style+'>'+t.label+'<span class="chip-count mono'+(c>0?' has-count':'')+'">'+c+'</span></button>';
@@ -1697,8 +1746,8 @@ function goToSection(id){
    실제로 페이지를 새로고침하면 이 값도 초기화되어 다시 기본값으로 돌아감. */
 var sectionCollapsedOverride = {};
 /* 오늘 할 일 탭의 섹션(01·02·03 및 기한 지난 건 별도 섹션)은 업무구분 단추(전체 포함)를 누르면 항상 모두 펼쳐진 상태로 시작함 */
-var TODAY_TAB_SECTIONS = ['sec-today','sec-upcoming','sec-remaining','sec-prealert-old','sec-insurance-old','sec-blissue-old'];
-function defaultSectionCollapsed(id){ if(TODAY_TAB_SECTIONS.indexOf(id)>=0) return false; return id!=='sec-today' && id!=='sec-search' && id!=='sec-booking-hold' && id!=='sec-bl-holding' && id!=='sec-blissue-old' && id!=='sec-prealert-old' && id!=='sec-insurance-old'; }
+var TODAY_TAB_SECTIONS = ['sec-today','sec-upcoming','sec-remaining','sec-prealert-old','sec-insurance-old','sec-freetime-old','sec-blissue-old'];
+function defaultSectionCollapsed(id){ if(TODAY_TAB_SECTIONS.indexOf(id)>=0) return false; return id!=='sec-today' && id!=='sec-search' && id!=='sec-booking-hold' && id!=='sec-bl-holding' && id!=='sec-blissue-old' && id!=='sec-prealert-old' && id!=='sec-insurance-old' && id!=='sec-freetime-old'; }
 function routePillHtml(s){
   var lcl = isLclRoute(s.routeType);
   var doorBadge = '';
@@ -1724,11 +1773,16 @@ function routePillHtml(s){
     var insDone = insuranceDone(s);
     insuranceBadge = '<span class="flag-pill '+(insDone?'ins-done':'ins-pending')+'">보험'+(insDone?' 완료':'')+'</span>';
   }
+  var freeTimeBadge = '';
+  if(s.freeTimeNeeded && !s.billingOnly){
+    var ftDone = freeTimeDone(s);
+    freeTimeBadge = '<span class="flag-pill '+(ftDone?'ft-done':'ft-pending')+'">프리타임'+(ftDone?' 완료':'')+'</span>';
+  }
   var blHoldingBadge = s.blHolding ? '<span class="flag-pill bl-holding">비엘홀딩</span>' : '';
   // route-pill과 DOOR/ISF/비엘홀딩 배지를 하나의 래퍼로 감싸서 그리드 셀 1칸을 항상 유지
   // (감싸지 않으면 배지가 붙는 건은 자식 요소가 더 생겨 이후 열들이 한 칸씩 밀림)
   return '<span class="route-pill-wrap">'+
-    '<span class="route-pill'+(lcl?' lcl':'')+'">'+escapeHtml((ROUTES[s.routeType]||{}).label||'-')+(s.billingOnly?' · 청구전용':'')+'</span>'+doorBadge+isfBadge+preAlertBadge+insuranceBadge+blHoldingBadge+
+    '<span class="route-pill'+(lcl?' lcl':'')+'">'+escapeHtml((ROUTES[s.routeType]||{}).label||'-')+(s.billingOnly?' · 청구전용':'')+'</span>'+doorBadge+isfBadge+preAlertBadge+insuranceBadge+freeTimeBadge+blHoldingBadge+
     '</span>';
 }
 function selectCbHtml(sectionId, id, itemKey){
@@ -1934,6 +1988,9 @@ function typeItemCellHtml(x){
   var it = x.item, tl = TYPE_LABEL[x.type];
   var norm = function(v){ return String(v||'').replace(/[\s\-_]/g,'').toLowerCase(); };
   var same = norm(it.label)===norm(tl);
+  // 항목 이름이 구분 이름으로 시작하면(예: ISF/ISF 신고, 프리타임/프리타임 신청, 보험/보험가입) 같은 말을 두 줄로 쓰지 않고
+  // 색 블록 하나에 항목 이름만 표시
+  if(!same && norm(it.label).indexOf(norm(tl))===0 && x.type!=='blissue'){ tl = it.label; same = true; }
   return '<span class="ti-cell"><span class="type-tag '+x.type+'">'+tl+'</span>'+
     '<span class="item-label">'+(same?'':escapeHtml(it.label))+(it.billing?'<span class="billing-tag">청구</span>':'')+holidayTagHtml(x)+blHoldTagHtml(x)+blBizTagHtml(x)+docSubHtml(x)+'</span></span>';
 }
@@ -2069,7 +2126,7 @@ function searchResultTable(list){
   }).join('');
   return head + rows;
 }
-var VARS={danger:['--danger','--danger-soft'],steel:['--steel','--steel-soft'],teal:['--teal','--teal-soft'],plum:['--plum','--plum-soft'],slate:['--slate','--slate-soft'],brass:['--brass','--brass-soft'],warn:['--warn','--warn-soft'],rose:['--rose','--rose-soft'],indigo:['--indigo','--indigo-soft']};
+var VARS={danger:['--danger','--danger-soft'],steel:['--steel','--steel-soft'],teal:['--teal','--teal-soft'],plum:['--plum','--plum-soft'],slate:['--slate','--slate-soft'],brass:['--brass','--brass-soft'],warn:['--warn','--warn-soft'],rose:['--rose','--rose-soft'],indigo:['--indigo','--indigo-soft'],sky:['--sky','--sky-soft']};
 function renderSections(board, sections){
   var CHEVRON = CHEVRON_SVG;
   board.innerHTML = sections.map(function(sec){
@@ -2108,15 +2165,15 @@ function renderTodayTab(board, q){
     sections.push({id:'sec-unassigned', tag:'!', title:'루틴 미지정', sub:'업로드 시 루틴을 인식하지 못했거나, 아직 지정하지 않은 건 · "전체" 탭에서만 표시됨', color:'danger', alert:true, body:unassignedTable(unassigned), count:unassigned.length});
   }
   var today=feedToday().filter(function(x){return matchesSearch(x.s,q);});
-  var typeLbl = activeType==='ALL' ? '출항안내·청구대기·도착확인·ISF·PRE-ALERT·보험·비엘발행·지결 통합' : TYPE_LABEL[activeType]+(activeType==='blissue' ? ' (출항 D-DAY~D+'+(BLISSUE_OLD_FROM_DAYS-1)+'일 — D+'+BLISSUE_OLD_FROM_DAYS+'일 이상은 아래 별도 섹션 · 주말·공휴일은 세지 않음)' : (activeType==='prealert' ? ' (서류마감일 당일~'+(PREALERT_OLD_FROM_DAYS-1)+'일 경과 — '+PREALERT_OLD_FROM_DAYS+'일 이상은 아래 별도 섹션)' : ''));
+  var typeLbl = activeType==='ALL' ? '출항안내·청구대기·도착확인·프리타임·ISF·PRE-ALERT·보험·비엘발행·지결 통합' : TYPE_LABEL[activeType]+(activeType==='blissue' ? ' (출항 D-DAY~D+'+(BLISSUE_OLD_FROM_DAYS-1)+'일 — D+'+BLISSUE_OLD_FROM_DAYS+'일 이상은 아래 별도 섹션 · 주말·공휴일은 세지 않음)' : (activeType==='prealert' ? ' (서류마감일 당일~'+(PREALERT_OLD_FROM_DAYS-1)+'일 경과 — '+PREALERT_OLD_FROM_DAYS+'일 이상은 아래 별도 섹션)' : ''));
   sections.push({id:'sec-today', tag:'01', title:'오늘 할 일', sub:typeLbl+' · 체크박스로 여러 건을 한 번에 선택해 일괄 완료 처리 가능', color:'steel', body:todayTable(today,'sec-today'), count:today.length, bulk:{items:today.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
   // 출항안내·서류마감·도착확인·ISF는 기한 전엔 "오늘 할 일"에 아예 안 보이므로, 앞으로 지정 기간
   // 내로 다가온 것만 따로 모아 미리 준비할 수 있게 보여줌 — 청구대기·배차는 원래 기한과
   // 무관하게 항상 전체가 보이는 방식이라 이 섹션의 대상이 아님(그 타입 필터가 선택되면
   // 섹션 자체를 숨김).
-  if(activeType==='ALL' || activeType==='duesoon' || activeType==='docCls' || activeType==='door' || activeType==='isf' || activeType==='jigyeol'){
+  if(activeType==='ALL' || activeType==='duesoon' || activeType==='docCls' || activeType==='door' || activeType==='isf' || activeType==='jigyeol' || activeType==='freetime'){
     var upcoming = feedUpcoming().filter(function(x){return matchesSearch(x.s,q);});
-    var upcomingTypeLbl = activeType==='ALL' ? '출항안내·서류마감·도착확인·ISF·지결' : TYPE_LABEL[activeType];
+    var upcomingTypeLbl = activeType==='ALL' ? '출항안내·서류마감·도착확인·ISF·지결·프리타임' : TYPE_LABEL[activeType];
     sections.push({id:'sec-upcoming', tag:'02', title:'앞으로 '+UPCOMING_WINDOW_DAYS+'일 내 예정', sub:upcomingTypeLbl+' 중 아직 기한 전이지만 '+UPCOMING_WINDOW_DAYS+'일 이내로 다가온 건 · 기한이 되면 자동으로 "오늘 할 일"로 넘어감', color:'slate', body:upcomingTable(upcoming,'sec-upcoming'), count:upcoming.length, bulk:{items:upcoming.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
   }
   // "기한일로부터 N일 이상 지난 건"은 오늘 할 일(01)과 분리해 별도 섹션으로 — PRE-ALERT(기한일 7일 이상), 비엘발행(출항 D+2일 이상)
@@ -2129,6 +2186,11 @@ function renderTodayTab(board, q){
   if(activeType==='ALL' || activeType==='insurance'){
     var insOld = feedInsuranceOld().filter(function(x){return matchesSearch(x.s,q);});
     sections.push({id:'sec-insurance-old', tag:nextTag_(), title:'기준일(서류마감일)로부터 '+INSURANCE_OLD_FROM_DAYS+'일 이상 지난 건 (보험)', sub:'보험 기준일(서류마감일, 공휴일이면 앞당긴 날)로부터 '+INSURANCE_OLD_FROM_DAYS+'일 이상 지났는데 아직 보험가입이 끝나지 않은 건 · 오래된 건이 맨 위', color:'indigo', body:todayTable(insOld,'sec-insurance-old'), count:insOld.length, bulk:{items:insOld.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
+  }
+  // 프리타임: 기준일(출항일)로부터 FREETIME_OLD_FROM_DAYS일 이상 지났는데 아직 신청이 안 끝난 건
+  if(activeType==='ALL' || activeType==='freetime'){
+    var ftOld = feedFreeTimeOld().filter(function(x){return matchesSearch(x.s,q);});
+    sections.push({id:'sec-freetime-old', tag:nextTag_(), title:'기준일(출항일)로부터 '+FREETIME_OLD_FROM_DAYS+'일 이상 지난 건 (프리타임)', sub:'프리타임 기준일(출항일 ETD)로부터 '+FREETIME_OLD_FROM_DAYS+'일 이상 지났는데 아직 프리타임 신청이 끝나지 않은 건 · 오래된 건이 맨 위', color:'sky', body:todayTable(ftOld,'sec-freetime-old'), count:ftOld.length, bulk:{items:ftOld.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
   }
   // 비엘발행: 출항 D+1일은 위 "오늘 할 일"에, D+2일 이상 지난 건은 이 별도 섹션에 모아서 보여줌.
   if(activeType==='ALL' || activeType==='blissue'){
@@ -2986,7 +3048,7 @@ function webappReady(){ return !!WEBAPP_URL && gateOk_(); }
    되어, 검색(.toLowerCase() 등 문자열 전용 메서드 호출)에서 예외가 발생해 검색 기능 전체가
    먹통이 되는 문제가 있었음. 불리언(청구전용·캔슬·Door배송·배차필요) 항목을 제외한 모든 필드는
    여기서 항상 문자열로 통일해 이 문제를 원천 차단함. */
-var BOOL_FIELDS_ = {billingOnly:1, cancelled:1, doorEligible:1, dispatchNeeded:1, preAlertNeeded:1, insuranceNeeded:1, blHolding:1};
+var BOOL_FIELDS_ = {billingOnly:1, cancelled:1, doorEligible:1, dispatchNeeded:1, preAlertNeeded:1, insuranceNeeded:1, freeTimeNeeded:1, blHolding:1};
 function sheetRowToShipment(row){
   var s = { checklist: row.checklist || {} };
   Object.keys(HEADER_TO_FIELD).forEach(function(h){
@@ -3210,6 +3272,7 @@ async function refreshFromServer(silent, retryCount){
     if(json.myClients) myClientCodes = json.myClients;
     if(json.dispatchClients) dispatchClientCodes = json.dispatchClients;
     if(json.insuranceClients) insuranceClientCodes = json.insuranceClients;
+    if(json.freeTimeClients) freeTimeClientCodes = json.freeTimeClients;
     if(json.preAlertClients) preAlertClientCodes = json.preAlertClients;
     if(json.poNoteClients) poNoteClientCodes = json.poNoteClients;
     applyItemLabelOverrides(json.labelOverrides||[]);
@@ -3404,6 +3467,20 @@ function insuranceAreaHtml(insuranceNeeded, checklist){
     '<label class="checklist-item"><input type="checkbox" data-chk="'+INSURANCE_ITEM_KEY+'" '+(chk[INSURANCE_ITEM_KEY]?'checked':'')+'><span class="lbl">'+INSURANCE_ITEM_LABEL+' 완료</span></label>'+
     '</div>';
 }
+function freeTimeAreaHtml(freeTimeNeeded, checklist){
+  if(!freeTimeNeeded) return '';
+  var chk = checklist||{};
+  return '<div class="checklist-block"><h4>프리타임</h4>'+
+    '<label class="checklist-item"><input type="checkbox" data-chk="'+FREETIME_ITEM_KEY+'" '+(chk[FREETIME_ITEM_KEY]?'checked':'')+'><span class="lbl">'+FREETIME_ITEM_LABEL+' 완료</span></label>'+
+    '</div>';
+}
+function refreshFreeTimeArea(){
+  var sel = document.getElementById('fld_freeTimeNeeded');
+  sel.classList.toggle('yn-yes', sel.value==='yes');
+  var s = editingId ? (byId[editingId]||{}) : {};
+  var live = liveModalChecklist(s);
+  document.getElementById('freeTimeArea').innerHTML = freeTimeAreaHtml(sel.value==='yes', live);
+}
 function refreshInsuranceArea(){
   var sel = document.getElementById('fld_insuranceNeeded');
   sel.classList.toggle('yn-yes', sel.value==='yes');
@@ -3531,6 +3608,7 @@ function openModal(id){
   var defaultDispatchNeeded = !!s.dispatchNeeded;
   var defaultPreAlertNeeded = !!s.preAlertNeeded;
   var defaultInsuranceNeeded = !!s.insuranceNeeded;
+  var defaultFreeTimeNeeded = !!s.freeTimeNeeded;
   var defaultBlHolding = !!s.blHolding;
   var infoHtml = INFO_FIELDS.map(function(f){
     var val = s[f.k]!==undefined ? s[f.k] : '';
@@ -3566,6 +3644,10 @@ function openModal(id){
     '<div id="insuranceArea">'+insuranceAreaHtml(defaultInsuranceNeeded, s.checklist)+'</div>'+
     '</div>'+
     '<div class="modal-group">'+
+    '<div class="select-row"><span class="yn-label">프리타임 필요</span>'+ynSelectHtml('fld_freeTimeNeeded', defaultFreeTimeNeeded)+'<span style="color:var(--ink-soft);">— YES 선택 시, 출항일(ETD)을 기준으로 프리타임 신청이 안 끝났으면 "오늘 할 일 > 프리타임" 목록에 표시됨(출항일 7일 전부터 미리 표시, 출항일이 비어 있어도 표시)</span></div>'+
+    '<div id="freeTimeArea">'+freeTimeAreaHtml(defaultFreeTimeNeeded, s.checklist)+'</div>'+
+    '</div>'+
+    '<div class="modal-group">'+
     '<div class="select-row"><span class="yn-label">비엘 홀딩중</span>'+ynSelectHtml('fld_blHolding', defaultBlHolding)+'<span style="color:var(--ink-soft);">— YES 선택 시 "비엘홀딩중" 탭에 표시되고, 비엘발행 항목이 있으면 자동으로 완료 처리됨</span></div>'+
     '<div id="blHoldingArea">'+blHoldingAreaHtml(defaultBlHolding, s.checklist)+'</div>'+
     '</div>'+
@@ -3583,6 +3665,7 @@ function openModal(id){
   document.getElementById('fld_dispatchNeeded').addEventListener('change', refreshDispatchArea);
   document.getElementById('fld_preAlertNeeded').addEventListener('change', refreshPreAlertArea);
   document.getElementById('fld_insuranceNeeded').addEventListener('change', refreshInsuranceArea);
+  document.getElementById('fld_freeTimeNeeded').addEventListener('change', refreshFreeTimeArea);
   document.getElementById('fld_blHolding').addEventListener('change', refreshBlHoldingArea);
   wireBlHoldingArea();
   var podEl = document.querySelector('#modalContent [data-k="pod"]');
@@ -3606,9 +3689,10 @@ async function saveModal(){
   s.dispatchNeeded = document.getElementById('fld_dispatchNeeded').value==='yes';
   s.preAlertNeeded = document.getElementById('fld_preAlertNeeded').value==='yes';
   s.insuranceNeeded = document.getElementById('fld_insuranceNeeded').value==='yes';
+  s.freeTimeNeeded = document.getElementById('fld_freeTimeNeeded').value==='yes';
   s.blHolding = document.getElementById('fld_blHolding').value==='yes';
   var checklist = {};
-  document.querySelectorAll('#checklistArea [data-chk], #doorArea [data-chk], #dispatchArea [data-chk], #preAlertArea [data-chk], #insuranceArea [data-chk], #blHoldingArea [data-chk], #isfArea [data-chk]').forEach(function(el){ checklist[el.dataset.chk] = el.checked; });
+  document.querySelectorAll('#checklistArea [data-chk], #doorArea [data-chk], #dispatchArea [data-chk], #preAlertArea [data-chk], #insuranceArea [data-chk], #freeTimeArea [data-chk], #blHoldingArea [data-chk], #isfArea [data-chk]').forEach(function(el){ checklist[el.dataset.chk] = el.checked; });
   // 비엘 홀딩중을 YES로 저장하는 경우, 이 루틴에 "비엘발행" 항목이 있으면 화주 확인이 끝난 것으로 보고
   // 체크리스트에서도 자동으로 완료 처리 — 체크박스를 따로 누르지 않아도 되게 함(toggleBlHolding과 동일 규칙).
   if(s.blHolding && ROUTES[s.routeType] && ROUTES[s.routeType].items.some(function(it){ return it.key==='blIssue'; })){
@@ -3812,12 +3896,13 @@ function collectKnownClients(){
 function openMyClientsModal(){
   editingId = null;
   var known = collectKnownClients();
-  var extra = myClientCodes.concat(dispatchClientCodes, preAlertClientCodes, insuranceClientCodes, poNoteClientCodes).filter(function(c, i, arr){ return arr.indexOf(c)===i && !known.some(function(k){return k.code===c;}); }).map(function(c){ return {code:c, name:''}; });
+  var extra = myClientCodes.concat(dispatchClientCodes, preAlertClientCodes, insuranceClientCodes, freeTimeClientCodes, poNoteClientCodes).filter(function(c, i, arr){ return arr.indexOf(c)===i && !known.some(function(k){return k.code===c;}); }).map(function(c){ return {code:c, name:''}; });
   var allRows = known.concat(extra);
   var workingSet = {}; myClientCodes.forEach(function(c){ workingSet[c]=true; });
   var dispatchSet = {}; dispatchClientCodes.forEach(function(c){ dispatchSet[c]=true; });
   var preAlertSet = {}; preAlertClientCodes.forEach(function(c){ preAlertSet[c]=true; });
   var insuranceSet = {}; insuranceClientCodes.forEach(function(c){ insuranceSet[c]=true; });
+  var freeTimeSet = {}; freeTimeClientCodes.forEach(function(c){ freeTimeSet[c]=true; });
   var poNoteSet = {}; poNoteClientCodes.forEach(function(c){ poNoteSet[c]=true; });
 
   function renderRows(filterQ){
@@ -3832,11 +3917,12 @@ function openMyClientsModal(){
         '<label style="display:flex;align-items:center;justify-content:center;width:48px;flex:none;cursor:pointer;" title="체크하면 이 화주의 신규 건에 배차 필요=YES가 자동으로 걸립니다"><input type="checkbox" data-dispatch-code="'+escapeHtml(r.code)+'" '+(dispatchSet[r.code]?'checked':'')+'></label>'+
         '<label style="display:flex;align-items:center;justify-content:center;width:72px;flex:none;cursor:pointer;" title="체크하면 이 화주의 건에 PRE-ALERT 필요=YES가 자동으로 걸립니다"><input type="checkbox" data-prealert-code="'+escapeHtml(r.code)+'" '+(preAlertSet[r.code]?'checked':'')+'></label>'+
         '<label style="display:flex;align-items:center;justify-content:center;width:48px;flex:none;cursor:pointer;" title="체크하면 이 화주의 건에 보험가입 필요=YES가 자동으로 걸립니다"><input type="checkbox" data-insurance-code="'+escapeHtml(r.code)+'" '+(insuranceSet[r.code]?'checked':'')+'></label>'+
+        '<label style="display:flex;align-items:center;justify-content:center;width:60px;flex:none;cursor:pointer;" title="체크하면 이 화주의 건에 프리타임 필요=YES가 자동으로 걸립니다(출항일 기준 추적)"><input type="checkbox" data-freetime-code="'+escapeHtml(r.code)+'" '+(freeTimeSet[r.code]?'checked':'')+'></label>'+
         '<label style="display:flex;align-items:center;justify-content:center;width:72px;flex:none;cursor:pointer;" title="체크하면 이 화주 건의 엑셀 PO No가 비고(특이사항)에 자동으로 들어갑니다"><input type="checkbox" data-ponote-code="'+escapeHtml(r.code)+'" '+(poNoteSet[r.code]?'checked':'')+'></label>'+
         '</div>';
     }).join('');
   }
-  function updateCount(){ document.getElementById('mcCount').textContent = Object.keys(workingSet).length+'개 선택됨 · 배차 '+Object.keys(dispatchSet).length+'개 · PRE-ALERT '+Object.keys(preAlertSet).length+'개 · 보험 '+Object.keys(insuranceSet).length+'개 · PO→비고 '+Object.keys(poNoteSet).length+'개'; }
+  function updateCount(){ document.getElementById('mcCount').textContent = Object.keys(workingSet).length+'개 선택됨 · 배차 '+Object.keys(dispatchSet).length+'개 · PRE-ALERT '+Object.keys(preAlertSet).length+'개 · 보험 '+Object.keys(insuranceSet).length+'개 · 프리타임 '+Object.keys(freeTimeSet).length+'개 · PO→비고 '+Object.keys(poNoteSet).length+'개'; }
   function wireRows(){
     document.querySelectorAll('#mcList input[data-code]').forEach(function(el){
       el.addEventListener('change', function(){
@@ -3862,6 +3948,12 @@ function openMyClientsModal(){
         updateCount();
       });
     });
+    document.querySelectorAll('#mcList input[data-freetime-code]').forEach(function(el){
+      el.addEventListener('change', function(){
+        if(el.checked) freeTimeSet[el.dataset.freetimeCode]=true; else delete freeTimeSet[el.dataset.freetimeCode];
+        updateCount();
+      });
+    });
     document.querySelectorAll('#mcList input[data-prealert-code]').forEach(function(el){
       el.addEventListener('change', function(){
         if(el.checked) preAlertSet[el.dataset.prealertCode]=true; else delete preAlertSet[el.dataset.prealertCode];
@@ -3877,9 +3969,10 @@ function openMyClientsModal(){
     '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;"><b>배차</b>에 체크한 화주는 앞으로 엑셀에서 새로 불러오는 건에 "배차 필요"가 자동으로 YES로 걸려 "오늘 할 일 > 배차"에서 추적됩니다(이미 있는 건 중 값이 비어 있는 건도 함께 적용, 직접 NO로 둔 건·이미 출항한 건·-X01 등 청구전용 건 제외).</div>'+
     '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;"><b>PRE-ALERT</b>도 같은 방식입니다 — 체크한 화주의 건만 "오늘 할 일 > PRE-ALERT"에서 서류마감일(DOC CLS)부터 추적됩니다(서류마감일이 비어 있는 건도 표시).</div>'+
     '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;"><b>보험</b>에 체크한 화주는 모든 건의 보험가입 여부가 "오늘 할 일 > 보험"에서 추적됩니다 — 서류마감일(DOC CLS)이 D-DAY이고, 가입이 끝날 때까지 며칠 지났는지 보여줍니다(서류마감일이 비어 있는 건도 표시).</div>'+
+    '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;"><b>프리타임</b>에 체크한 화주는 모든 건의 프리타임 신청 여부가 "오늘 할 일 > 프리타임"에서 추적됩니다 — 출항일(ETD)이 D-DAY이고, 출항 7일 전부터 미리 보이며 신청이 끝날 때까지 며칠 지났는지 보여줍니다(출항일이 비어 있는 건도 표시).</div>'+
     '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;"><b>PO→비고</b>에 체크한 화주는 엑셀의 <b>PO No</b>(예: 풍산의 INV 번호)가 비고(특이사항)에 자동으로 들어가고, 검색에서도 찾아집니다. 비고에 이미 다른 메모가 있으면 지우지 않고 뒤에 덧붙입니다.</div>'+
     '<input class="search" id="mcSearch" type="search" placeholder="거래처명·코드로 찾기" style="width:100%;margin-bottom:10px;">'+
-    '<div style="display:flex;justify-content:flex-end;font-size:11px;font-weight:700;color:var(--ink-soft);padding:0 2px 4px;"><span style="width:48px;text-align:center;">배차</span><span style="width:72px;text-align:center;white-space:nowrap;">PRE-ALERT</span><span style="width:48px;text-align:center;">보험</span><span style="width:72px;text-align:center;white-space:nowrap;">PO→비고</span></div>'+
+    '<div style="display:flex;justify-content:flex-end;font-size:11px;font-weight:700;color:var(--ink-soft);padding:0 2px 4px;"><span style="width:48px;text-align:center;">배차</span><span style="width:72px;text-align:center;white-space:nowrap;">PRE-ALERT</span><span style="width:48px;text-align:center;">보험</span><span style="width:60px;text-align:center;white-space:nowrap;">프리타임</span><span style="width:72px;text-align:center;white-space:nowrap;">PO→비고</span></div>'+
     '<div id="mcList" style="max-height:280px;overflow-y:auto;">'+renderRows('')+'</div>'+
     '<div style="display:flex;gap:8px;margin-top:12px;">'+
       '<input type="text" id="mcNewCode" placeholder="목록에 없는 거래처 코드 직접 추가" style="flex:1;border:1px solid var(--line-strong);border-radius:2px;padding:7px 9px;background:var(--surface);color:var(--ink);">'+
@@ -3910,14 +4003,16 @@ function openMyClientsModal(){
       var dispatchCodes = Object.keys(dispatchSet);
       var preAlertCodes = Object.keys(preAlertSet);
       var insuranceCodes = Object.keys(insuranceSet);
+      var freeTimeCodes = Object.keys(freeTimeSet);
       var poNoteCodes = Object.keys(poNoteSet);
-      await apiPost({action:'setMyClients', codes: codes, dispatchCodes: dispatchCodes, preAlertCodes: preAlertCodes, insuranceCodes: insuranceCodes, poNoteCodes: poNoteCodes});
+      await apiPost({action:'setMyClients', codes: codes, dispatchCodes: dispatchCodes, preAlertCodes: preAlertCodes, insuranceCodes: insuranceCodes, freeTimeCodes: freeTimeCodes, poNoteCodes: poNoteCodes});
       myClientCodes = codes;
       dispatchClientCodes = dispatchCodes;
       preAlertClientCodes = preAlertCodes;
       insuranceClientCodes = insuranceCodes;
+      freeTimeClientCodes = freeTimeCodes;
       poNoteClientCodes = poNoteCodes;
-      toast('내 거래처 목록을 저장했습니다 ('+codes.length+'건, 배차 '+dispatchCodes.length+'건, PRE-ALERT '+preAlertCodes.length+'건, 보험 '+insuranceCodes.length+'건, PO→비고 '+poNoteCodes.length+'건).');
+      toast('내 거래처 목록을 저장했습니다 ('+codes.length+'건, 배차 '+dispatchCodes.length+'건, PRE-ALERT '+preAlertCodes.length+'건, 보험 '+insuranceCodes.length+'건, 프리타임 '+freeTimeCodes.length+'건, PO→비고 '+poNoteCodes.length+'건).');
       closeModal();
       renderAll();
     }catch(e){ toast('저장 실패: '+e.message, {err:true}); }
