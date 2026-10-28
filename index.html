@@ -72,7 +72,7 @@ button{font-family:inherit; font-size:inherit; cursor:pointer;}
 input,select,textarea{font-family:inherit; font-size:inherit;}
 img{max-width:100%;}
 
-.app{max-width:1680px; margin:0 auto; padding:20px 22px 64px;}
+.app{max-width:1880px; margin:0 auto; padding:20px 6px 64px;}
 
 .gate-overlay{position:fixed; inset:0; z-index:95; background:var(--paper); display:flex; align-items:center; justify-content:center; padding:16px;}
 .gate-overlay[hidden]{display:none !important;}
@@ -225,10 +225,10 @@ img{max-width:100%;}
 .trow.head{background:var(--surface-2); font-size:10.5px; font-weight:600; color:var(--ink-soft); letter-spacing:.3px; padding:7px 16px;}
 .trow.empty{color:var(--ink-soft); font-size:12.5px; padding:16px; grid-template-columns:1fr; min-width:0; justify-items:center;}
 .trow:not(.head):not(.empty):hover{background:var(--surface-2);}
-.trow.today{grid-template-columns:22px 40px 118px 140px 100px 70px var(--w-lb,148px) var(--w-hb,148px) var(--w-mb,148px) 100px 178px 112px 34px; align-items:start; padding-top:11px; padding-bottom:11px;
-  min-width:calc(948px + var(--w-lb,148px) + var(--w-hb,148px) + var(--w-mb,148px));}
-.trow.today.eta2{grid-template-columns:22px 40px 118px 140px 100px 70px var(--w-lb,148px) var(--w-hb,148px) var(--w-mb,148px) 100px 178px 104px 112px 34px;
-  min-width:calc(1044px + var(--w-lb,148px) + var(--w-hb,148px) + var(--w-mb,148px));}
+.trow.today{grid-template-columns:22px 40px 118px 132px 96px 66px var(--w-lb,148px) var(--w-hb,148px) var(--w-mb,148px) 96px 92px 164px 108px 34px; align-items:start; padding-top:11px; padding-bottom:11px;
+  min-width:calc(1016px + var(--w-lb,148px) + var(--w-hb,148px) + var(--w-mb,148px));}
+.trow.today.eta2{grid-template-columns:22px 40px 118px 132px 96px 66px var(--w-lb,148px) var(--w-hb,148px) var(--w-mb,148px) 96px 92px 164px 94px 108px 34px;
+  min-width:calc(1096px + var(--w-lb,148px) + var(--w-hb,148px) + var(--w-mb,148px));}
 /* Line Booking / House B/L / Master B/L 은 절대 줄바꿈·생략 없이 한 줄로 전부 보임 (칸 너비는 실제 값에 맞춰 자동 조절: fitRefCols_) */
 .trow.today .bl-cell, .bl-hold-row .bl-cell{white-space:nowrap; overflow:visible; text-overflow:clip;}
 /* 나머지 칸은 길면 줄바꿈해서라도 전부 표시 */
@@ -284,6 +284,9 @@ img{max-width:100%;}
 .bl-released-tag{font-size:11px; font-weight:700; color:var(--teal); background:var(--teal-soft); border-radius:3px; padding:5px 8px; text-align:center; white-space:nowrap;}
 .trow.today .bl-cell{font-family:"Noto Sans KR","Malgun Gothic","맑은 고딕",system-ui,sans-serif; font-size:13.5px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--ink); line-height:1.3; letter-spacing:.1px;}
 .trow.today .mgmtno{white-space:nowrap; font-size:13px;}
+.vsl-cell{display:flex; flex-direction:column; gap:1px; min-width:0; font-size:12.5px; line-height:1.3;}
+.vsl-cell .vsl-name{white-space:normal; word-break:break-word; color:var(--ink); font-weight:500;}
+.vsl-cell .vsl-voy{font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:11.5px; color:var(--ink-soft);}
 .trow.today .client-name{white-space:normal; overflow:visible; text-overflow:clip; word-break:break-word; font-size:14px;}
 .trow.today .note-line{white-space:normal; overflow:visible; text-overflow:clip; word-break:break-word; font-size:12.5px;}
 .trow.today .mgr{white-space:normal; word-break:break-word; font-size:13px;}
@@ -365,6 +368,8 @@ img{max-width:100%;}
 .nt-row .mono{overflow-wrap:anywhere;}
 .nt-row select,.nt-row input[type=text]{border:1px solid var(--line-strong); border-radius:2px; padding:4px 6px; background:var(--surface); color:var(--ink); font:inherit; width:100%; min-width:0;}
 .nt-miss{color:var(--danger); font-weight:700;}
+.nt-upl{display:inline-flex; align-items:center; gap:5px; font-size:12.5px; cursor:pointer; white-space:nowrap;}
+.nt-up{display:inline-block; margin-top:2px; font-size:10.5px; padding:1px 6px; border-radius:8px; background:var(--surface-2); color:var(--ink-soft); font-family:inherit;}
 #ntOut{width:100%; min-height:200px; border:1px solid var(--line-strong); border-radius:2px; padding:10px; background:var(--surface); color:var(--ink); font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; resize:vertical; margin-top:12px;}
 .type-tag.freetime{color:var(--sky); background:var(--sky-soft); border-color:transparent;}
 .type-tag.dispatch{color:var(--teal); background:var(--teal-soft); border-color:transparent;}
@@ -799,13 +804,13 @@ function routeItems(routeType, billingOnly){
 
 /* 프론트 <-> 시트 헤더/필드 매핑 */
 var INFO_HEADERS = ['관리번호','루틴','청구전용','캔슬','서비스','수출입','거래처코드','거래처명','담당자','POL','POD','Delivery',
-  'DOC CLS','CFS CLS','ETD','ETA(PORT)','ETA(DOOR)','Door배송','Line Booking No','House B/L No','Master B/L No','PO No','선사','운송사','VESSEL','터미널','특이사항',
+  'DOC CLS','CFS CLS','ETD','ETA(PORT)','ETA(DOOR)','Door배송','Line Booking No','House B/L No','Master B/L No','PO No','선사','운송사','VESSEL','항차','터미널','특이사항',
   '생성일시','수정일시'];
 var FIELD_TO_HEADER = {
   managementNo:'관리번호', routeType:'루틴', billingOnly:'청구전용', cancelled:'캔슬',
   service:'서비스', tradeType:'수출입', clientCode:'거래처코드', client:'거래처명', manager:'담당자', pol:'POL', pod:'POD', delivery:'Delivery',
   docCls:'DOC CLS', cfsCls:'CFS CLS', etd:'ETD', etaPort:'ETA(PORT)', etaDoor:'ETA(DOOR)', doorEligible:'Door배송', dispatchNeeded:'배차필요', preAlertNeeded:'프리알러트필요', insuranceNeeded:'보험필요', freeTimeNeeded:'프리타임필요', ediNeeded:'EDI필요', etcNeeded:'기타필요', etcDue:'기타기한', etcMemo:'기타메모', blHolding:'비엘홀딩',
-  lineBookingNo:'Line Booking No', hbl:'House B/L No', mbl:'Master B/L No', poNo:'PO No', carrier:'선사', forwarder:'운송사', vessel:'VESSEL', terminal:'터미널', note:'특이사항',
+  lineBookingNo:'Line Booking No', hbl:'House B/L No', mbl:'Master B/L No', poNo:'PO No', carrier:'선사', forwarder:'운송사', vessel:'VESSEL', voyage:'항차', terminal:'터미널', note:'특이사항',
   createdAt:'생성일시', updatedAt:'수정일시'
 };
 var HEADER_TO_FIELD = {}; Object.keys(FIELD_TO_HEADER).forEach(function(k){ HEADER_TO_FIELD[FIELD_TO_HEADER[k]] = k; });
@@ -888,9 +893,9 @@ var FIELD_ALIASES = {
   etaPort: ['ETA(PORT)','ETAPORT','ETA PORT','ETA'], etaDoor: ['ETA(DOOR)','ETADOOR','ETA DOOR'],
   lineBookingNo: ['LINEBOOKINGNO','LINE BOOKING NO','LINE BOOKING NUMBER'],
   hbl: ['HOUSEB/LNO','HOUSE B/L NO','HBL'], mbl: ['MASTERB/LNO','MASTER B/L NO','MBL'], poNo: ['PONO','PO NO','PO 번호','PO번호','PO NUMBER'],
-  carrier: ['선사'], forwarder: ['운송사'], vessel: ['VESSEL'], terminal: ['터미널'], note: ['특이사항']
+  carrier: ['선사'], forwarder: ['운송사'], vessel: ['VESSEL','선박','선박명','모선','모선명'], voyage: ['항차','VOYAGE','VOY','VOYNO','항차번호'], terminal: ['터미널'], note: ['특이사항']
 };
-var REQUIRED_HEADER_DISPLAY = ['관리번호','루틴','서비스','수출입','거래처코드','거래처명','담당자','POL','POD','DOC CLS','CFS CLS','ETD','ETA(PORT)','ETA(DOOR)','Line Booking No','House B/L No','Master B/L No','PO No','선사','운송사','VESSEL','터미널','특이사항'];
+var REQUIRED_HEADER_DISPLAY = ['관리번호','루틴','서비스','수출입','거래처코드','거래처명','담당자','POL','POD','DOC CLS','CFS CLS','ETD','ETA(PORT)','ETA(DOOR)','Line Booking No','House B/L No','Master B/L No','PO No','선사','VESSEL','항차','터미널','특이사항'];
 function normHeader(h){ return String(h||'').trim().replace(/\s+/g,'').toUpperCase(); }
 
 /* ================= state ================= */
@@ -1146,6 +1151,8 @@ function matchesSearch(s,q){
          String(s.hbl||'').toLowerCase().indexOf(q)>=0 ||
          String(s.mbl||'').toLowerCase().indexOf(q)>=0 ||
          String(s.poNo||'').toLowerCase().indexOf(q)>=0 ||
+         String(s.vessel||'').toLowerCase().indexOf(q)>=0 ||
+         String(s.voyage||'').toLowerCase().indexOf(q)>=0 ||
          String(s.note||'').toLowerCase().indexOf(q)>=0;
 }
 function searchResults(q){ if(!q) return []; return allShipments.filter(function(s){ return matchesClientFilter(s) && matchesSearch(s,q); }); }
@@ -2015,6 +2022,7 @@ var TODAY_SORT_GETTERS = {
   hbl: function(x){ return x.s.hbl||''; },
   mbl: function(x){ return x.s.mbl||''; },
   pod: function(x){ return x.s.pod||''; },
+  vessel: function(x){ return vesselFullOf_(x.s); },
   type: function(x){ return TYPE_LABEL[x.type]||''; },
   item: function(x){ return x.item.label||''; },
   etd: function(x){ return toDate(refInfoOf(x).val); },
@@ -2087,6 +2095,7 @@ function todayHeadHtml(tk){
     '<span>'+sortHeadHtml(tk,'lineBookingNo','Line Booking No')+'</span>'+
     '<span>'+sortHeadHtml(tk,'hbl','House B/L No')+'</span>'+
     '<span>'+sortHeadHtml(tk,'mbl','Master B/L No')+'</span>'+
+    '<span>'+sortHeadHtml(tk,'vessel','VESSEL / 항차')+'</span>'+
     '<span>'+sortHeadHtml(tk,'pod','POD')+'</span>'+
     '<span>'+sortHeadHtml(tk,'type','구분')+' · '+sortHeadHtml(tk,'item','항목')+'</span>'+
     (showEtaCol()?'<span>'+sortHeadHtml(tk,'eta','ETA')+'</span>':'')+
@@ -2116,6 +2125,18 @@ function docMainCheckHtml(x){
 /* POD 칸 — POD와 DELIVERY(최종 배송지)가 같거나 DELIVERY가 비어 있으면 POD만, 다르면 POD 밑에 DELIVERY명을 작게 같이 표시.
    비교는 대소문자·공백을 무시함("TOKYO(NARITA),JAPAN" = "Tokyo (Narita), Japan"). */
 function normPlace_(v){ return String(v||'').toUpperCase().replace(/\s+/g,''); }
+/* VESSEL / 항차 칸 — 모선명 아래에 항차를 작게 붙여서 보여줌(한 칸, 두 줄). 둘 다 비면 '-' */
+function vesselCellHtml(s){
+  var v = String(s.vessel||'').trim(), y = String(s.voyage||'').trim();
+  if(!v && !y) return '<span class="vsl-cell" style="color:var(--ink-soft);">-</span>';
+  return '<span class="vsl-cell" title="'+escapeHtml((v+' '+y).trim())+'">'+(v?'<span class="vsl-name">'+escapeHtml(v)+'</span>':'')+(y?'<span class="vsl-voy">'+escapeHtml(y)+'</span>':'')+'</span>';
+}
+/* 모선명 + 항차를 한 줄 문구로 — 화주 안내문 등에 사용. 모선명 칸에 이미 항차가 들어 있으면(예: "NYK VESTA 0095W") 중복해서 붙이지 않음 */
+function vesselFullOf_(s){
+  var v = String(s.vessel||'').trim(), y = String(s.voyage||'').trim();
+  if(y && v.toUpperCase().replace(/\s+/g,'').slice(-y.length)!==y.toUpperCase().replace(/\s+/g,'')) v = (v+' '+y).trim();
+  return v;
+}
 function podCellInner(s){
   var pod = s.pod||'', dv = String(s.delivery||'').trim();
   var base = escapeHtml(pod||'-');
@@ -2152,6 +2173,7 @@ function todayTable(list, sectionId, tableKey){
       '<span class="bl-cell mono ref-lb" title="'+escapeHtml(s.lineBookingNo||'')+'">'+escapeHtml(s.lineBookingNo||'-')+'</span>'+
       '<span class="bl-cell mono ref-hb" title="'+escapeHtml(s.hbl||'')+'">'+escapeHtml(s.hbl||'-')+'</span>'+
       '<span class="bl-cell mono ref-mb" title="'+escapeHtml(s.mbl||'')+'">'+escapeHtml(s.mbl||'-')+'</span>'+
+      vesselCellHtml(s)+
       '<span class="mgr" title="'+escapeHtml(s.pod||'')+'">'+podCellInner(s)+'</span>'+
       typeItemCellHtml(x)+
       (showEtaCol()?'<span class="eta-cell">'+etaSmallHtml(s)+'</span>':'')+
@@ -2174,6 +2196,7 @@ function upcomingHeadHtml(){
     '<span>'+sortHeadHtml('upcoming','lineBookingNo','Line Booking No')+'</span>'+
     '<span>'+sortHeadHtml('upcoming','hbl','House B/L No')+'</span>'+
     '<span>'+sortHeadHtml('upcoming','mbl','Master B/L No')+'</span>'+
+    '<span>'+sortHeadHtml('upcoming','vessel','VESSEL / 항차')+'</span>'+
     '<span>'+sortHeadHtml('upcoming','pod','POD')+'</span>'+
     '<span>'+sortHeadHtml('upcoming','type','구분')+' · '+sortHeadHtml('upcoming','item','항목')+'</span>'+
     (showEtaCol()?'<span>'+sortHeadHtml('upcoming','eta','ETA')+'</span>':'')+
@@ -2196,6 +2219,7 @@ function upcomingTable(list, sectionId){
       '<span class="bl-cell mono ref-lb" title="'+escapeHtml(s.lineBookingNo||'')+'">'+escapeHtml(s.lineBookingNo||'-')+'</span>'+
       '<span class="bl-cell mono ref-hb" title="'+escapeHtml(s.hbl||'')+'">'+escapeHtml(s.hbl||'-')+'</span>'+
       '<span class="bl-cell mono ref-mb" title="'+escapeHtml(s.mbl||'')+'">'+escapeHtml(s.mbl||'-')+'</span>'+
+      vesselCellHtml(s)+
       '<span class="mgr" title="'+escapeHtml(s.pod||'')+'">'+podCellInner(s)+'</span>'+
       typeItemCellHtml(x)+
       (showEtaCol()?'<span class="eta-cell">'+etaSmallHtml(s)+'</span>':'')+
@@ -2217,8 +2241,8 @@ function unassignedTable(list){
       '</div>';
   }).join('');
 }
-var SEARCH_COLS = '132px minmax(120px,1fr) 108px 66px 130px 130px 130px 130px 130px 84px 84px 34px';
-var SEARCH_MIN_W = 1330;
+var SEARCH_COLS = '132px minmax(120px,1fr) 108px 66px 124px 124px 124px 100px 110px 110px 84px 84px 34px';
+var SEARCH_MIN_W = 1376;
 var SEARCH_SORT_GETTERS = {
   mgmtno: function(s){ return s.managementNo||s.id||''; },
   client: function(s){ return s.client||''; },
@@ -2227,6 +2251,7 @@ var SEARCH_SORT_GETTERS = {
   lineBookingNo: function(s){ return String(s.lineBookingNo||''); },
   hbl: function(s){ return s.hbl||''; },
   mbl: function(s){ return s.mbl||''; },
+  vessel: function(s){ return vesselFullOf_(s); },
   pol: function(s){ return s.pol||''; },
   pod: function(s){ return s.pod||''; },
   etd: function(s){ return toDate(s.etd); },
@@ -2244,6 +2269,7 @@ function searchResultTable(list){
     '<span>'+sortHeadHtml('search','lineBookingNo','Line Booking No')+'</span>'+
     '<span>'+sortHeadHtml('search','hbl','House B/L No')+'</span>'+
     '<span>'+sortHeadHtml('search','mbl','Master B/L No')+'</span>'+
+    '<span>'+sortHeadHtml('search','vessel','VESSEL / 항차')+'</span>'+
     '<span>'+sortHeadHtml('search','pol','POL')+'</span>'+
     '<span>'+sortHeadHtml('search','pod','POD')+'</span>'+
     '<span>'+sortHeadHtml('search','etd','출항일(ETD)')+'</span>'+
@@ -2259,6 +2285,7 @@ function searchResultTable(list){
       '<span class="mono" style="font-size:11.5px;">'+escapeHtml(s.lineBookingNo||'-')+'</span>'+
       '<span class="mono" style="font-size:11.5px;">'+escapeHtml(s.hbl||'-')+'</span>'+
       '<span class="mono" style="font-size:11.5px;">'+escapeHtml(s.mbl||'-')+'</span>'+
+      vesselCellHtml(s)+
       '<span class="mgr" style="white-space:normal;word-break:break-word;font-size:12.5px;" title="'+escapeHtml(s.pol||'')+'">'+escapeHtml(s.pol||'-')+'</span>'+
       '<span class="mgr" style="white-space:normal;word-break:break-word;font-size:12.5px;" title="'+escapeHtml(s.pod||'')+'">'+podCellInner(s)+'</span>'+
       searchDateHtml_(s.etd)+
@@ -2580,11 +2607,11 @@ function renderChecklistTab(board, q){
    YES/NO은 체크리스트 보드의 LCL/DOOR/배차와 같은 방식(overview 플래그 셀 또는 상세 모달)으로 지정.
    맨 앞 칸은 Door의 "도착 확인·정산 완료"와 동일한 구조의 별도 확인 항목 — 홀딩중이던 비엘이
    실제로 최종 발행됐는지를 체크(한 번 체크하면 완료 배지로 바뀜, 되돌리려면 상세 모달에서 해제). */
-var BL_HOLD_GRID = 'grid-template-columns:60px 132px minmax(130px,1fr) 150px 74px var(--w-lb,140px) var(--w-hb,140px) var(--w-mb,140px) 70px 128px minmax(110px,1fr) 100px;min-width:calc(1000px + var(--w-lb,140px) + var(--w-hb,140px) + var(--w-mb,140px));';
+var BL_HOLD_GRID = 'grid-template-columns:60px 132px minmax(130px,1fr) 150px 74px var(--w-lb,140px) var(--w-hb,140px) var(--w-mb,140px) 100px 70px 128px minmax(110px,1fr) 100px;min-width:calc(1108px + var(--w-lb,140px) + var(--w-hb,140px) + var(--w-mb,140px));';
 function blHoldingHeadHtml(){
   return '<div class="trow head bl-hold-row" style="'+BL_HOLD_GRID+'">'+
     '<span style="text-align:center;">발행완료</span><span>관리번호</span><span>거래처명</span><span>루틴</span><span>담당자</span>'+
-    '<span>Line Booking No</span><span>House B/L No</span><span>Master B/L No</span><span style="text-align:center;">ETD</span><span style="text-align:center;">ETA</span><span>비고</span><span></span>'+
+    '<span>Line Booking No</span><span>House B/L No</span><span>Master B/L No</span><span>VESSEL / 항차</span><span style="text-align:center;">ETD</span><span style="text-align:center;">ETA</span><span>비고</span><span></span>'+
     '</div>';
 }
 function blHoldingTable(list){
@@ -2617,6 +2644,7 @@ function blHoldingTable(list){
       '<span class="bl-cell mono ref-lb" title="'+escapeHtml(s.lineBookingNo||'')+'">'+escapeHtml(s.lineBookingNo||'-')+'</span>'+
       '<span class="bl-cell mono ref-hb" title="'+escapeHtml(s.hbl||'')+'">'+escapeHtml(s.hbl||'-')+'</span>'+
       '<span class="bl-cell mono ref-mb" title="'+escapeHtml(s.mbl||'')+'">'+escapeHtml(s.mbl||'-')+'</span>'+
+      vesselCellHtml(s)+
       '<span class="mono" style="font-size:11px;text-align:center;">'+(etdFmt.date==='—'?'-':escapeHtml(etdFmt.date))+'</span>'+
       '<span class="eta-cell">'+etaSmallHtml(s)+'</span>'+
       remarkCellHtml(s)+
@@ -2847,13 +2875,14 @@ function checklistOverviewCount(){
   return total;
 }
 function overviewGridCols(n){
-  return '132px minmax(130px,1fr) 150px 150px 72px 46px 46px 46px 46px ' + new Array(n).fill('58px').join(' ') + ' minmax(180px,1fr)';
+  return '132px minmax(130px,1fr) 150px 150px 100px 72px 46px 46px 46px 46px ' + new Array(n).fill('58px').join(' ') + ' minmax(180px,1fr)';
 }
 var OVERVIEW_SORT_GETTERS = {
   mgmtno: function(s){ return s.managementNo||s.id||''; },
   client: function(s){ return s.client||''; },
   hbl: function(s){ return s.hbl||''; },
   mbl: function(s){ return s.mbl||''; },
+  vessel: function(s){ return vesselFullOf_(s); },
   etd: function(s){ return toDate(s.etd); }
 };
 /* 체크리스트보드의 항목 상태는 3단계: 미완료(기본, 빨강) → 완료(초록) → 해당없음(회색) → (다시 미완료로 순환).
@@ -2908,6 +2937,7 @@ function overviewRowHtml(s, items){
     '<button class="client-name ov-cell" style="font-weight:600;" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="'+escapeHtml(s.client||'')+'">'+escapeHtml(s.client||'-')+'</button>'+
     '<span class="ov-cell mono" title="'+escapeHtml(s.hbl||'')+'">'+escapeHtml(s.hbl||'-')+'</span>'+
     '<span class="ov-cell mono" title="'+escapeHtml(s.mbl||'')+'">'+escapeHtml(s.mbl||'-')+'</span>'+
+    vesselCellHtml(s)+
     '<span class="ov-cell mono" style="text-align:center;">'+(etdFmt.date==='—'?'-':escapeHtml(etdFmt.date))+'</span>'+
     lclFlagCellOv(s)+
     doorFlagCellOv(s)+
@@ -2915,7 +2945,7 @@ function overviewRowHtml(s, items){
     blHoldFlagCellOv(s)+
     items.map(function(it){ return stageCircleCell(s, it); }).join('')+
     remarkCellHtml(s);
-  return '<div class="trow ov-row" style="grid-template-columns:'+overviewGridCols(items.length)+';min-width:'+(944+items.length*58)+'px;">'+cells+'</div>';
+  return '<div class="trow ov-row" style="grid-template-columns:'+overviewGridCols(items.length)+';min-width:'+(1044+items.length*58)+'px;">'+cells+'</div>';
 }
 function overviewItemChipsHtml(routeType, items, allList){
   var filterKey = ovItemFilter[routeType];
@@ -2948,11 +2978,12 @@ function overviewGroupHtml(routeType){
     '<span class="ov-head-lbl" style="text-align:left;">'+sortHeadHtml('overview','client','거래처명')+'</span>'+
     '<span class="ov-head-lbl">'+sortHeadHtml('overview','hbl','House B/L')+'</span>'+
     '<span class="ov-head-lbl">'+sortHeadHtml('overview','mbl','Master B/L')+'</span>'+
+    '<span class="ov-head-lbl" style="text-align:left;">'+sortHeadHtml('overview','vessel','VESSEL / 항차')+'</span>'+
     '<span class="ov-head-lbl">'+sortHeadHtml('overview','etd','ETD')+'</span>'+
     '<span class="ov-head-lbl lcl">LCL</span><span class="ov-head-lbl door">DOOR</span><span class="ov-head-lbl dispatch">배차</span><span class="ov-head-lbl blhold">B/L홀딩</span>'+
     items.map(function(it){ return '<span class="ov-head-lbl" title="'+escapeHtml(it.label)+(it.billing?' (청구)':'')+'">'+escapeHtml(it.label)+(it.billing?'<br><span style="color:var(--brass);">(청구)</span>':'')+'</span>'; }).join('')+
     '<span class="ov-head-lbl" style="text-align:left;">비고</span>';
-  var headRow = '<div class="trow ov-row head" style="grid-template-columns:'+overviewGridCols(items.length)+';min-width:'+(944+items.length*58)+'px;">'+headCells+'</div>';
+  var headRow = '<div class="trow ov-row head" style="grid-template-columns:'+overviewGridCols(items.length)+';min-width:'+(1044+items.length*58)+'px;">'+headCells+'</div>';
   var emptyMsg = filterKey ? ('"'+escapeHtml((items.filter(function(it){return it.key===filterKey;})[0]||{}).label||'')+'" 미완료 건 없음 — 전부 처리됨') : '진행중인 건 없음';
   var bodyRows = list.length ? list.map(function(s){ return overviewRowHtml(s, items); }).join('') : '<div class="trow empty">'+emptyMsg+'</div>';
   var collapsed = ovCollapsed.hasOwnProperty(routeType) ? ovCollapsed[routeType] : (activeFilter==='ALL');
@@ -3541,8 +3572,8 @@ var INFO_FIELDS = [
   {k:'mbl', label:'Master B/L No', type:'text'},
   {k:'poNo', label:'PO No', type:'text'},
   {k:'carrier', label:'선사', type:'text'},
-  {k:'forwarder', label:'운송사', type:'text'},
   {k:'vessel', label:'VESSEL', type:'text'},
+  {k:'voyage', label:'항차', type:'text'},
   {k:'terminal', label:'터미널', type:'text'},
   {k:'note', label:'비고', type:'textarea', full:true}
 ];
@@ -4237,7 +4268,7 @@ function openMyClientsModal(){
    백엔드 CHK_<key> 컬럼과 연결된 값이라 절대 바뀌지 않고, 화면에 보이는 라벨만 바뀜. */
 /* ================= 화주 출항 안내문 만들기 =================
    "출항안내" 업무구분에 떠 있는 건(오늘 할 일 + 앞으로 7일 내)을 거래처별로 골라, 모선별로 묶은 안내문을 만들어 복사.
-   줄 형식: PO No / Master B/L No / POD / ATD-ETA : 월/일-월/일 (상태)  — 같은 Master B/L의 건은 PO를 _로 합쳐 한 줄로.
+   줄 형식: PO No / House B/L No / POD / ATD-ETA : 월/일-월/일 (상태)  — 같은 House B/L의 건은 PO를 _로 합쳐 한 줄로.
    상태(출항 완료 · 출항 지연 · 직접 쓴 문구)는 항상 직접 고름. 상태에 "출항 완료"가 들어 있으면 ATD, 아니면 ETD로 표기. */
 function noticeDate_(v, withTime){
   var d = toDate(v); if(!d) return '-';
@@ -4254,19 +4285,25 @@ function noticePodOf_(s){
   if(/LCL/i.test(String(s.routeType||''))) p += ' (LCL)';
   return p;
 }
+/* 안내문 후보 — 기본은 "오늘 할 일 > 01"에 뜨는 출항안내 건만(today). "앞으로 7일 내 예정(02)"에 있는 건(upcoming)은
+   안내문 창에서 사용자가 "02도 보기"를 켰을 때만 목록에 나타나고, 그때도 체크는 꺼진 상태로 나옴. */
 function noticeCandidates_(){
-  var seen = {}, out = [];
-  feedTodayAll().concat(feedUpcomingAll()).forEach(function(x){
+  var seen = {}, today = [], upcoming = [];
+  feedTodayAll().forEach(function(x){
     if(x.type!=='duesoon' || seen[x.s.id]) return;
-    seen[x.s.id] = true; out.push(x.s);
+    seen[x.s.id] = true; today.push(x.s);
   });
-  return out;
+  feedUpcomingAll().forEach(function(x){
+    if(x.type!=='duesoon' || seen[x.s.id]) return;
+    seen[x.s.id] = true; upcoming.push(x.s);
+  });
+  return {today:today, upcoming:upcoming};
 }
 /* items: [{s, note}] — 선택된 건만 넘김 */
 function buildNoticeText_(items){
   var groups = {}, order = [];
   items.forEach(function(it){
-    var v = String(it.s.vessel||'').trim() || '(모선 미입력)';
+    var v = vesselFullOf_(it.s) || '(모선 미입력)';
     if(!groups[v]){ groups[v] = []; order.push(v); }
     groups[v].push(it);
   });
@@ -4274,9 +4311,9 @@ function buildNoticeText_(items){
   order.forEach(function(v){ groups[v].sort(function(a,b){ return tsOf(a)-tsOf(b) || String(a.s.poNo||'').localeCompare(String(b.s.poNo||'')); }); });
   order.sort(function(a,b){ return tsOf(groups[a][0])-tsOf(groups[b][0]); });
   var blocks = order.map(function(v){
-    var merged = [], byMbl = {};
+    var merged = [], byMbl = {}; // (이름은 옛날 그대로지만 지금은 House B/L 기준으로 합침)
     groups[v].forEach(function(it){
-      var mbl = String(it.s.mbl||'').trim();
+      var mbl = String(it.s.hbl||'').trim();
       if(mbl && byMbl[mbl]){ byMbl[mbl].pos.push(it.s.poNo||'-'); if(!byMbl[mbl].note && it.note) byMbl[mbl].note = it.note; return; }
       var m = {s:it.s, pos:[it.s.poNo||'-'], note:it.note||''};
       merged.push(m); if(mbl) byMbl[mbl] = m;
@@ -4285,7 +4322,7 @@ function buildNoticeText_(items){
       var note = String(m.note||'').trim();
       var lab = /출항\s*완료/.test(note) ? 'ATD-ETA' : 'ETD-ETA';
       var eta = m.s.etaPort ? m.s.etaPort : m.s.etaDoor;
-      return m.pos.join('_')+' / '+(String(m.s.mbl||'').trim()||'-')+' / '+noticePodOf_(m.s)+' / '+lab+' : '+noticeDate_(m.s.etd,true)+'-'+noticeDate_(eta,false)+(note?(' ('+note+')'):'');
+      return m.pos.join('_')+' / '+(String(m.s.hbl||'').trim()||'-')+' / '+noticePodOf_(m.s)+' / '+lab+' : '+noticeDate_(m.s.etd,true)+'-'+noticeDate_(eta,false)+(note?(' ('+note+')'):'');
     });
     return v+'\n'+lines.join('\n');
   });
@@ -4293,26 +4330,37 @@ function buildNoticeText_(items){
 }
 function openNoticeModal(){
   editingId = null;
-  var cands = noticeCandidates_();
-  var clientsMap = {}, clients = [];
-  cands.forEach(function(s){ var k = s.clientCode || s.client || '-'; if(!clientsMap[k]){ clientsMap[k] = (s.client||k); clients.push(k); } });
-  var selClient = (clients.filter(function(k){ return /풍산/.test(clientsMap[k]); })[0]) || clients[0] || '';
+  var cs = noticeCandidates_();
+  var upIds = {}; cs.upcoming.forEach(function(s){ upIds[s.id] = true; });
+  var showUp = false;   // 기본: 01(오늘 할 일)만. 켜면 02(앞으로 7일 내 예정)도 목록에 나옴
+  var cands = cs.today.slice();
+  var clientsMap = {}, clients = [], selClient = '';
+  function buildClients(){
+    cands = showUp ? cs.today.concat(cs.upcoming) : cs.today.slice();
+    clientsMap = {}; clients = [];
+    cands.forEach(function(s){ var k = s.clientCode || s.client || '-'; if(!clientsMap[k]){ clientsMap[k] = (s.client||k); clients.push(k); } });
+    if(clients.indexOf(selClient)<0) selClient = (clients.filter(function(k){ return /풍산/.test(clientsMap[k]); })[0]) || clients[0] || '';
+  }
+  function clientOptionsHtml(){
+    return clients.length ? clients.map(function(k){ return '<option value="'+escapeHtml(k)+'" '+(k===selClient?'selected':'')+'>'+escapeHtml(clientsMap[k])+'</option>'; }).join('') : '<option value="">(출항안내 건 없음)</option>';
+  }
+  buildClients();
   var state = {};   // id -> {on, note}
   var PRESETS = ['', '출항 완료', '출항 지연'];
   function rowsOf(){ return cands.filter(function(s){ return (s.clientCode||s.client||'-')===selClient; }).sort(function(a,b){ var da=toDate(a.etd), db=toDate(b.etd); return (da?da.getTime():9e15)-(db?db.getTime():9e15); }); }
-  function stOf(s){ if(!state[s.id]) state[s.id] = {on:true, note:''}; return state[s.id]; }
+  function stOf(s){ if(!state[s.id]) state[s.id] = {on:!upIds[s.id], note:''}; return state[s.id]; }
   function miss(v){ return v ? escapeHtml(v) : '<span class="nt-miss">미입력</span>'; }
   function draw(){
     var rows = rowsOf();
-    var head = '<div class="nt-row head"><span></span><span>PO No</span><span>Master B/L No</span><span>모선</span><span>상태 선택</span><span>상태 문구(직접 수정 가능)</span></div>';
+    var head = '<div class="nt-row head"><span></span><span>PO No</span><span>House B/L No</span><span>모선</span><span>상태 선택</span><span>상태 문구(직접 수정 가능)</span></div>';
     var body = rows.length ? rows.map(function(s){
       var st = stOf(s);
       var presetSel = '<select data-nt-preset="'+escapeHtml(s.id)+'">'+PRESETS.map(function(p){ return '<option value="'+escapeHtml(p)+'" '+(st.note===p?'selected':'')+'>'+(p||'(없음)')+'</option>'; }).join('')+'<option value="__custom" '+(PRESETS.indexOf(st.note)<0?'selected':'')+'>직접 입력</option></select>';
       return '<div class="nt-row">'+
         '<input type="checkbox" data-nt-on="'+escapeHtml(s.id)+'" '+(st.on?'checked':'')+'>'+
-        '<span class="mono">'+miss(s.poNo)+'</span>'+
-        '<span class="mono">'+miss(String(s.mbl||'').trim())+'<br><span style="color:var(--ink-soft);">'+escapeHtml(noticePodOf_(s))+' · ETD '+escapeHtml(noticeDate_(s.etd,true))+' · ETA '+escapeHtml(noticeDate_(s.etaPort||s.etaDoor,false))+'</span></span>'+
-        '<span>'+(s.vessel?escapeHtml(s.vessel):'<span class="nt-miss">모선 미입력</span>')+'</span>'+
+        '<span class="mono">'+miss(s.poNo)+(upIds[s.id]?'<br><span class="nt-up" title="앞으로 7일 내 예정(02)에 있는 건">02 예정</span>':'')+'</span>'+
+        '<span class="mono">'+miss(String(s.hbl||'').trim())+'<br><span style="color:var(--ink-soft);">'+escapeHtml(noticePodOf_(s))+' · ETD '+escapeHtml(noticeDate_(s.etd,true))+' · ETA '+escapeHtml(noticeDate_(s.etaPort||s.etaDoor,false))+'</span></span>'+
+        '<span>'+(vesselFullOf_(s)?escapeHtml(vesselFullOf_(s)):'<span class="nt-miss">모선 미입력</span>')+'</span>'+
         presetSel+
         '<input type="text" data-nt-note="'+escapeHtml(s.id)+'" value="'+escapeHtml(st.note)+'" placeholder="예: 00시 출항 완료, 실출항일 확인 중">'+
         '</div>';
@@ -4341,7 +4389,8 @@ function openNoticeModal(){
   document.getElementById('modalContent').innerHTML =
     '<div class="modal-head"><h3>출항 안내문 만들기</h3><button class="modal-close" id="ntCloseBtn">&times;</button></div>'+
     '<div class="modal-body">'+
-    '<div class="nt-head"><b>거래처</b><select id="ntClient">'+(clients.length?clients.map(function(k){ return '<option value="'+escapeHtml(k)+'" '+(k===selClient?'selected':'')+'>'+escapeHtml(clientsMap[k])+'</option>'; }).join(''):'<option value="">(출항안내 건 없음)</option>')+'</select>'+
+    '<div class="nt-head"><b>거래처</b><select id="ntClient">'+clientOptionsHtml()+'</select>'+
+    '<label class="nt-upl" title="기본은 오늘 할 일 01에 있는 건만 나옵니다. 켜면 앞으로 7일 내 예정(02) 건도 목록에 나오고, 체크는 꺼진 채로 나와요."><input type="checkbox" id="ntShowUp"> 앞으로 7일 내 예정(02)도 보기'+(cs.upcoming.length?' ('+cs.upcoming.length+'건)':'')+'</label>'+
     '<span style="color:var(--ink-soft);">담을 건을 체크하고 상태를 고르면 아래 안내문이 바로 바뀝니다. 아래 칸에서 문구를 직접 고쳐서 복사해도 돼요.</span></div>'+
     '<div id="ntList"></div>'+
     '<textarea id="ntOut" spellcheck="false"></textarea>'+
@@ -4351,6 +4400,11 @@ function openNoticeModal(){
   document.getElementById('modalOverlay').hidden = false;
   document.getElementById('ntCloseBtn').addEventListener('click', closeModal);
   document.getElementById('ntClient').addEventListener('change', function(){ selClient = this.value; draw(); });
+  document.getElementById('ntShowUp').addEventListener('change', function(){
+    showUp = this.checked; buildClients();
+    document.getElementById('ntClient').innerHTML = clientOptionsHtml();
+    draw();
+  });
   document.getElementById('ntCopyBtn').addEventListener('click', function(){
     var ta = document.getElementById('ntOut'), txt = ta.value;
     if(!txt){ toast('복사할 안내문이 없습니다. 담을 건을 체크해 주세요.', {err:true}); return; }
@@ -4440,7 +4494,7 @@ function openItemLabelSettingsModal(){
 /* ================= csv template ================= */
 function downloadCsvTemplate(){
   var headers = REQUIRED_HEADER_DISPLAY;
-  var example = ['SHP-0001','해상수출FCL','해상','수출','GLS002','ABC상사','홍길동','BUSAN','LOS ANGELES','2026-09-10 12:00','2026-09-08','2026-09-12 09:00','2026-10-02','2026-10-05','LBK-20260910-01','HBL0001','MBL0001','ONE','ABC로지스','ONE HARMONY','신항 3부두','냉동 컨테이너 확인 필요'];
+  var example = ['SHP-0001','해상수출FCL','해상','수출','GLS002','ABC상사','홍길동','BUSAN','LOS ANGELES','2026-09-10 12:00','2026-09-08','2026-09-12 09:00','2026-10-02','2026-10-05','LBK-20260910-01','HBL0001','MBL0001','ONE','ONE HARMONY','0123W','신항 3부두','냉동 컨테이너 확인 필요'];
   var csv = headers.join(',') + '\n' + example.map(function(v){ return /[,"\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }).join(',');
   var blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'});
   var url = URL.createObjectURL(blob);
