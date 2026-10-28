@@ -453,6 +453,13 @@ details.help[open] summary:before{content:"–";}
 .modal-head h3{font-family:"Fraunces",serif; font-size:18px; font-weight:600;}
 .modal-close{background:none; border:none; font-size:20px; color:var(--ink-soft); line-height:1; padding:4px;}
 .modal.wide{max-width:1040px;}
+.modal.mcwide{max-width:860px;}
+.modal.mcwide .modal-body{max-height:82vh;}
+.mc-grid, .checklist-item.mc-grid{display:grid; grid-template-columns:minmax(0,1fr) repeat(6,84px); column-gap:0; align-items:center; padding-left:6px; padding-right:6px;}
+.mc-grid > label.mc-cell{display:flex; align-items:center; justify-content:center; width:auto; cursor:pointer; padding:5px 0;}
+.mc-head{position:sticky; top:0; z-index:2; background:var(--surface); font-size:11.5px; font-weight:700; color:var(--ink-soft); border-bottom:1px solid var(--line-strong); padding-top:4px; padding-bottom:6px;}
+.mc-head span{text-align:center; white-space:nowrap;}
+
 .modal-body{padding:18px 20px; max-height:66vh; overflow-y:auto;}
 .field-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px 14px;}
 .field{display:flex; flex-direction:column; gap:4px;}
@@ -3899,7 +3906,7 @@ function openModal(id){
   var delBtn = document.getElementById('deleteBtn'); if(delBtn) delBtn.addEventListener('click', deleteFromModal);
   refreshLclRow();
 }
-function closeModal(){ document.getElementById('modalOverlay').hidden = true; editingId = null; document.getElementById('modalContent').classList.remove('wide'); }
+function closeModal(){ document.getElementById('modalOverlay').hidden = true; editingId = null; document.getElementById('modalContent').classList.remove('wide'); document.getElementById('modalContent').classList.remove('mcwide'); }
 
 async function saveModal(){
   var isNew = !editingId;
@@ -4155,21 +4162,22 @@ function openMyClientsModal(){
   var ediSet = {}; ediClientCodes.forEach(function(c){ ediSet[c]=true; });
   var poNoteSet = {}; poNoteClientCodes.forEach(function(c){ poNoteSet[c]=true; });
 
+  var MC_HEAD = '<div class="mc-grid mc-head"><span style="text-align:left;"></span><span>배차</span><span>PRE-ALERT</span><span>보험</span><span>프리타임</span><span>EDI</span><span>PO→비고</span></div>';
   function renderRows(filterQ){
     var q=(filterQ||'').trim().toLowerCase();
     var rows = q ? allRows.filter(function(r){ return String(r.code||'').toLowerCase().indexOf(q)>=0 || String(r.name||'').toLowerCase().indexOf(q)>=0; }) : allRows;
-    if(rows.length===0) return '<div style="padding:14px 0;color:var(--ink-soft);font-size:12.5px;">일치하는 거래처가 없습니다.</div>';
-    return rows.map(function(r){
-      return '<div class="checklist-item">'+
+    if(rows.length===0) return MC_HEAD+'<div style="padding:14px 0;color:var(--ink-soft);font-size:12.5px;">일치하는 거래처가 없습니다.</div>';
+    return MC_HEAD+rows.map(function(r){
+      return '<div class="checklist-item mc-grid">'+
         '<label style="display:flex;align-items:center;gap:9px;flex:1;min-width:0;cursor:pointer;"><input type="checkbox" data-code="'+escapeHtml(r.code)+'" '+(workingSet[r.code]?'checked':'')+'>'+
         '<span class="lbl mono" style="font-weight:600;">'+escapeHtml(r.code)+'</span>'+
         '<span class="lbl" style="color:var(--ink-soft);margin-left:8px;">'+escapeHtml(r.name||'(대시보드에 등록된 건 없음)')+'</span></label>'+
-        '<label style="display:flex;align-items:center;justify-content:center;width:48px;flex:none;cursor:pointer;" title="체크하면 이 화주의 신규 건에 배차 필요=YES가 자동으로 걸립니다"><input type="checkbox" data-dispatch-code="'+escapeHtml(r.code)+'" '+(dispatchSet[r.code]?'checked':'')+'></label>'+
-        '<label style="display:flex;align-items:center;justify-content:center;width:72px;flex:none;cursor:pointer;" title="체크하면 이 화주의 건에 PRE-ALERT 필요=YES가 자동으로 걸립니다"><input type="checkbox" data-prealert-code="'+escapeHtml(r.code)+'" '+(preAlertSet[r.code]?'checked':'')+'></label>'+
-        '<label style="display:flex;align-items:center;justify-content:center;width:48px;flex:none;cursor:pointer;" title="체크하면 이 화주의 건에 보험가입 필요=YES가 자동으로 걸립니다"><input type="checkbox" data-insurance-code="'+escapeHtml(r.code)+'" '+(insuranceSet[r.code]?'checked':'')+'></label>'+
-        '<label style="display:flex;align-items:center;justify-content:center;width:60px;flex:none;cursor:pointer;" title="체크하면 이 화주의 건에 프리타임 필요=YES가 자동으로 걸립니다(출항일 기준 추적)"><input type="checkbox" data-freetime-code="'+escapeHtml(r.code)+'" '+(freeTimeSet[r.code]?'checked':'')+'></label>'+
-        '<label style="display:flex;align-items:center;justify-content:center;width:48px;flex:none;cursor:pointer;" title="체크하면 이 화주의 건에 EDI 필요=YES가 자동으로 걸립니다(서류마감일 기준 추적)"><input type="checkbox" data-edi-code="'+escapeHtml(r.code)+'" '+(ediSet[r.code]?'checked':'')+'></label>'+
-        '<label style="display:flex;align-items:center;justify-content:center;width:72px;flex:none;cursor:pointer;" title="체크하면 이 화주 건의 엑셀 PO No가 비고(특이사항)에 자동으로 들어갑니다"><input type="checkbox" data-ponote-code="'+escapeHtml(r.code)+'" '+(poNoteSet[r.code]?'checked':'')+'></label>'+
+        '<label class="mc-cell" title="체크하면 이 화주의 신규 건에 배차 필요=YES가 자동으로 걸립니다"><input type="checkbox" data-dispatch-code="'+escapeHtml(r.code)+'" '+(dispatchSet[r.code]?'checked':'')+'></label>'+
+        '<label class="mc-cell" title="체크하면 이 화주의 건에 PRE-ALERT 필요=YES가 자동으로 걸립니다"><input type="checkbox" data-prealert-code="'+escapeHtml(r.code)+'" '+(preAlertSet[r.code]?'checked':'')+'></label>'+
+        '<label class="mc-cell" title="체크하면 이 화주의 건에 보험가입 필요=YES가 자동으로 걸립니다"><input type="checkbox" data-insurance-code="'+escapeHtml(r.code)+'" '+(insuranceSet[r.code]?'checked':'')+'></label>'+
+        '<label class="mc-cell" title="체크하면 이 화주의 건에 프리타임 필요=YES가 자동으로 걸립니다(출항일 기준 추적)"><input type="checkbox" data-freetime-code="'+escapeHtml(r.code)+'" '+(freeTimeSet[r.code]?'checked':'')+'></label>'+
+        '<label class="mc-cell" title="체크하면 이 화주의 건에 EDI 필요=YES가 자동으로 걸립니다(서류마감일 기준 추적)"><input type="checkbox" data-edi-code="'+escapeHtml(r.code)+'" '+(ediSet[r.code]?'checked':'')+'></label>'+
+        '<label class="mc-cell" title="체크하면 이 화주 건의 엑셀 PO No가 비고(특이사항)에 자동으로 들어갑니다"><input type="checkbox" data-ponote-code="'+escapeHtml(r.code)+'" '+(poNoteSet[r.code]?'checked':'')+'></label>'+
         '</div>';
     }).join('');
   }
@@ -4230,14 +4238,14 @@ function openMyClientsModal(){
     '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;"><b>EDI</b>에 체크한 화주는 모든 건의 EDI 신고 여부가 "오늘 할 일 > EDI"에서 추적됩니다 — 서류마감일(DOC CLS)이 D-DAY이고, 서류마감 7일 전부터 미리 보이며 신고가 끝날 때까지 며칠 지났는지 보여줍니다(서류마감일이 비어 있는 건도 표시).</div>'+
     '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;"><b>PO→비고</b>에 체크한 화주는 엑셀의 <b>PO No</b>(예: 풍산의 INV 번호)가 비고(특이사항)에 자동으로 들어가고, 검색에서도 찾아집니다. 비고에 이미 다른 메모가 있으면 지우지 않고 뒤에 덧붙입니다.</div>'+
     '<input class="search" id="mcSearch" type="search" placeholder="거래처명·코드로 찾기" style="width:100%;margin-bottom:10px;">'+
-    '<div style="display:flex;justify-content:flex-end;font-size:11px;font-weight:700;color:var(--ink-soft);padding:0 2px 4px;"><span style="width:48px;text-align:center;">배차</span><span style="width:72px;text-align:center;white-space:nowrap;">PRE-ALERT</span><span style="width:48px;text-align:center;">보험</span><span style="width:60px;text-align:center;white-space:nowrap;">프리타임</span><span style="width:48px;text-align:center;">EDI</span><span style="width:72px;text-align:center;white-space:nowrap;">PO→비고</span></div>'+
-    '<div id="mcList" style="max-height:280px;overflow-y:auto;">'+renderRows('')+'</div>'+
+    '<div id="mcList" style="max-height:46vh;overflow-y:auto;">'+renderRows('')+'</div>'+
     '<div style="display:flex;gap:8px;margin-top:12px;">'+
       '<input type="text" id="mcNewCode" placeholder="목록에 없는 거래처 코드 직접 추가" style="flex:1;border:1px solid var(--line-strong);border-radius:2px;padding:7px 9px;background:var(--surface);color:var(--ink);">'+
       '<button class="btn btn-sm" id="mcAddBtn">추가</button>'+
     '</div>'+
     '</div>'+
     '<div class="modal-foot"><span class="mono" style="font-size:11.5px;color:var(--ink-soft);" id="mcCount"></span><button class="btn btn-primary" id="mcSaveBtn">저장</button></div>';
+  document.getElementById('modalContent').classList.add('mcwide');
   document.getElementById('modalOverlay').hidden = false;
   updateCount();
   wireRows();
