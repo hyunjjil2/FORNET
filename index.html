@@ -72,7 +72,8 @@ button{font-family:inherit; font-size:inherit; cursor:pointer;}
 input,select,textarea{font-family:inherit; font-size:inherit;}
 img{max-width:100%;}
 
-.app{max-width:1880px; margin:0 auto; padding:20px 6px 64px;}
+.app{max-width:1880px; margin:0 auto; padding:20px 18px 64px;}
+@media (max-width:1700px){ .app{padding-left:6px; padding-right:6px;} }
 
 .gate-overlay{position:fixed; inset:0; z-index:95; background:var(--paper); display:flex; align-items:center; justify-content:center; padding:16px;}
 .gate-overlay[hidden]{display:none !important;}
@@ -225,10 +226,10 @@ img{max-width:100%;}
 .trow.head{background:var(--surface-2); font-size:10.5px; font-weight:600; color:var(--ink-soft); letter-spacing:.3px; padding:7px 16px;}
 .trow.empty{color:var(--ink-soft); font-size:12.5px; padding:16px; grid-template-columns:1fr; min-width:0; justify-items:center;}
 .trow:not(.head):not(.empty):hover{background:var(--surface-2);}
-.trow.today{grid-template-columns:22px 40px 118px 132px 96px 66px var(--w-lb,148px) var(--w-hb,148px) var(--w-mb,148px) 96px 92px 164px 108px 34px; align-items:start; padding-top:11px; padding-bottom:11px;
+.trow.today{grid-template-columns:22px 40px minmax(118px,.9fr) minmax(132px,1.3fr) minmax(96px,.8fr) minmax(66px,.5fr) minmax(var(--w-lb,148px),1fr) minmax(var(--w-hb,148px),1fr) minmax(var(--w-mb,148px),1fr) minmax(96px,1fr) minmax(92px,1fr) minmax(164px,1.2fr) minmax(108px,.8fr) 34px; align-items:start; padding-top:11px; padding-bottom:11px;
   min-width:calc(1016px + var(--w-lb,148px) + var(--w-hb,148px) + var(--w-mb,148px));}
-.trow.today.eta2{grid-template-columns:22px 40px 118px 132px 96px 66px var(--w-lb,148px) var(--w-hb,148px) var(--w-mb,148px) 96px 92px 164px 94px 108px 34px;
-  min-width:calc(1096px + var(--w-lb,148px) + var(--w-hb,148px) + var(--w-mb,148px));}
+.trow.today.eta2{grid-template-columns:22px 40px minmax(118px,.9fr) minmax(132px,1.3fr) minmax(96px,.8fr) minmax(66px,.5fr) minmax(var(--w-lb,148px),1fr) minmax(var(--w-hb,148px),1fr) minmax(var(--w-mb,148px),1fr) minmax(96px,1fr) minmax(92px,1fr) minmax(150px,1.2fr) minmax(94px,.7fr) minmax(108px,.8fr) 34px;
+  min-width:calc(1082px + var(--w-lb,148px) + var(--w-hb,148px) + var(--w-mb,148px));}
 /* Line Booking / House B/L / Master B/L 은 절대 줄바꿈·생략 없이 한 줄로 전부 보임 (칸 너비는 실제 값에 맞춰 자동 조절: fitRefCols_) */
 .trow.today .bl-cell, .bl-hold-row .bl-cell{white-space:nowrap; overflow:visible; text-overflow:clip;}
 /* 나머지 칸은 길면 줄바꿈해서라도 전부 표시 */
@@ -2241,8 +2242,8 @@ function unassignedTable(list){
       '</div>';
   }).join('');
 }
-var SEARCH_COLS = '132px minmax(120px,1fr) 108px 66px 124px 124px 124px 100px 110px 110px 84px 84px 34px';
-var SEARCH_MIN_W = 1376;
+var SEARCH_COLS = '132px minmax(120px,1.3fr) minmax(108px,.8fr) minmax(66px,.5fr) minmax(120px,1fr) minmax(120px,1fr) minmax(120px,1fr) minmax(98px,1fr) minmax(108px,.9fr) minmax(108px,.9fr) 82px 84px 34px';
+var SEARCH_MIN_W = 1356;
 var SEARCH_SORT_GETTERS = {
   mgmtno: function(s){ return s.managementNo||s.id||''; },
   client: function(s){ return s.client||''; },
@@ -2607,7 +2608,7 @@ function renderChecklistTab(board, q){
    YES/NO은 체크리스트 보드의 LCL/DOOR/배차와 같은 방식(overview 플래그 셀 또는 상세 모달)으로 지정.
    맨 앞 칸은 Door의 "도착 확인·정산 완료"와 동일한 구조의 별도 확인 항목 — 홀딩중이던 비엘이
    실제로 최종 발행됐는지를 체크(한 번 체크하면 완료 배지로 바뀜, 되돌리려면 상세 모달에서 해제). */
-var BL_HOLD_GRID = 'grid-template-columns:60px 132px minmax(130px,1fr) 150px 74px var(--w-lb,140px) var(--w-hb,140px) var(--w-mb,140px) 100px 70px 128px minmax(110px,1fr) 100px;min-width:calc(1108px + var(--w-lb,140px) + var(--w-hb,140px) + var(--w-mb,140px));';
+var BL_HOLD_GRID = 'grid-template-columns:60px 132px minmax(130px,1.2fr) minmax(150px,.9fr) minmax(74px,.6fr) minmax(var(--w-lb,140px),1fr) minmax(var(--w-hb,140px),1fr) minmax(var(--w-mb,140px),1fr) minmax(100px,1fr) 70px 128px minmax(110px,1.2fr) 100px;min-width:calc(1108px + var(--w-lb,140px) + var(--w-hb,140px) + var(--w-mb,140px));';
 function blHoldingHeadHtml(){
   return '<div class="trow head bl-hold-row" style="'+BL_HOLD_GRID+'">'+
     '<span style="text-align:center;">발행완료</span><span>관리번호</span><span>거래처명</span><span>루틴</span><span>담당자</span>'+
@@ -2875,7 +2876,7 @@ function checklistOverviewCount(){
   return total;
 }
 function overviewGridCols(n){
-  return '132px minmax(130px,1fr) 150px 150px 100px 72px 46px 46px 46px 46px ' + new Array(n).fill('58px').join(' ') + ' minmax(180px,1fr)';
+  return '132px minmax(130px,1.2fr) minmax(150px,1fr) minmax(150px,1fr) minmax(100px,1fr) 72px 46px 46px 46px 46px ' + new Array(n).fill('58px').join(' ') + ' minmax(180px,2fr)';
 }
 var OVERVIEW_SORT_GETTERS = {
   mgmtno: function(s){ return s.managementNo||s.id||''; },
@@ -4070,6 +4071,21 @@ function setUploadBtnBusy(busy){
   btn.disabled = busy;
   btn.textContent = busy ? '업로드 중…' : '엑셀 업로드';
 }
+/* 업로드 직후 안내문 — VESSEL·항차 열을 찾았는지, 값이 있는 행이 몇 건인지, 못 알아본 열 이름은 무엇인지 */
+function uploadHeaderInfo_(rawRows, rows){
+  var heads = rawRows.length ? Object.keys(rawRows[0]) : [];
+  var found = {}, unknown = [];
+  heads.forEach(function(h){ var f = HEADER_LOOKUP[normHeader(h)]; if(f) found[f] = h; else if(String(h).trim() && !/^__EMPTY/.test(h)) unknown.push(String(h).trim()); });
+  var nVsl = rows.filter(function(r){ return String(r.vessel||'').trim(); }).length;
+  var nVoy = rows.filter(function(r){ return String(r.voyage||'').trim(); }).length;
+  var msg = '';
+  if(!found.vessel) msg += ' · ⚠ 엑셀에서 VESSEL 열을 찾지 못했어요';
+  else msg += ' · VESSEL '+nVsl+'건';
+  if(!found.voyage) msg += ' · ⚠ 엑셀에서 항차 열을 찾지 못했어요(머리글을 "항차"로 해주세요)';
+  else msg += ' · 항차 '+nVoy+'건 반영';
+  if(unknown.length) msg += ' · 인식 안 한 열: '+unknown.slice(0,8).join(', ')+(unknown.length>8?' 외 '+(unknown.length-8)+'개':'');
+  return {msg:msg, found:found, unknown:unknown};
+}
 async function handleFile(file){
   if(!webappReady()){ toast('먼저 내 시트(Apps Script 웹 앱 주소)를 연결해 주세요.', {err:true}); showConnect_('first'); return; }
   setUploadBtnBusy(true);
@@ -4082,6 +4098,8 @@ async function handleFile(file){
     sheet = trimSheetToRealData(sheet);
     var rawRows = XLSX.utils.sheet_to_json(sheet, {defval:''});
     var rows = parseRows(rawRows);
+    // 엑셀 머리글 중 대시보드가 알아본 열/못 알아본 열을 확인 — VESSEL·항차처럼 "안 따라왔을 때" 원인을 바로 알 수 있게
+    var hdrInfo = uploadHeaderInfo_(rawRows, rows);
     if(rows.length===0){
       setUploadBtnBusy(false);
       uploadStatusFail('업로드 실패', '인식 가능한 데이터가 없습니다. 헤더(컬럼명)를 확인해 주세요.');
@@ -4104,7 +4122,7 @@ async function handleFile(file){
     // 확인 절차 없이 조용히 정리되지만, 몇 건이 정리됐는지는 업로드 결과에 함께 표시해줌.
     var purgeMsg = (result.purge && result.purge.purged) ? (' · 내 거래처 아닌 '+result.purge.purged+'건은 보관 처리됨') : '';
     var skipMsg = result.skippedArchived ? (' · 이미 완료되어 보관된 '+result.skippedArchived+'건은 건너뜀') : '';
-    uploadStatusDone('업로드 완료', '신규 '+result.created+'건, 갱신 '+result.updated+'건 반영되었습니다.'+purgeMsg+skipMsg);
+    uploadStatusDone('업로드 완료', '신규 '+result.created+'건, 갱신 '+result.updated+'건 반영되었습니다.'+purgeMsg+skipMsg+hdrInfo.msg);
     toast('업로드 완료 — 신규 '+result.created+'건, 갱신 '+result.updated+'건.'+purgeMsg+skipMsg);
     refreshFromServer(true);
   }catch(e){
