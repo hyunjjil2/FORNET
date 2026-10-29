@@ -659,7 +659,7 @@ async function gateHash_(pw){
   return Array.prototype.map.call(new Uint8Array(buf), function(b){ return ('0'+b.toString(16)).slice(-2); }).join('');
 }
 var WEBAPP_URL_KEY = 'fw_webapp_url';
-var EXPECTED_SERVER_VERSION = 20261027; // Code.gs의 SERVER_VERSION과 맞춤 — Code.gs를 바꿀 때마다 둘 다 올림
+var EXPECTED_SERVER_VERSION = 20261029; // Code.gs의 SERVER_VERSION과 맞춤 — Code.gs를 바꿀 때마다 둘 다 올림
 function isValidWebappUrl_(u){
   u = String(u||'').trim();
   if(/^https:\/\/script\.google\.com\/(a\/macros\/[^\/\s]+\/|macros\/)s\/[A-Za-z0-9_\-]+\/exec$/.test(u)) return true;
@@ -4349,8 +4349,8 @@ function noticeCandidates_(kind){
 }
 /* ===== 서류마감 안내문 ("서류마감" 업무구분에 떠 있는 건) =====
    모선(+항차)별로 묶어 모선명을 제목 줄로 먼저 적고, 그 밑에 줄마다:
-   PO No / House B/L No / POD(LCL이면 "POD LCL") / 컨테이너(FCL만, 예: 20*1) - 면장 필요, 금일 11시 서류마감
-   · PO가 비어 있으면 PO 칸은 통째로 빼고, 같은 House B/L의 건은 PO를 _로 합쳐 한 줄로.
+   PO No / Line Booking No / POD(LCL이면 "POD LCL") / 컨테이너(FCL만, 예: 20*1) - 면장 필요, 금일 11시 서류마감
+   · PO가 비어 있으면 PO 칸은 통째로 빼고, 같은 Line Booking No의 건은 PO를 _로 합쳐 한 줄로.
    · "면장 필요" = 이 건의 체크리스트에 면장 항목이 있는데 아직 체크 안 한 경우(자동, 안내문 창에서 끌 수 있음).
    · 마감 문구 = 서류마감일(DOC CLS)의 날짜(오늘이면 "금일", 내일이면 "내일", 그 외 "10/28")+시각("11시", 30분이면 "11시 30분")+" 서류마감". */
 /* 목록의 Line Booking No 밑에 붙는 작은 알약 — 컨테이너 대수(FCL만, 예: 20*1, 40HQ*2). 없으면 아무것도 안 그림. */
@@ -4398,7 +4398,7 @@ function buildDocNoticeText_(items){
   var blocks = order.map(function(v){
     var merged = [], byHbl = {};
     groups[v].forEach(function(it){
-      var h = String(it.s.hbl||'').trim(), po = String(it.s.poNo||'').trim();
+      var h = String(it.s.lineBookingNo||'').trim(), po = String(it.s.poNo||'').trim();
       if(h && byHbl[h]){ var g = byHbl[h]; if(po) g.pos.push(po); g.myeon = g.myeon || it.myeon; if(!g.note && it.note) g.note = it.note; return; }
       var m = {s:it.s, pos:po?[po]:[], myeon:!!it.myeon, note:it.note||''};
       merged.push(m); if(h) byHbl[h] = m;
@@ -4406,7 +4406,7 @@ function buildDocNoticeText_(items){
     var lines = merged.map(function(m){
       var segs = [];
       if(m.pos.length) segs.push(m.pos.join('_'));
-      segs.push(String(m.s.hbl||'').trim()||'-');
+      segs.push(String(m.s.lineBookingNo||'').trim()||'-');
       segs.push(docPodOf_(m.s));
       var c = containerText_(m.s); if(c) segs.push(c);
       var note = String(m.note||'').trim();
@@ -4472,7 +4472,7 @@ function openNoticeModal(kind){
   function draw(){
     var rows = rowsOf();
     var head = isDoc
-      ? '<div class="nt-row head"><span></span><span>PO No</span><span>House B/L No</span><span>면장</span><span>마감 문구</span><span>추가 문구(선택)</span></div>'
+      ? '<div class="nt-row head"><span></span><span>PO No</span><span>Line Booking No</span><span>면장</span><span>마감 문구</span><span>추가 문구(선택)</span></div>'
       : '<div class="nt-row head"><span></span><span>PO No</span><span>House B/L No</span><span>모선</span><span>상태 선택</span><span>상태 문구(직접 수정 가능)</span></div>';
     var body = rows.length ? rows.map(function(s){
       var st = stOf(s);
@@ -4484,7 +4484,7 @@ function openNoticeModal(kind){
         return '<div class="nt-row">'+
           '<input type="checkbox" data-nt-on="'+escapeHtml(s.id)+'" '+(st.on?'checked':'')+'>'+
           '<span class="mono">'+(String(s.poNo||'').trim()?escapeHtml(s.poNo):'<span style="color:var(--ink-soft);">-</span>')+(upIds[s.id]?'<br><span class="nt-up" title="앞으로 7일 내 예정(02)에 있는 건">02 예정</span>':'')+'</span>'+
-          '<span class="mono">'+miss(String(s.hbl||'').trim())+'<br><span style="color:var(--ink-soft);">'+(vesselFullOf_(s)?escapeHtml(vesselFullOf_(s))+' · ':'<span class="nt-miss">모선 미입력</span> · ')+escapeHtml(docPodOf_(s))+(cT?' · '+escapeHtml(cT):(isLclRoute(s.routeType)||/AIR/.test(String(s.routeType||''))?'':' · <span class="nt-miss">컨테이너 수량 미입력</span>'))+'</span></span>'+
+          '<span class="mono">'+miss(String(s.lineBookingNo||'').trim())+'<br><span style="color:var(--ink-soft);">'+(vesselFullOf_(s)?escapeHtml(vesselFullOf_(s))+' · ':'<span class="nt-miss">모선 미입력</span> · ')+escapeHtml(docPodOf_(s))+(cT?' · '+escapeHtml(cT):(isLclRoute(s.routeType)||/AIR/.test(String(s.routeType||''))?'':' · <span class="nt-miss">컨테이너 수량 미입력</span>'))+'</span></span>'+
           '<span>'+myeonCell+'</span>'+
           '<span>'+escapeHtml(docCloseText_(s))+'</span>'+
           '<input type="text" data-nt-note="'+escapeHtml(s.id)+'" value="'+escapeHtml(st.note)+'" placeholder="예: 서류 지연 예상">'+
