@@ -323,6 +323,9 @@ img{max-width:100%;}
 .bulk-bar .btn[disabled]{opacity:.4;}
 
 .flag-pill{font-size:10px; font-weight:700; padding:2px 6px; border-radius:20px; white-space:nowrap; margin-left:5px;}
+.lb-wrap{display:flex; flex-direction:column; align-items:flex-start; gap:3px; min-width:0;}
+.lb-wrap .bl-cell{max-width:100%;}
+.flag-pill.cntr{margin-left:0; background:var(--sky-soft); color:var(--sky);}
 .flag-pill.lcl{background:var(--plum-soft); color:var(--plum);}
 .flag-pill.door-pending{background:var(--warn-soft); color:var(--warn);}
 .flag-pill.door-done{background:var(--teal-soft); color:var(--teal);}
@@ -360,7 +363,7 @@ img{max-width:100%;}
 .type-tag.edi{color:var(--teal); background:var(--teal-soft); border-color:transparent;}
 .flag-pill.edi-pending{background:var(--plum-soft); color:var(--plum);}
 .flag-pill.edi-done{background:var(--teal-soft); color:var(--teal);}
-.notice-bar[hidden]{display:none !important;}
+.notice-bar[hidden], .notice-bar .btn[hidden]{display:none !important;}
 .notice-bar{display:flex; align-items:center; gap:10px; margin:2px 0 10px; font-size:12px; color:var(--ink-soft);}
 .nt-head{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; font-size:12.5px;}
 .nt-head select{border:1px solid var(--line-strong); border-radius:2px; padding:6px 8px; background:var(--surface); color:var(--ink); font:inherit;}
@@ -573,7 +576,7 @@ details.help[open] summary:before{content:"–";}
   <div class="tab-row" id="tabRow"></div>
   <div class="chip-row" id="chipRow"></div>
   <div class="chip-row" id="typeChipRow"></div>
-  <div class="notice-bar" id="noticeBar" hidden><button class="btn btn-sm" id="noticeBtn">출항 안내문 만들기 (화주용)</button><span>지금 목록의 출항안내 건(오늘 할 일 + 앞으로 7일 내)으로 화주에게 보낼 안내문을 만들어요</span></div>
+  <div class="notice-bar" id="noticeBar" hidden><button class="btn btn-sm" id="noticeBtn">출항 안내문 만들기 (화주용)</button><button class="btn btn-sm" id="noticeDocBtn">서류마감 안내문 만들기 (화주용)</button><span id="noticeBarHint">지금 목록의 출항안내 건(오늘 할 일 + 앞으로 7일 내)으로 화주에게 보낼 안내문을 만들어요</span></div>
   <section class="board" id="board"></section>
 
   <div class="foot">
@@ -812,13 +815,13 @@ function routeItems(routeType, billingOnly){
 
 /* 프론트 <-> 시트 헤더/필드 매핑 */
 var INFO_HEADERS = ['관리번호','루틴','청구전용','캔슬','서비스','수출입','거래처코드','거래처명','담당자','POL','POD','Delivery',
-  'DOC CLS','CFS CLS','ETD','ETA(PORT)','ETA(DOOR)','Door배송','Line Booking No','House B/L No','Master B/L No','PO No','선사','운송사','VESSEL','항차','터미널','특이사항',
+  'DOC CLS','CFS CLS','ETD','ETA(PORT)','ETA(DOOR)','Door배송','Line Booking No','House B/L No','Master B/L No','PO No','선사','운송사','VESSEL','항차',"20'","40'",'40HQ','터미널','특이사항',
   '생성일시','수정일시'];
 var FIELD_TO_HEADER = {
   managementNo:'관리번호', routeType:'루틴', billingOnly:'청구전용', cancelled:'캔슬',
   service:'서비스', tradeType:'수출입', clientCode:'거래처코드', client:'거래처명', manager:'담당자', pol:'POL', pod:'POD', delivery:'Delivery',
   docCls:'DOC CLS', cfsCls:'CFS CLS', etd:'ETD', etaPort:'ETA(PORT)', etaDoor:'ETA(DOOR)', doorEligible:'Door배송', dispatchNeeded:'배차필요', preAlertNeeded:'프리알러트필요', insuranceNeeded:'보험필요', freeTimeNeeded:'프리타임필요', ediNeeded:'EDI필요', etcNeeded:'기타필요', etcDue:'기타기한', etcMemo:'기타메모', blHolding:'비엘홀딩',
-  lineBookingNo:'Line Booking No', hbl:'House B/L No', mbl:'Master B/L No', poNo:'PO No', carrier:'선사', forwarder:'운송사', vessel:'VESSEL', voyage:'항차', terminal:'터미널', note:'특이사항',
+  lineBookingNo:'Line Booking No', hbl:'House B/L No', mbl:'Master B/L No', poNo:'PO No', carrier:'선사', forwarder:'운송사', vessel:'VESSEL', voyage:'항차', cntr20:"20'", cntr40:"40'", cntr40hq:'40HQ', terminal:'터미널', note:'특이사항',
   createdAt:'생성일시', updatedAt:'수정일시'
 };
 var HEADER_TO_FIELD = {}; Object.keys(FIELD_TO_HEADER).forEach(function(k){ HEADER_TO_FIELD[FIELD_TO_HEADER[k]] = k; });
@@ -901,9 +904,10 @@ var FIELD_ALIASES = {
   etaPort: ['ETA(PORT)','ETAPORT','ETA PORT','ETA'], etaDoor: ['ETA(DOOR)','ETADOOR','ETA DOOR'],
   lineBookingNo: ['LINEBOOKINGNO','LINE BOOKING NO','LINE BOOKING NUMBER'],
   hbl: ['HOUSEB/LNO','HOUSE B/L NO','HBL'], mbl: ['MASTERB/LNO','MASTER B/L NO','MBL'], poNo: ['PONO','PO NO','PO 번호','PO번호','PO NUMBER'],
-  carrier: ['선사'], forwarder: ['운송사'], vessel: ['VESSEL','선박','선박명','모선','모선명'], voyage: ['항차','VOYAGE','VOY','VOYNO','항차번호'], terminal: ['터미널'], note: ['특이사항']
+  carrier: ['선사'], forwarder: ['운송사'], vessel: ['VESSEL','선박','선박명','모선','모선명'], voyage: ['항차','VOYAGE','VOY','VOYNO','항차번호'],
+  cntr20: ["20'",'20','20FT','20GP','20피트'], cntr40: ["40'",'40','40FT','40GP','40피트'], cntr40hq: ['40HQ',"40'HQ",'40HC','40HIGHCUBE'], terminal: ['터미널'], note: ['특이사항']
 };
-var REQUIRED_HEADER_DISPLAY = ['관리번호','루틴','서비스','수출입','거래처코드','거래처명','담당자','POL','POD','DOC CLS','CFS CLS','ETD','ETA(PORT)','ETA(DOOR)','Line Booking No','House B/L No','Master B/L No','PO No','선사','VESSEL','항차','터미널','특이사항'];
+var REQUIRED_HEADER_DISPLAY = ['관리번호','루틴','서비스','수출입','거래처코드','거래처명','담당자','POL','POD','DOC CLS','CFS CLS','ETD','ETA(PORT)','ETA(DOOR)','Line Booking No','House B/L No','Master B/L No','PO No','선사','VESSEL','항차',"20'","40'",'40HQ','터미널','특이사항'];
 function normHeader(h){ return String(h||'').trim().replace(/\s+/g,'').toUpperCase(); }
 
 /* ================= state ================= */
@@ -1727,7 +1731,12 @@ function typeChipCounts(){
 }
 function renderTypeChips(){
   var row = document.getElementById('typeChipRow');
-  var ntBar = document.getElementById('noticeBar'); if(ntBar) ntBar.hidden = !(activeTab==='TODAY' && activeType==='duesoon');
+  var ntBar = document.getElementById('noticeBar'); if(ntBar){
+    ntBar.hidden = !(activeTab==='TODAY' && (activeType==='duesoon' || activeType==='docCls'));
+    var nb = document.getElementById('noticeBtn'), nd = document.getElementById('noticeDocBtn'), nh = document.getElementById('noticeBarHint');
+    if(nb) nb.hidden = (activeType==='docCls'); if(nd) nd.hidden = (activeType!=='docCls');
+    if(nh) nh.textContent = activeType==='docCls' ? '지금 목록의 서류마감 건(오늘 할 일 + 앞으로 7일 내)으로 화주에게 보낼 안내문을 만들어요 · 면장을 아직 안 체크한 건은 "면장 필요"로 자동 표시' : '지금 목록의 출항안내 건(오늘 할 일 + 앞으로 7일 내)으로 화주에게 보낼 안내문을 만들어요';
+  }
   if(activeTab==='CHECKLIST'){ renderChecklistGlobalChips(row); return; }
   row.className = 'chip-row';
   if(activeTab!=='TODAY'){ row.innerHTML=''; row.style.display='none'; return; }
@@ -2178,7 +2187,7 @@ function todayTable(list, sectionId, tableKey){
       '<span class="client-cell"><button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="'+escapeHtml(s.client||'')+'">'+escapeHtml(s.client||'-')+'</button>'+(s.note?'<div class="note-line" title="'+escapeHtml(s.note)+'">'+escapeHtml(s.note)+'</div>':'')+'</span>'+
       routePillHtml(s)+
       '<span class="mgr">'+escapeHtml(s.manager||'-')+'</span>'+
-      '<span class="bl-cell mono ref-lb" title="'+escapeHtml(s.lineBookingNo||'')+'">'+escapeHtml(s.lineBookingNo||'-')+'</span>'+
+      '<span class="lb-wrap"><span class="bl-cell mono ref-lb" title="'+escapeHtml(s.lineBookingNo||'')+'">'+escapeHtml(s.lineBookingNo||'-')+'</span>'+cntrPillHtml_(s)+'</span>'+
       '<span class="bl-cell mono ref-hb" title="'+escapeHtml(s.hbl||'')+'">'+escapeHtml(s.hbl||'-')+'</span>'+
       '<span class="bl-cell mono ref-mb" title="'+escapeHtml(s.mbl||'')+'">'+escapeHtml(s.mbl||'-')+'</span>'+
       vesselCellHtml(s)+
@@ -2224,7 +2233,7 @@ function upcomingTable(list, sectionId){
       '<span class="client-cell"><button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="'+escapeHtml(s.client||'')+'">'+escapeHtml(s.client||'-')+'</button>'+(s.note?'<div class="note-line" title="'+escapeHtml(s.note)+'">'+escapeHtml(s.note)+'</div>':'')+'</span>'+
       routePillHtml(s)+
       '<span class="mgr">'+escapeHtml(s.manager||'-')+'</span>'+
-      '<span class="bl-cell mono ref-lb" title="'+escapeHtml(s.lineBookingNo||'')+'">'+escapeHtml(s.lineBookingNo||'-')+'</span>'+
+      '<span class="lb-wrap"><span class="bl-cell mono ref-lb" title="'+escapeHtml(s.lineBookingNo||'')+'">'+escapeHtml(s.lineBookingNo||'-')+'</span>'+cntrPillHtml_(s)+'</span>'+
       '<span class="bl-cell mono ref-hb" title="'+escapeHtml(s.hbl||'')+'">'+escapeHtml(s.hbl||'-')+'</span>'+
       '<span class="bl-cell mono ref-mb" title="'+escapeHtml(s.mbl||'')+'">'+escapeHtml(s.mbl||'-')+'</span>'+
       vesselCellHtml(s)+
@@ -2290,7 +2299,7 @@ function searchResultTable(list){
       '<button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'">'+escapeHtml(s.client||'-')+'</button>'+
       routePillHtml(s)+
       '<span class="mgr">'+stLabel+'</span>'+
-      '<span class="mono" style="font-size:11.5px;">'+escapeHtml(s.lineBookingNo||'-')+'</span>'+
+      '<span class="lb-wrap"><span class="mono" style="font-size:11.5px;">'+escapeHtml(s.lineBookingNo||'-')+'</span>'+cntrPillHtml_(s)+'</span>'+
       '<span class="mono" style="font-size:11.5px;">'+escapeHtml(s.hbl||'-')+'</span>'+
       '<span class="mono" style="font-size:11.5px;">'+escapeHtml(s.mbl||'-')+'</span>'+
       vesselCellHtml(s)+
@@ -2649,7 +2658,7 @@ function blHoldingTable(list){
       '<button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="'+escapeHtml(s.client||'')+'">'+escapeHtml(s.client||'-')+'</button>'+
       routePillHtml(s)+
       '<span class="mgr">'+escapeHtml(s.manager||'-')+'</span>'+
-      '<span class="bl-cell mono ref-lb" title="'+escapeHtml(s.lineBookingNo||'')+'">'+escapeHtml(s.lineBookingNo||'-')+'</span>'+
+      '<span class="lb-wrap"><span class="bl-cell mono ref-lb" title="'+escapeHtml(s.lineBookingNo||'')+'">'+escapeHtml(s.lineBookingNo||'-')+'</span>'+cntrPillHtml_(s)+'</span>'+
       '<span class="bl-cell mono ref-hb" title="'+escapeHtml(s.hbl||'')+'">'+escapeHtml(s.hbl||'-')+'</span>'+
       '<span class="bl-cell mono ref-mb" title="'+escapeHtml(s.mbl||'')+'">'+escapeHtml(s.mbl||'-')+'</span>'+
       vesselCellHtml(s)+
@@ -3259,8 +3268,17 @@ function shipmentToSheetData(s){
     if(f==='checklist') return;
     if(s[f]!==undefined) data[FIELD_TO_HEADER[f]] = s[f];
   });
+  /* 날짜 칸은 항상 "표준 시각(…Z)"으로 바꿔서 보냄 — 상세/수정 창의 날짜는 시간대 표시가 없는 글자("2026-10-29T09:00")라
+     그대로 보내면 구글시트가 "시트에 설정된 시간대"(예: 미국 태평양시)의 시각으로 읽어 한국 시간으로 돌아올 때 날짜가 밀림.
+     엑셀 업로드와 같은 방식으로 보내면 어떤 시간대의 시트여도 같은 순간으로 저장됨. */
+  DATE_FIELDS_.forEach(function(f){
+    var h = FIELD_TO_HEADER[f]; var v = data[h];
+    if(v===undefined || v===null || v==='') return;
+    var d = toDate(v); if(d) data[h] = d.toISOString();
+  });
   return data;
 }
+var DATE_FIELDS_ = ['docCls','cfsCls','etd','etaPort','etaDoor','etcDue'];
 
 /* 서버가 JSON이 아닌 응답(예: Apps Script 자체 오류 HTML 페이지)을 반환하는 경우
    res.json()이 "Unexpected token '<' ... is not valid JSON" 같은 알아보기 힘든 오류를 던짐.
@@ -3582,6 +3600,9 @@ var INFO_FIELDS = [
   {k:'carrier', label:'선사', type:'text'},
   {k:'vessel', label:'VESSEL', type:'text'},
   {k:'voyage', label:'항차', type:'text'},
+  {k:'cntr20', label:"컨테이너 20' 수량", type:'text'},
+  {k:'cntr40', label:"컨테이너 40' 수량", type:'text'},
+  {k:'cntr40hq', label:'컨테이너 40HQ 수량', type:'text'},
   {k:'terminal', label:'터미널', type:'text'},
   {k:'note', label:'비고', type:'textarea', full:true}
 ];
@@ -4313,17 +4334,87 @@ function noticePodOf_(s){
 }
 /* 안내문 후보 — 기본은 "오늘 할 일 > 01"에 뜨는 출항안내 건만(today). "앞으로 7일 내 예정(02)"에 있는 건(upcoming)은
    안내문 창에서 사용자가 "02도 보기"를 켰을 때만 목록에 나타나고, 그때도 체크는 꺼진 상태로 나옴. */
-function noticeCandidates_(){
+function noticeCandidates_(kind){
   var seen = {}, today = [], upcoming = [];
+  var wantType = (kind==='doc') ? 'docCls' : 'duesoon';
   feedTodayAll().forEach(function(x){
-    if(x.type!=='duesoon' || seen[x.s.id]) return;
+    if(x.type!==wantType || seen[x.s.id]) return;
     seen[x.s.id] = true; today.push(x.s);
   });
   feedUpcomingAll().forEach(function(x){
-    if(x.type!=='duesoon' || seen[x.s.id]) return;
+    if(x.type!==wantType || seen[x.s.id]) return;
     seen[x.s.id] = true; upcoming.push(x.s);
   });
   return {today:today, upcoming:upcoming};
+}
+/* ===== 서류마감 안내문 ("서류마감" 업무구분에 떠 있는 건) =====
+   모선(+항차)별로 묶어 모선명을 제목 줄로 먼저 적고, 그 밑에 줄마다:
+   PO No / House B/L No / POD(LCL이면 "POD LCL") / 컨테이너(FCL만, 예: 20*1) - 면장 필요, 금일 11시 서류마감
+   · PO가 비어 있으면 PO 칸은 통째로 빼고, 같은 House B/L의 건은 PO를 _로 합쳐 한 줄로.
+   · "면장 필요" = 이 건의 체크리스트에 면장 항목이 있는데 아직 체크 안 한 경우(자동, 안내문 창에서 끌 수 있음).
+   · 마감 문구 = 서류마감일(DOC CLS)의 날짜(오늘이면 "금일", 내일이면 "내일", 그 외 "10/28")+시각("11시", 30분이면 "11시 30분")+" 서류마감". */
+/* 목록의 Line Booking No 밑에 붙는 작은 알약 — 컨테이너 대수(FCL만, 예: 20*1, 40HQ*2). 없으면 아무것도 안 그림. */
+function cntrPillHtml_(s){ var t = containerText_(s); return t ? '<span class="flag-pill cntr" title="컨테이너 대수">'+escapeHtml(t)+'</span>' : ''; }
+function docNeedsMyeon_(s){
+  var has = relevantItems(s).some(function(it){ return it.key==='myeonjang'; });
+  return has && !(s.checklist||{}).myeonjang;
+}
+function docHasMyeonItem_(s){ return relevantItems(s).some(function(it){ return it.key==='myeonjang'; }); }
+function docCloseText_(s){
+  var d = toDate(s.docCls), pre = '', t = '';
+  if(d){
+    var dd = getDday(s.docCls);
+    pre = dd===0 ? '금일' : (dd===1 ? '내일' : ((d.getMonth()+1)+'/'+d.getDate()));
+    var h = d.getHours(), m = d.getMinutes();
+    // 엑셀 날짜만 있는 값이 09:00으로 들어오는 경우가 있어 00:00·09:00은 시각 없는 것으로 봄(출항 안내문과 같은 규칙)
+    if((h||m) && !(h===9 && m===0)) t = h+'시'+(m?(' '+m+'분'):'');
+  }
+  return [pre,t].filter(Boolean).join(' ')+(pre||t?' ':'')+'서류마감';
+}
+function cntrNum_(v){ var n = parseInt(String(v==null?'':v).replace(/,/g,''),10); return isNaN(n)?0:n; }
+function containerText_(s){
+  if(isLclRoute(s.routeType) || /AIR/.test(String(s.routeType||''))) return '';
+  var parts = [];
+  if(cntrNum_(s.cntr20)>0) parts.push('20*'+cntrNum_(s.cntr20));
+  if(cntrNum_(s.cntr40)>0) parts.push('40*'+cntrNum_(s.cntr40));
+  if(cntrNum_(s.cntr40hq)>0) parts.push('40HQ*'+cntrNum_(s.cntr40hq));
+  return parts.join(', ');
+}
+function docPodOf_(s){
+  var p = String(s.pod||'').split(',')[0].trim().toUpperCase() || '-';
+  return isLclRoute(s.routeType) ? p+' LCL' : p;
+}
+/* items: [{s, note, myeon}] — 출항 안내문처럼 모선(+항차)별로 묶어서, 모선명을 제목 줄로 먼저 적음 */
+function buildDocNoticeText_(items){
+  var tsOf = function(it){ var d = toDate(it.s.docCls); return d ? d.getTime() : 9e15; };
+  var groups = {}, order = [];
+  items.forEach(function(it){
+    var v = vesselFullOf_(it.s) || '(모선 미입력)';
+    if(!groups[v]){ groups[v] = []; order.push(v); }
+    groups[v].push(it);
+  });
+  order.forEach(function(v){ groups[v].sort(function(a,b){ return tsOf(a)-tsOf(b) || String(a.s.poNo||'').localeCompare(String(b.s.poNo||'')); }); });
+  order.sort(function(a,b){ return tsOf(groups[a][0])-tsOf(groups[b][0]); });
+  var blocks = order.map(function(v){
+    var merged = [], byHbl = {};
+    groups[v].forEach(function(it){
+      var h = String(it.s.hbl||'').trim(), po = String(it.s.poNo||'').trim();
+      if(h && byHbl[h]){ var g = byHbl[h]; if(po) g.pos.push(po); g.myeon = g.myeon || it.myeon; if(!g.note && it.note) g.note = it.note; return; }
+      var m = {s:it.s, pos:po?[po]:[], myeon:!!it.myeon, note:it.note||''};
+      merged.push(m); if(h) byHbl[h] = m;
+    });
+    var lines = merged.map(function(m){
+      var segs = [];
+      if(m.pos.length) segs.push(m.pos.join('_'));
+      segs.push(String(m.s.hbl||'').trim()||'-');
+      segs.push(docPodOf_(m.s));
+      var c = containerText_(m.s); if(c) segs.push(c);
+      var note = String(m.note||'').trim();
+      return segs.join(' / ')+' - '+(m.myeon?'면장 필요, ':'')+docCloseText_(m.s)+(note?(' ('+note+')'):'');
+    });
+    return v+'\n'+lines.join('\n');
+  });
+  return '금일 서류마감 건 안내 드립니다.\n\n'+blocks.join('\n\n');
 }
 /* items: [{s, note}] — 선택된 건만 넘김 */
 function buildNoticeText_(items){
@@ -4354,9 +4445,11 @@ function buildNoticeText_(items){
   });
   return '출항 안내 드립니다.\n\n'+blocks.join('\n\n');
 }
-function openNoticeModal(){
+function openNoticeModal(kind){
+  kind = (kind==='doc') ? 'doc' : 'dep';
+  var isDoc = (kind==='doc');
   editingId = null;
-  var cs = noticeCandidates_();
+  var cs = noticeCandidates_(kind);
   var upIds = {}; cs.upcoming.forEach(function(s){ upIds[s.id] = true; });
   var showUp = false;   // 기본: 01(오늘 할 일)만. 켜면 02(앞으로 7일 내 예정)도 목록에 나옴
   var cands = cs.today.slice();
@@ -4368,19 +4461,35 @@ function openNoticeModal(){
     if(clients.indexOf(selClient)<0) selClient = (clients.filter(function(k){ return /풍산/.test(clientsMap[k]); })[0]) || clients[0] || '';
   }
   function clientOptionsHtml(){
-    return clients.length ? clients.map(function(k){ return '<option value="'+escapeHtml(k)+'" '+(k===selClient?'selected':'')+'>'+escapeHtml(clientsMap[k])+'</option>'; }).join('') : '<option value="">(출항안내 건 없음)</option>';
+    return clients.length ? clients.map(function(k){ return '<option value="'+escapeHtml(k)+'" '+(k===selClient?'selected':'')+'>'+escapeHtml(clientsMap[k])+'</option>'; }).join('') : '<option value="">('+(isDoc?'서류마감':'출항안내')+' 건 없음)</option>';
   }
   buildClients();
   var state = {};   // id -> {on, note}
   var PRESETS = ['', '출항 완료', '출항 지연'];
-  function rowsOf(){ return cands.filter(function(s){ return (s.clientCode||s.client||'-')===selClient; }).sort(function(a,b){ var da=toDate(a.etd), db=toDate(b.etd); return (da?da.getTime():9e15)-(db?db.getTime():9e15); }); }
-  function stOf(s){ if(!state[s.id]) state[s.id] = {on:!upIds[s.id], note:''}; return state[s.id]; }
+  function rowsOf(){ var fk = isDoc?'docCls':'etd'; return cands.filter(function(s){ return (s.clientCode||s.client||'-')===selClient; }).sort(function(a,b){ var da=toDate(a[fk]), db=toDate(b[fk]); return (da?da.getTime():9e15)-(db?db.getTime():9e15); }); }
+  function stOf(s){ if(!state[s.id]) state[s.id] = {on:!upIds[s.id], note:'', myeon:(isDoc?docNeedsMyeon_(s):false)}; return state[s.id]; }
   function miss(v){ return v ? escapeHtml(v) : '<span class="nt-miss">미입력</span>'; }
   function draw(){
     var rows = rowsOf();
-    var head = '<div class="nt-row head"><span></span><span>PO No</span><span>House B/L No</span><span>모선</span><span>상태 선택</span><span>상태 문구(직접 수정 가능)</span></div>';
+    var head = isDoc
+      ? '<div class="nt-row head"><span></span><span>PO No</span><span>House B/L No</span><span>면장</span><span>마감 문구</span><span>추가 문구(선택)</span></div>'
+      : '<div class="nt-row head"><span></span><span>PO No</span><span>House B/L No</span><span>모선</span><span>상태 선택</span><span>상태 문구(직접 수정 가능)</span></div>';
     var body = rows.length ? rows.map(function(s){
       var st = stOf(s);
+      if(isDoc){
+        var cT = containerText_(s);
+        var myeonCell = docHasMyeonItem_(s)
+          ? '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" data-nt-myeon="'+escapeHtml(s.id)+'" '+(st.myeon?'checked':'')+'> 면장 필요</label>'
+          : '<span style="color:var(--ink-soft);">해당 없음</span>';
+        return '<div class="nt-row">'+
+          '<input type="checkbox" data-nt-on="'+escapeHtml(s.id)+'" '+(st.on?'checked':'')+'>'+
+          '<span class="mono">'+(String(s.poNo||'').trim()?escapeHtml(s.poNo):'<span style="color:var(--ink-soft);">-</span>')+(upIds[s.id]?'<br><span class="nt-up" title="앞으로 7일 내 예정(02)에 있는 건">02 예정</span>':'')+'</span>'+
+          '<span class="mono">'+miss(String(s.hbl||'').trim())+'<br><span style="color:var(--ink-soft);">'+(vesselFullOf_(s)?escapeHtml(vesselFullOf_(s))+' · ':'<span class="nt-miss">모선 미입력</span> · ')+escapeHtml(docPodOf_(s))+(cT?' · '+escapeHtml(cT):(isLclRoute(s.routeType)||/AIR/.test(String(s.routeType||''))?'':' · <span class="nt-miss">컨테이너 수량 미입력</span>'))+'</span></span>'+
+          '<span>'+myeonCell+'</span>'+
+          '<span>'+escapeHtml(docCloseText_(s))+'</span>'+
+          '<input type="text" data-nt-note="'+escapeHtml(s.id)+'" value="'+escapeHtml(st.note)+'" placeholder="예: 서류 지연 예상">'+
+          '</div>';
+      }
       var presetSel = '<select data-nt-preset="'+escapeHtml(s.id)+'">'+PRESETS.map(function(p){ return '<option value="'+escapeHtml(p)+'" '+(st.note===p?'selected':'')+'>'+(p||'(없음)')+'</option>'; }).join('')+'<option value="__custom" '+(PRESETS.indexOf(st.note)<0?'selected':'')+'>직접 입력</option></select>';
       return '<div class="nt-row">'+
         '<input type="checkbox" data-nt-on="'+escapeHtml(s.id)+'" '+(st.on?'checked':'')+'>'+
@@ -4390,16 +4499,17 @@ function openNoticeModal(){
         presetSel+
         '<input type="text" data-nt-note="'+escapeHtml(s.id)+'" value="'+escapeHtml(st.note)+'" placeholder="예: 00시 출항 완료, 실출항일 확인 중">'+
         '</div>';
-    }).join('') : '<div style="padding:14px 0;color:var(--ink-soft);">이 거래처의 출항안내 건이 없습니다.</div>';
+    }).join('') : '<div style="padding:14px 0;color:var(--ink-soft);">이 거래처의 '+(isDoc?'서류마감':'출항안내')+' 건이 없습니다.</div>';
     document.getElementById('ntList').innerHTML = head+body;
     wire(); refreshText();
   }
   function refreshText(){
-    var items = rowsOf().filter(function(s){ return stOf(s).on; }).map(function(s){ return {s:s, note:stOf(s).note}; });
-    document.getElementById('ntOut').value = items.length ? buildNoticeText_(items) : '';
+    var items = rowsOf().filter(function(s){ return stOf(s).on; }).map(function(s){ return {s:s, note:stOf(s).note, myeon:stOf(s).myeon}; });
+    document.getElementById('ntOut').value = items.length ? (isDoc ? buildDocNoticeText_(items) : buildNoticeText_(items)) : '';
     document.getElementById('ntCount').textContent = items.length+'건 선택';
   }
   function wire(){
+    document.querySelectorAll('#ntList [data-nt-myeon]').forEach(function(el){ el.addEventListener('change', function(){ state[el.dataset.ntMyeon].myeon = el.checked; refreshText(); }); });
     document.querySelectorAll('#ntList [data-nt-on]').forEach(function(el){ el.addEventListener('change', function(){ state[el.dataset.ntOn].on = el.checked; refreshText(); }); });
     document.querySelectorAll('#ntList [data-nt-preset]').forEach(function(el){ el.addEventListener('change', function(){
       var id = el.dataset.ntPreset, inp = document.querySelector('#ntList [data-nt-note="'+id+'"]');
@@ -4413,11 +4523,11 @@ function openNoticeModal(){
     }); });
   }
   document.getElementById('modalContent').innerHTML =
-    '<div class="modal-head"><h3>출항 안내문 만들기</h3><button class="modal-close" id="ntCloseBtn">&times;</button></div>'+
+    '<div class="modal-head"><h3>'+(isDoc?'서류마감':'출항')+' 안내문 만들기</h3><button class="modal-close" id="ntCloseBtn">&times;</button></div>'+
     '<div class="modal-body">'+
     '<div class="nt-head"><b>거래처</b><select id="ntClient">'+clientOptionsHtml()+'</select>'+
     '<label class="nt-upl" title="기본은 오늘 할 일 01에 있는 건만 나옵니다. 켜면 앞으로 7일 내 예정(02) 건도 목록에 나오고, 체크는 꺼진 채로 나와요."><input type="checkbox" id="ntShowUp"> 앞으로 7일 내 예정(02)도 보기'+(cs.upcoming.length?' ('+cs.upcoming.length+'건)':'')+'</label>'+
-    '<span style="color:var(--ink-soft);">담을 건을 체크하고 상태를 고르면 아래 안내문이 바로 바뀝니다. 아래 칸에서 문구를 직접 고쳐서 복사해도 돼요.</span></div>'+
+    '<span style="color:var(--ink-soft);">'+(isDoc?'담을 건을 체크하면 아래 안내문이 바로 바뀝니다. 면장을 아직 체크 안 한 건은 "면장 필요"가 자동으로 켜져 있어요(끌 수 있음). 아래 칸에서 문구를 직접 고쳐서 복사해도 돼요.':'담을 건을 체크하고 상태를 고르면 아래 안내문이 바로 바뀝니다. 아래 칸에서 문구를 직접 고쳐서 복사해도 돼요.')+'</span></div>'+
     '<div id="ntList"></div>'+
     '<textarea id="ntOut" spellcheck="false"></textarea>'+
     '</div>'+
@@ -4520,7 +4630,7 @@ function openItemLabelSettingsModal(){
 /* ================= csv template ================= */
 function downloadCsvTemplate(){
   var headers = REQUIRED_HEADER_DISPLAY;
-  var example = ['SHP-0001','해상수출FCL','해상','수출','GLS002','ABC상사','홍길동','BUSAN','LOS ANGELES','2026-09-10 12:00','2026-09-08','2026-09-12 09:00','2026-10-02','2026-10-05','LBK-20260910-01','HBL0001','MBL0001','ONE','ONE HARMONY','0123W','신항 3부두','냉동 컨테이너 확인 필요'];
+  var example = ['SHP-0001','해상수출FCL','해상','수출','GLS002','ABC상사','홍길동','BUSAN','LOS ANGELES','2026-09-10 12:00','2026-09-08','2026-09-12 09:00','2026-10-02','2026-10-05','LBK-20260910-01','HBL0001','MBL0001','PO-1234','ONE','ONE HARMONY','0123W','1','0','0','신항 3부두','냉동 컨테이너 확인 필요'];
   var csv = headers.join(',') + '\n' + example.map(function(v){ return /[,"\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }).join(',');
   var blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'});
   var url = URL.createObjectURL(blob);
@@ -4538,8 +4648,17 @@ document.getElementById('fileInput').addEventListener('change', function(e){ var
 document.getElementById('addBtn').addEventListener('click', function(){ openModal(null); });
 document.getElementById('csvTemplateBtn').addEventListener('click', downloadCsvTemplate);
 document.getElementById('searchInput').addEventListener('input', renderBoard);
-document.getElementById('modalOverlay').addEventListener('click', function(e){ if(e.target===this) closeModal(); });
-document.getElementById('remarkOverlay').addEventListener('click', function(e){ if(e.target===this) closeRemarkEditor(); });
+/* 창 안에서 글자를 드래그하다가 마우스를 창 밖(바깥 흐린 영역)에서 놓아도 창이 닫히지 않게 함 —
+   마우스를 "누른" 곳이 바깥 영역이었을 때만(바깥을 그냥 클릭했을 때만) 닫음. */
+function wireOverlayClose_(id, closeFn){
+  var ov = document.getElementById(id), downOnOverlay = false;
+  ov.addEventListener('mousedown', function(e){ downOnOverlay = (e.target===ov); });
+  ov.addEventListener('touchstart', function(e){ downOnOverlay = (e.target===ov); }, {passive:true});
+  ov.addEventListener('click', function(e){ var ok = downOnOverlay && e.target===ov; downOnOverlay = false; if(ok) closeFn(); });
+}
+wireOverlayClose_('modalOverlay', closeModal);
+wireOverlayClose_('remarkOverlay', closeRemarkEditor);
+
 document.getElementById('remarkCloseBtn').addEventListener('click', closeRemarkEditor);
 document.getElementById('remarkSaveBtn').addEventListener('click', saveRemarkFromEditor);
 document.getElementById('myClientsToggleBtn').addEventListener('click', function(){
@@ -4547,7 +4666,8 @@ document.getElementById('myClientsToggleBtn').addEventListener('click', function
 });
 document.getElementById('myClientsManageBtn').addEventListener('click', openMyClientsModal);
 document.getElementById('itemLabelSettingsBtn').addEventListener('click', openItemLabelSettingsModal);
-document.getElementById('noticeBtn').addEventListener('click', openNoticeModal);
+document.getElementById('noticeBtn').addEventListener('click', function(){ openNoticeModal('dep'); });
+document.getElementById('noticeDocBtn').addEventListener('click', function(){ openNoticeModal('doc'); });
 document.getElementById('archiveCleanupBtn').addEventListener('click', async function(){
   var btn = this;
   btn.disabled = true; btn.textContent = '정리 중…';
