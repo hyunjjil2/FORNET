@@ -670,7 +670,11 @@ async function gateHash_(pw){
   return Array.prototype.map.call(new Uint8Array(buf), function(b){ return ('0'+b.toString(16)).slice(-2); }).join('');
 }
 var WEBAPP_URL_KEY = 'fw_webapp_url';
-var EXPECTED_SERVER_VERSION = 20261029; // Code.gs의 SERVER_VERSION과 맞춤 — Code.gs를 바꿀 때마다 둘 다 올림
+var EXPECTED_SERVER_VERSION = 20261029; // Code.gs의 최신 SERVER_VERSION(참고용)
+/* 배너를 띄우는 기준 — "이 버전보다 낮으면 반드시 Code.gs를 올려야 함"인 최소 필요 버전.
+   화면(index.html)만 바뀌고 Code.gs가 안 바뀐 업데이트는 이 숫자를 올리지 않으므로 배너가 뜨지 않음.
+   Code.gs를 꼭 교체해야 하는 변경이 생길 때만 이 숫자를 그 버전으로 올림. */
+var MIN_REQUIRED_SERVER_VERSION = 20261026;
 function isValidWebappUrl_(u){
   u = String(u||'').trim();
   if(/^https:\/\/script\.google\.com\/(a\/macros\/[^\/\s]+\/|macros\/)s\/[A-Za-z0-9_\-]+\/exec$/.test(u)) return true;
@@ -3402,9 +3406,9 @@ async function apiGet(){
 function checkServerVersion_(json){
   var b = document.getElementById('versionBanner'); if(!b) return;
   var v = json && json.serverVersion ? Number(json.serverVersion) : 0;
-  if(v < EXPECTED_SERVER_VERSION){
+  if(v < MIN_REQUIRED_SERVER_VERSION){
     b.hidden = false;
-    b.innerHTML = '내 시트의 <b>Code.gs</b>가 예전 버전이에요 (현재 '+(v||'버전 표시 없음')+' / 필요 '+EXPECTED_SERVER_VERSION+'). 최신 Code.gs로 교체해 저장한 뒤 <b>배포 &gt; 배포 관리 &gt; 연필 아이콘 &gt; 새 버전</b>으로 다시 배포해 주세요. 그 전에는 새 기능이 일부 동작하지 않을 수 있어요.';
+    b.innerHTML = '내 시트의 <b>Code.gs</b>가 예전 버전이에요 (현재 '+(v||'버전 표시 없음')+' / 필요 '+MIN_REQUIRED_SERVER_VERSION+'). 최신 Code.gs로 교체해 저장한 뒤 <b>배포 &gt; 배포 관리 &gt; 연필 아이콘 &gt; 새 버전</b>으로 다시 배포해 주세요. 그 전에는 새 기능이 일부 동작하지 않을 수 있어요.';
   } else { b.hidden = true; b.innerHTML = ''; }
 }
 /* 시트 연결(웹 앱 주소) 입력·관리 창 — mode: 'first'(처음, 닫을 수 없음) | 'change'(연결 상태 클릭) */
