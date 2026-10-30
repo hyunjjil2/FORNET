@@ -4327,8 +4327,26 @@ function noticeDate_(v, withTime){
   }
   return (d.getMonth()+1)+'/'+d.getDate()+t;
 }
+/* 거래처별 안내문 서식 규칙 — 거래처명에 match 글자가 들어 있으면 그 거래처의 안내문(출항·서류마감 공통)에 적용.
+   지금 쓰는 설정: destFrom — 도착지를 POD 칸 대신 어느 칸에서 가져올지('delivery' = Delivery 칸, 비어 있으면 POD로 대신함).
+   거래처를 더 추가하려면 아래 목록에 한 줄만 넣으면 됨. */
+var CLIENT_NOTICE_RULES = [
+  {match:'풍산', destFrom:'delivery'}
+];
+function clientNoticeRule_(s){
+  var name = String((s && (s.client||'')) || '');
+  for(var i=0;i<CLIENT_NOTICE_RULES.length;i++){ if(name.indexOf(CLIENT_NOTICE_RULES[i].match)>=0) return CLIENT_NOTICE_RULES[i]; }
+  return null;
+}
+/* 안내문에 적을 도착지 글자(첫 쉼표 앞까지, 대문자) — 기본은 POD, 거래처 규칙이 있으면 해당 칸 */
+function noticeDestOf_(s){
+  var rule = clientNoticeRule_(s), v = '';
+  if(rule && rule.destFrom==='delivery') v = String(s.delivery||'').trim();
+  if(!v) v = String(s.pod||'').trim();
+  return v.split(',')[0].trim().toUpperCase() || '-';
+}
 function noticePodOf_(s){
-  var p = String(s.pod||'').split(',')[0].trim().toUpperCase() || '-';
+  var p = noticeDestOf_(s);
   if(/LCL/i.test(String(s.routeType||''))) p += ' (LCL)';
   return p;
 }
@@ -4381,7 +4399,7 @@ function containerText_(s){
   return parts.join(', ');
 }
 function docPodOf_(s){
-  var p = String(s.pod||'').split(',')[0].trim().toUpperCase() || '-';
+  var p = noticeDestOf_(s);
   return isLclRoute(s.routeType) ? p+' LCL' : p;
 }
 /* items: [{s, note, myeon}] — 출항 안내문처럼 모선(+항차)별로 묶어서, 모선명을 제목 줄로 먼저 적음 */
