@@ -143,6 +143,8 @@ img{max-width:100%;}
 .search::placeholder{color:var(--ink-soft);}
 
 .chip-row{display:flex; flex-wrap:wrap; gap:7px; margin-bottom:22px; align-items:center;}
+#typeChipRow{margin-bottom:8px;} .chip-row-imp{margin-bottom:22px;}
+.chip-row-label{font-size:11.5px; font-weight:700; color:var(--ink-soft); margin-right:4px; min-width:30px;}
 .client-filter{margin-left:auto; display:inline-flex; align-items:center; gap:6px; padding:3px 4px 3px 10px; border:1px solid var(--line); border-radius:16px; background:var(--surface);}
 .client-filter label{font-size:11.5px; font-weight:700; color:var(--ink-soft); letter-spacing:.3px;}
 .client-filter input{border:none; background:transparent; font:inherit; font-size:13px; color:var(--ink); width:190px; padding:4px 2px; outline:none;}
@@ -378,6 +380,14 @@ img{max-width:100%;}
 .type-tag.freetime{color:var(--sky); background:var(--sky-soft); border-color:transparent;}
 .type-tag.dispatch{color:var(--teal); background:var(--teal-soft); border-color:transparent;}
 .type-tag.isf{color:var(--slate); background:var(--slate-soft); border-color:transparent;}
+.type-tag.impArrival{color:var(--warn); background:var(--warn-soft); border-color:transparent;}
+.type-tag.impAn{color:var(--steel); background:var(--steel-soft); border-color:transparent;}
+.type-tag.impEdi{color:var(--teal); background:var(--teal-soft); border-color:transparent;}
+.type-tag.impOwner{color:var(--rose); background:var(--rose-soft); border-color:transparent;}
+.type-tag.impSettle{color:var(--brass); background:var(--brass-soft); border-color:transparent;}
+.type-tag.impTransfer{color:var(--indigo); background:var(--indigo-soft); border-color:transparent;}
+.type-tag.impDo{color:var(--plum); background:var(--plum-soft); border-color:transparent;}
+.type-tag.impBill{color:var(--sky); background:var(--sky-soft); border-color:transparent;}
 
 .ov-row{padding:8px 14px; min-width:0; align-items:stretch;}
 .ov-row.head{background:var(--surface-2); padding-top:9px; padding-bottom:9px;}
@@ -576,6 +586,7 @@ details.help[open] summary:before{content:"–";}
   <div class="tab-row" id="tabRow"></div>
   <div class="chip-row" id="chipRow"></div>
   <div class="chip-row" id="typeChipRow"></div>
+  <div class="chip-row chip-row-imp" id="typeChipRowImp"></div>
   <div class="notice-bar" id="noticeBar" hidden><button class="btn btn-sm" id="noticeBtn">출항 안내문 만들기 (화주용)</button><button class="btn btn-sm" id="noticeDocBtn">서류마감 안내문 만들기 (화주용)</button><span id="noticeBarHint">지금 목록의 출항안내 건(오늘 할 일 + 앞으로 7일 내)으로 화주에게 보낼 안내문을 만들어요</span></div>
   <section class="board" id="board"></section>
 
@@ -716,29 +727,22 @@ var ROUTES = {
     {key:'invoice', label:'화주청구', billing:true}
   ]},
   SEA_IMP_FCL: {label:'해상수입 FCL', items:[
-    {key:'checkBill', label:'체크빌'},
-    {key:'closeBill', label:'마감빌'},
-    {key:'an', label:'AN'},
-    {key:'jigyeol', label:'지결'},
-    {key:'doIssue', label:'DO 발행'},
-    {key:'arrival', label:'입항', anchor:'ETA(PORT)'},
-    {key:'customsInvoice', label:'통관용 인보이스'},
-    {key:'customs', label:'수입 통관'},
-    {key:'carrierJigyeol', label:'운송사 지결'},
-    {key:'finalInvoice', label:'화주청구', billing:true}
+    {key:'impAn', label:'AN', impChip:'impAn', impBase:'ETA2BD'},
+    {key:'impEdi', label:'EDI', impChip:'impEdi', impBase:'ETA2BD'},
+    {key:'impArrival', label:'입항안내', impChip:'impArrival', impBase:'ETA'},
+    {key:'impSettle', label:'지결', impChip:'impSettle', impBase:'ETD'},
+    {key:'impTransfer', label:'이체증', impChip:'impTransfer', impBase:'ETD'},
+    {key:'impDo', label:'DO발행', impChip:'impDo', impBase:'ETD'},
+    {key:'impBill', label:'화주청구', billing:true, impChip:'impBill', impBase:'ETD'}
   ]},
   SEA_IMP_LCL: {label:'해상수입 LCL', items:[
-    {key:'checkBill', label:'체크빌'},
-    {key:'closeBill', label:'마감빌'},
-    {key:'consolAn', label:'콘솔사에서 AN'},
-    {key:'ownerReport', label:'실화주 신고 (HBL·사업자번호·포코드)'},
-    {key:'consolJigyeol', label:'콘솔사 지결'},
-    {key:'ichejeung', label:'이체증'},
-    {key:'doIssue', label:'DO 발행'},
-    {key:'customsInvoice', label:'통관용 인보이스'},
-    {key:'customs', label:'수입 통관'},
-    {key:'carrierJigyeol', label:'운송사 지결'},
-    {key:'finalInvoice', label:'화주청구', billing:true}
+    {key:'impAn', label:'AN', impChip:'impAn', impBase:'ETA2BD'},
+    {key:'impOwner', label:'실화주신고', impChip:'impOwner', impBase:'ETA2BD'},
+    {key:'impArrival', label:'입항안내', impChip:'impArrival', impBase:'ETA'},
+    {key:'impSettle', label:'지결', impChip:'impSettle', impBase:'ETD'},
+    {key:'impTransfer', label:'이체증', impChip:'impTransfer', impBase:'ETD'},
+    {key:'impDo', label:'DO발행', impChip:'impDo', impBase:'ETD'},
+    {key:'impBill', label:'화주청구', billing:true, impChip:'impBill', impBase:'ETD'}
   ]},
   AIR_EXP: {label:'항공수출', items:[
     {key:'myeonjang', label:'면장'},
@@ -750,13 +754,13 @@ var ROUTES = {
     {key:'carrierJigyeol', label:'선사지결', billing:true}
   ]},
   AIR_IMP: {label:'항공수입', items:[
-    {key:'impDocCls', label:'서류마감', anchor:'DOC CLS'},
-    {key:'impConsolJigyeol', label:'콘솔사지결'},
-    {key:'impDoIssue', label:'DO발행'},
-    {key:'impCustomsFund', label:'통관자금서'},
-    {key:'impMyeonjang', label:'면장'},
-    {key:'impBaecha', label:'배차'},
-    {key:'impInvoice', label:'화주청구', billing:true}
+    {key:'impAn', label:'AN', impChip:'impAn', impBase:'ETA2BD'},
+    {key:'impOwner', label:'실화주신고', impChip:'impOwner', impBase:'ETA2BD'},
+    {key:'impArrival', label:'입항안내', impChip:'impArrival', impBase:'ETA'},
+    {key:'impSettle', label:'지결', impChip:'impSettle', impBase:'ETD'},
+    {key:'impTransfer', label:'이체증', impChip:'impTransfer', impBase:'ETD'},
+    {key:'impDo', label:'DO발행', impChip:'impDo', impBase:'ETD'},
+    {key:'impBill', label:'화주청구', billing:true, impChip:'impBill', impBase:'ETD'}
   ]}
 };
 var ROUTE_ORDER = ['SEA_EXP_FCL','SEA_EXP_LCL','SEA_IMP_FCL','SEA_IMP_LCL','AIR_EXP','AIR_IMP'];
@@ -1214,10 +1218,11 @@ function feedDocCls(){
 function feedBilling(){
   // 청구(인보이스·계산서 등)는 실무상 출항(ETD) 이후에 이뤄지는 업무이므로, ETD 당일이 되기 전까지는 노출하지 않음.
   // 미리 청구를 처리해서 체크해 둔 항목은 chk[it.key]로 이미 걸러지므로 날짜와 무관하게 표시되지 않음.
-  // ETD 값 자체가 없는 건(수입 등)은 판단할 기준이 없으므로 숨기지 않고 그대로 노출함.
+  // 수입 화주청구는 수입 업무구분(impBill)에서 따로 처리하므로 여기서는 제외.
   var out=[];
   activeShipments().forEach(function(s){
     if(!matchesFilter(s) || !matchesMyClients(s)) return;
+    if(isImportRoute(s.routeType)) return;
     var chk=s.checklist||{};
     relevantItems(s).forEach(function(it){
       if(!it.billing||chk[it.key]) return;
@@ -1447,8 +1452,41 @@ function feedJigyeolAll(){
   });
   return out;
 }
+function isImportRoute(rt){ return rt==='SEA_IMP_FCL' || rt==='SEA_IMP_LCL' || rt==='AIR_IMP'; }
+/* 수입 업무구분 — 담당자 기준:
+   AN·EDI(해상FCL만)·실화주신고(해상LCL·항공): 기준일 = ETA에서 2영업일 전(주말·공휴일 제외)
+   입항안내: 기준일 = ETA 당일 / 지결·이체증·DO발행·화주청구: 기준일 = ETD 당일
+   기준일이 오늘이거나 지난 건부터 "오늘 할 일(01)"에, 7일 이내로 다가온 건은 "앞으로 7일 내(02)"에 미리 보임. */
+function businessDaysBefore_(d, n){
+  if(!d) return null;
+  var cur = dayFloor(d);
+  for(var i=0;i<n;){ cur.setDate(cur.getDate()-1); if(!isWeekendDate(cur) && !isHolidayDate(cur)) i++; }
+  return cur;
+}
+function importItemDueInfo(s, it){
+  if(it.impBase==='ETA2BD'){ var b=businessDaysBefore_(toDate(s.etaPort),2); return {dd:(b?getDday(b):null), field:'impEta2bd'}; }
+  if(it.impBase==='ETA'){ return {dd:getDday(s.etaPort), field:'etaPort'}; }
+  var info = effectiveDeadlineInfo(s.etd); return {dd:info.dd, field:'etd', holidayShift:info.shifted, holidayEffDate:info.effDate, holidayTitle:info.holidayTitle};
+}
+function eachImportPending(cb){
+  activeShipments().forEach(function(s){
+    if(!isImportRoute(s.routeType)) return;
+    if(!matchesFilter(s) || !matchesMyClients(s)) return;
+    var chk=s.checklist||{};
+    relevantItems(s).forEach(function(it){
+      if(!it.impChip || chk[it.key]) return;
+      cb(s, it, importItemDueInfo(s, it));
+    });
+  });
+}
+function pushImport_(out, info, s, it, bucket){
+  // bucket: 'today' | 'upcoming' | 'remaining'
+  var o={type:it.impChip, s:s, item:{key:it.key,label:it.label}, dd:info.dd, field:info.field, sortKey:(info.dd===null?9999:info.dd), holidayShift:info.holidayShift, holidayEffDate:info.holidayEffDate, holidayTitle:info.holidayTitle};
+  if(bucket==='remaining') o.remaining=true;
+  out.push(o);
+}
 /* ================= "오늘 할 일" 통합 피드 (타입 태그: duesoon/docCls/billing/door/dispatch/isf/prealert/blissue) ================= */
-var TYPE_LABEL = {duesoon:'출항안내', docCls:'서류마감', billing:'청구대기', door:'도착확인', dispatch:'배차', isf:'ISF', prealert:'PRE-ALERT', blissue:'비엘발행', jigyeol:'지결', insurance:'보험', freetime:'프리타임', etc:'기타', edi:'EDI'};
+var TYPE_LABEL = {duesoon:'출항안내', docCls:'서류마감', billing:'청구대기', door:'도착확인', dispatch:'배차', isf:'ISF', prealert:'PRE-ALERT', blissue:'비엘발행', jigyeol:'지결', insurance:'보험', freetime:'프리타임', etc:'기타', edi:'EDI', impArrival:'입항안내', impAn:'AN', impEdi:'EDI', impOwner:'실화주신고', impSettle:'지결', impTransfer:'이체증', impDo:'DO발행', impBill:'화주청구'};
 function feedTodayAll(){
   var out=[];
   feedDueSoon().forEach(function(x){ out.push({type:'duesoon', s:x.s, item:x.item, dd:x.dd, field:x.field, sortKey:(x.dd===null?9999:x.dd), holidayShift:x.holidayShift, holidayEffDate:x.holidayEffDate, holidayTitle:x.holidayTitle}); });
@@ -1464,6 +1502,7 @@ function feedTodayAll(){
   feedEdi().forEach(function(x){ out.push({type:'edi', s:x.s, item:{key:EDI_ITEM_KEY, label:EDI_ITEM_LABEL}, dd:x.dd, field:'docCls', sortKey:(x.dd===null?9999:x.dd), holidayShift:x.holidayShift, holidayEffDate:x.holidayEffDate, holidayTitle:x.holidayTitle, old:(x.dd!==null && x.dd<=-EDI_OLD_FROM_DAYS)}); });
   feedEtc().forEach(function(x){ out.push({type:'etc', s:x.s, item:{key:ETC_ITEM_KEY, label:etcLabelOf(x.s)}, dd:x.dd, field:'etcDue', sortKey:(x.dd===null?9999:x.dd)}); });
   feedIsfTracking().forEach(function(x){ out.push({type:'isf', s:x.s, item:{key:US_ISF_ITEM_KEY, label:US_ISF_ITEM_LABEL}, dd:x.dd, field:'docCls', sortKey:(x.dd===null?9999:x.dd), holidayShift:x.holidayShift, holidayEffDate:x.holidayEffDate, holidayTitle:x.holidayTitle}); });
+  eachImportPending(function(s,it,info){ if(info.dd===null || info.dd<=0) pushImport_(out, info, s, it, 'today'); });
   return out;
 }
 /* ================= [03] 그 외 전체 =================
@@ -1485,7 +1524,7 @@ function feedRemainingAll(){
         if(info.dd!==null && info.dd>UPCOMING_WINDOW_DAYS) add(it.anchor==='DOC CLS'?'docCls':'duesoon', s, it, info.dd, field, {holidayShift:info.shifted, holidayEffDate:info.effDate, holidayTitle:info.holidayTitle});
       }
       // 청구대기: 아직 ETD 전이라 보류 중인 건(ETD까지 남은 일수)
-      if(it.billing){
+      if(it.billing && !isImportRoute(s.routeType)){
         var ag = getAging(s.etd);
         if(ag!==null && ag<0) add('billing', s, it, -ag, 'etd');
       }
@@ -1555,6 +1594,7 @@ function feedRemainingAll(){
       if(fi.dd!==null && fi.dd>UPCOMING_WINDOW_DAYS) add('freetime', s, {key:FREETIME_ITEM_KEY, label:FREETIME_ITEM_LABEL}, fi.dd, 'etd', {holidayShift:fi.shifted, holidayEffDate:fi.effDate, holidayTitle:fi.holidayTitle});
     }
   });
+  eachImportPending(function(s,it,info){ if(info.dd!==null && info.dd>UPCOMING_WINDOW_DAYS) pushImport_(out, info, s, it, 'remaining'); });
   return out;
 }
 function feedRemaining(){
@@ -1653,6 +1693,7 @@ function feedUpcomingAll(){
       }
     }
   });
+  eachImportPending(function(s,it,info){ if(info.dd!==null && info.dd>0 && info.dd<=UPCOMING_WINDOW_DAYS) pushImport_(out, info, s, it, 'upcoming'); });
   return out;
 }
 
@@ -1719,14 +1760,21 @@ var TYPE_DEFS = [
   {key:'blissue', label:'비엘발행', color:'steel'},
   {key:'etc', label:'기타', color:'slate'}
 ];
+var IMP_TYPE_DEFS = [
+  {key:'impArrival', label:'입항안내', color:'warn'},
+  {key:'impAn', label:'AN', color:'steel'},
+  {key:'impEdi', label:'EDI', color:'teal'},
+  {key:'impOwner', label:'실화주신고', color:'rose'},
+  {key:'impSettle', label:'지결', color:'brass'},
+  {key:'impTransfer', label:'이체증', color:'indigo'},
+  {key:'impDo', label:'DO발행', color:'plum'},
+  {key:'impBill', label:'화주청구', color:'sky'}
+];
 /* 업무구분탭(전체/출항안내/서류마감/청구대기/도착확인/배차/ISF)별 "오늘 할 일" 남은 건수 —
    feedTodayAll()을 한 번만 돌려서 타입별로 집계함(각 타입마다 별도 feed 함수를 다시 호출하지 않음). */
 function typeChipCounts(){
-  var counts = {ALL:0, duesoon:0, docCls:0, billing:0, door:0, dispatch:0, isf:0, prealert:0, insurance:0, freetime:0, edi:0, etc:0, blissue:0, jigyeol:0};
-  feedTodayAll().forEach(function(x){
-    counts.ALL++;
-    if(counts[x.type]!==undefined) counts[x.type]++;
-  });
+  var counts = {ALL:0};
+  feedTodayAll().forEach(function(x){ counts.ALL++; counts[x.type]=(counts[x.type]||0)+1; });
   return counts;
 }
 function renderTypeChips(){
@@ -1737,22 +1785,23 @@ function renderTypeChips(){
     if(nb) nb.hidden = (activeType==='docCls'); if(nd) nd.hidden = (activeType!=='docCls');
     if(nh) nh.textContent = activeType==='docCls' ? '지금 목록의 서류마감 건(오늘 할 일 + 앞으로 7일 내)으로 화주에게 보낼 안내문을 만들어요 · 면장을 아직 안 체크한 건은 "면장 필요"로 자동 표시' : '지금 목록의 출항안내 건(오늘 할 일 + 앞으로 7일 내)으로 화주에게 보낼 안내문을 만들어요';
   }
-  if(activeTab==='CHECKLIST'){ renderChecklistGlobalChips(row); return; }
-  row.className = 'chip-row';
-  if(activeTab!=='TODAY'){ row.innerHTML=''; row.style.display='none'; return; }
-  row.style.display='';
+  var rowImp = document.getElementById('typeChipRowImp');
+  row.className = 'chip-row'; if(rowImp) rowImp.className = 'chip-row chip-row-imp';
+  if(activeTab!=='TODAY'){ row.innerHTML=''; row.style.display='none'; if(rowImp){ rowImp.innerHTML=''; rowImp.style.display='none'; } return; }
+  row.style.display=''; if(rowImp) rowImp.style.display='';
   var counts = typeChipCounts();
   // 오늘 할 일(01)·앞으로 7일 내(02)·기한 지난 건 섹션 어디에도 할 일이 없는 업무구분 단추는 숨김 — 할 일이 생기면 다시 나타남.
   // (지금 선택해 둔 단추는 보던 화면이 갑자기 바뀌지 않도록 비어도 그대로 둠)
   var upCounts = {}; feedUpcomingAll().forEach(function(x){ upCounts[x.type] = (upCounts[x.type]||0)+1; });
-  row.innerHTML = TYPE_DEFS.filter(function(t){
-    return t.key==='ALL' || t.key===activeType || (counts[t.key]||0)>0 || (upCounts[t.key]||0)>0;
-  }).map(function(t){
+  function vis(t){ return t.key==='ALL' || t.key===activeType || (counts[t.key]||0)>0 || (upCounts[t.key]||0)>0; }
+  function chipHtml(t){
     var style = t.color ? ' style="--sc:var(--'+t.color+')"' : '';
     var c = counts[t.key]||0;
     return '<button class="chip type-chip'+(activeType===t.key?' active':'')+'" data-type-chip="'+t.key+'"'+style+'>'+t.label+'<span class="chip-count mono'+(c>0?' has-count':'')+'">'+c+'</span></button>';
-  }).join('');
-  document.querySelectorAll('[data-type-chip]').forEach(function(btn){
+  }
+  row.innerHTML = '<span class="chip-row-label">수출</span>' + TYPE_DEFS.filter(vis).map(chipHtml).join('');
+  if(rowImp) rowImp.innerHTML = '<span class="chip-row-label">수입</span>' + IMP_TYPE_DEFS.filter(vis).map(chipHtml).join('');
+  document.querySelectorAll('#typeChipRow [data-type-chip], #typeChipRowImp [data-type-chip]').forEach(function(btn){
     btn.addEventListener('click', function(){ activeType=btn.dataset.typeChip; TODAY_TAB_SECTIONS.forEach(function(id){ delete sectionCollapsedOverride[id]; }); renderTypeChips(); renderBoard(); });
   });
 }
@@ -1820,7 +1869,6 @@ function jumpToChecklistItemGroup(pairs){
 function renderTabRow(){
   var tabs=[
     {key:'TODAY', label:'오늘 할 일', count: feedTodayAll().length + feedUnassigned().length},
-    {key:'CHECKLIST', label:'체크리스트 보드', count: checklistOverviewCount()},
     {key:'BL_HOLDING', label:'비엘홀딩중', count: feedBlHolding().length},
     {key:'BOOKING_HOLD', label:'부킹확인중', count: bookingHolds.filter(function(b){return (b['상태']||'대기중')==='대기중';}).length}
   ];
@@ -1861,7 +1909,6 @@ function renderKpis(){
     {label:'보험 추적', value: feedInsurance().length, color:'indigo', goto:{tab:'TODAY', type:'insurance', target:'sec-today'}},
     {label:'도착 추적', value: feedDoorTracking().length, color:'warn', goto:{tab:'TODAY', type:'door', target:'sec-today'}},
     {label:'비엘발행 대기', value: feedBlIssue().length, color:'steel', goto:{tab:'TODAY', type:'blissue', target:'sec-today'}},
-    {label:'체크리스트 보드', value: checklistOverviewCount(), color:'plum', goto:{tab:'CHECKLIST', target:'sec-checklist'}},
     {label:'완료', value: allShipments.filter(function(s){return statusOf(s)==='done' && matchesMyClients(s);}).length, color:'slate'}
   ];
   document.getElementById('kpiStrip').innerHTML = kpis.map(function(k,i){
@@ -2048,7 +2095,7 @@ var TODAY_SORT_GETTERS = {
 /* 맨 오른쪽 "기준일" 칸 — 업무구분마다 "오늘 할 일"로 뜨는 기준이 되는 날짜가 다르므로(출항안내=ETD 등,
    서류마감·배차·ISF=DOC CLS, 도착확인=ETA, PRE-ALERT=ETD 전일, 청구대기·비엘발행=ETD)
    어떤 날짜인지 작은 태그로 항상 함께 표시하고, 그 아래에 남은 일수(D-n)/경과 일수(n일 지남·D+n일)를 붙임. */
-var REF_KIND_LABEL = {etd:'ETD', docCls:'DOC CLS', etaPort:'ETA(PORT)', etaDoor:'ETA(DOOR)', etcDue:'기한', preAlertBase:'ETD 전일'};
+var REF_KIND_LABEL = {etd:'ETD', docCls:'DOC CLS', etaPort:'ETA(PORT)', etaDoor:'ETA(DOOR)', etcDue:'기한', preAlertBase:'ETD 전일', impEta2bd:'ETA-2영업일'};
 function blBizTagHtml(x){
   if(!x || x.type!=='blissue' || x.biz===undefined || x.biz===null || x.dd===null || x.dd===undefined) return '';
   var cal = -x.dd;
@@ -2074,6 +2121,7 @@ function refInfoOf(x){
   if(x.type==='door'){ var e=doorEtaOf(s); return {kind: e.fromPort?'ETA(PORT)':'ETA(DOOR)', val:e.val, missing:'ETA 미입력'}; }
   if(x.type==='billing') return {kind:'ETD', val:s.etd, missing:'ETD 미입력'};
   var f = x.field || 'etd';
+  if(f==='impEta2bd'){ var b=businessDaysBefore_(toDate(s.etaPort),2); return {kind:'ETA-2영업일', val:b, missing:'ETA(PORT) 미입력'}; }
   var val = (f==='preAlertBase') ? preAlertBaseDate(s.etd) : s[f];
   if(f==='preAlertBase') return {kind:'ETD 전일', val:val, missing:'ETD 미입력'};
   return {kind:REF_KIND_LABEL[f]||f, val:val, missing:(REF_KIND_LABEL[f]||f)+' 미입력'};
@@ -2089,6 +2137,11 @@ function refCellHtml(x){
   if(x.type==='prealert'){
     var pe = toDate(x.s.etd) ? fmtDate(x.s.etd) : null;
     extra = '<span class="eta-line"><span class="eta-src-tag ref-kind" style="margin-left:0;">ETD</span>'+(pe?'<span class="mono">'+pe.date+(pe.time?(' '+pe.time):'')+'</span>':'<span class="mono" style="color:var(--ink-soft);">-</span>')+'</span>';
+  }
+  // 수입 AN·EDI·실화주신고는 기준일이 ETA-2영업일이므로 실제 ETA(PORT)도 아래 줄에 같이 표시
+  if(x.field==='impEta2bd'){
+    var ae = toDate(x.s.etaPort) ? fmtDate(x.s.etaPort) : null;
+    extra = '<span class="eta-line"><span class="eta-src-tag ref-kind" style="margin-left:0;">ETA</span>'+(ae?'<span class="mono">'+ae.date+(ae.time?(' '+ae.time):'')+'</span>':'<span class="mono" style="color:var(--ink-soft);">-</span>')+'</span>';
   }
   // 도착확인은 기준일이 ETA지만, 출항일(ETD)도 같이 볼 수 있게 아래 줄에 작게 표시
   if(x.type==='door'){
