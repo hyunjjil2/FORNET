@@ -1780,7 +1780,13 @@ var IMP_TYPE_DEFS = [
    feedTodayAll()을 한 번만 돌려서 타입별로 집계함(각 타입마다 별도 feed 함수를 다시 호출하지 않음). */
 function typeChipCounts(){
   var counts = {ALL:0};
-  feedTodayAll().forEach(function(x){ counts.ALL++; counts[x.type]=(counts[x.type]||0)+1; });
+  // "기준일로부터 N일 이상 지난 건"(old)은 오늘 할 일(01)이 아니라 별도 섹션에 보이므로 단추 숫자(=01번 건수)에서는 뺌.
+  // 단, 그런 건만 남은 업무구분 단추가 사라지지 않도록 old 개수는 counts.__old에 따로 모아 둠.
+  counts.__old = {};
+  feedTodayAll().forEach(function(x){
+    if(x.old){ counts.__old[x.type]=(counts.__old[x.type]||0)+1; return; }
+    counts.ALL++; counts[x.type]=(counts[x.type]||0)+1;
+  });
   return counts;
 }
 function renderTypeChips(){
@@ -1799,7 +1805,7 @@ function renderTypeChips(){
   // 오늘 할 일(01)·앞으로 7일 내(02)·기한 지난 건 섹션 어디에도 할 일이 없는 업무구분 단추는 숨김 — 할 일이 생기면 다시 나타남.
   // (지금 선택해 둔 단추는 보던 화면이 갑자기 바뀌지 않도록 비어도 그대로 둠)
   var upCounts = {}; feedUpcomingAll().forEach(function(x){ upCounts[x.type] = (upCounts[x.type]||0)+1; });
-  function vis(t){ return t.key==='ALL' || t.key===activeType || (counts[t.key]||0)>0 || (upCounts[t.key]||0)>0; }
+  function vis(t){ return t.key==='ALL' || t.key===activeType || (counts[t.key]||0)>0 || (upCounts[t.key]||0)>0 || (counts.__old[t.key]||0)>0; }
   function chipHtml(t){
     var style = t.color ? ' style="--sc:var(--'+t.color+')"' : '';
     var c = counts[t.key]||0;
@@ -2234,7 +2240,10 @@ var LBP_RULES = [
      단계별로 금액이 늘어나는 선사는 비용이 처음 붙는 최소 일수만 씀(2026-11 기준).
      kind:'pay' = B/L 미수령이 아니라 입금·운임 정산이 늦어서 붙는 비용 → 표식 글자가 "LBP 확인" 대신 "입금지연비용". */
   {carrier:'HMM',          days:7},   // 출항 후 8일째부터 40,000 → 15일 80,000 → 31일 200,000 (OBL 발행 건)
-  {carrier:'현대상선',     days:7},
+  {carrier:'현대',         days:7},   // 현대상선 등 한글 표기
+  {carrier:'HYUNDAI',      days:7},
+  {carrier:'COSCO',        days:15},  // 출항일로부터 15일 경과 시 USD 100 → 30일 경과 시 USD 200
+  {carrier:'코스코',       days:15},
   {carrier:'EVERGREEN',    days:29},  // 선적 후 29일 이내 B/L 미발행 시 LATE B/L PICK-UP $100
   {carrier:'에버그린',     days:29},
   {carrier:'ONE',          days:7,  kind:'pay'},   // 출항일 기준 7일 이내 이체·정산 처리 시 미발생 → 7일 넘기면 발생
