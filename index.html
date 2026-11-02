@@ -2231,15 +2231,16 @@ function podCellInner(s){
    - 일수를 바꾸려면 이 표의 숫자만 고쳐서 index.html을 다시 올리면 됨. (구글시트·Code.gs 변경 없음) */
 var LBP_RULES = [
   /* 출처: 선사별 선급 비용 구분 표(LBP 열). days = "출항 후 N일까지는 무료, 그 다음날부터 비용 발생"의 N.
-     단계별로 금액이 늘어나는 선사는 비용이 처음 붙는 최소 일수만 씀(2026-11 기준). */
+     단계별로 금액이 늘어나는 선사는 비용이 처음 붙는 최소 일수만 씀(2026-11 기준).
+     kind:'pay' = B/L 미수령이 아니라 입금·운임 정산이 늦어서 붙는 비용 → 표식 글자가 "LBP 확인" 대신 "입금지연비용". */
   {carrier:'HMM',          days:7},   // 출항 후 8일째부터 40,000 → 15일 80,000 → 31일 200,000 (OBL 발행 건)
   {carrier:'현대상선',     days:7},
   {carrier:'EVERGREEN',    days:29},  // 선적 후 29일 이내 B/L 미발행 시 LATE B/L PICK-UP $100
   {carrier:'에버그린',     days:29},
-  {carrier:'ONE',          days:7},   // 출항일 기준 7일 이내 이체·정산 처리 시 미발생 → 7일 넘기면 발생
-  {carrier:'원라인',       days:7},
-  {carrier:'INTERASIA',    days:20},  // 3주(21일)째부터 입금 시 USD 100, 4주(29일~) USD 400
-  {carrier:'인터아시아',   days:20}
+  {carrier:'ONE',          days:7,  kind:'pay'},   // 출항일 기준 7일 이내 이체·정산 처리 시 미발생 → 7일 넘기면 발생
+  {carrier:'원라인',       days:7,  kind:'pay'},
+  {carrier:'INTERASIA',    days:20, kind:'pay'},  // 3주(21일)째부터 입금 시 USD 100, 4주(29일~) USD 400
+  {carrier:'인터아시아',   days:20, kind:'pay'}
 ];
 var LBP_WARN_BEFORE_DAYS = 3;
 function lbpRuleOf_(carrier){
@@ -2259,13 +2260,14 @@ function lbpInfoOf_(x){
   var elapsed = -x.dd; // 출항 후 경과 달력일 (출항 전이면 음수)
   var left = r.days - elapsed;
   if(left > LBP_WARN_BEFORE_DAYS) return null;
-  return {days:r.days, elapsed:elapsed, left:left};
+  return {days:r.days, elapsed:elapsed, left:left, kind:(r.kind==='pay'?'pay':'lbp')};
 }
 function lbpTagHtml_(x){
   var i = lbpInfoOf_(x);
   if(!i) return '';
-  var tip = (x.s.carrier||'선사')+' LBP 기준 출항 후 '+i.days+'일 · 지금 출항 후 '+i.elapsed+'일째'+(i.left>0?(' · 기준까지 '+i.left+'일 남음'):(i.left===0?' · 오늘이 기준일':' · 기준일 '+(-i.left)+'일 지남'));
-  return '<span class="lbp-tag'+(i.left<=0?' over':'')+'" title="'+escapeHtml(tip)+'">LBP 확인</span>';
+  var isPay = i.kind==='pay';
+  var tip = (x.s.carrier||'선사')+(isPay?' 입금·정산 지연비용 기준 출항 후 ':' LBP 기준 출항 후 ')+i.days+'일 · 지금 출항 후 '+i.elapsed+'일째'+(i.left>0?(' · 기준까지 '+i.left+'일 남음'):(i.left===0?' · 오늘이 기준일':' · 기준일 '+(-i.left)+'일 지남'));
+  return '<span class="lbp-tag'+(i.left<=0?' over':'')+'" title="'+escapeHtml(tip)+'">'+(isPay?'입금지연비용':'LBP 확인')+'</span>';
 }
 function typeItemCellHtml(x){
   var it = x.item, tl = TYPE_LABEL[x.type];
