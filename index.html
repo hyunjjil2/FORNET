@@ -154,6 +154,24 @@ img{max-width:100%;}
 .client-filter.on label{color:var(--brass);}
 .client-filter button{font:inherit; font-size:11.5px; border:none; background:var(--ink); color:var(--surface); border-radius:12px; padding:4px 9px; cursor:pointer;}
 .client-filter button[hidden]{display:none;}
+.cf-chips{display:inline-flex; flex-wrap:wrap; gap:4px; align-items:center;}
+.cf-chip{display:inline-flex; align-items:center; gap:4px; background:var(--brass); color:#fff; border-radius:11px; padding:2px 4px 2px 9px; font-size:12px; font-weight:600; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.cf-chip b{cursor:pointer; font-weight:700; padding:0 4px; border-radius:8px; line-height:1;}
+.cf-chip b:hover{background:rgba(255,255,255,.25);}
+.client-filter.multi{max-width:620px; flex-wrap:wrap; border-radius:18px;}
+.client-filter.multi input{width:150px;}
+.mgr-filter{position:relative;}
+.mgr-btn{background:transparent !important; color:var(--ink) !important; border:none; font:inherit; font-size:13px !important; padding:4px 6px !important; min-width:170px; text-align:left; cursor:pointer; border-radius:0 !important;}
+.mgr-pop{position:absolute; right:0; top:calc(100% + 6px); z-index:60; min-width:290px; background:var(--surface); border:1px solid var(--line-strong); border-radius:6px; box-shadow:0 8px 24px rgba(0,0,0,.18); padding:10px 12px;}
+.mgr-pop[hidden]{display:none;}
+.mgr-pop-title{font-size:12.5px; font-weight:700; margin-bottom:6px;}
+.mgr-pop-title span{font-weight:400; color:var(--ink-soft);}
+.mgr-pop-list{display:flex; flex-direction:column; gap:2px; max-height:240px; overflow-y:auto; margin-bottom:8px;}
+.mgr-pop .mgr-pop-list label{display:flex; align-items:center; justify-content:flex-start; gap:8px; padding:4px 2px; font-size:13px; font-weight:500; color:var(--ink); cursor:pointer; text-align:left;}
+.mgr-pop .mgr-pop-list input{margin:0; width:auto; flex:0 0 auto;}
+.mgr-pop .mgr-pop-title{color:var(--ink);}
+.mgr-pop-foot{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:6px;}
+.mgr-pop-note{font-size:11.5px; color:var(--ink-soft);}
 .client-filter select{border:none; background:transparent; font:inherit; font-size:13px; color:var(--ink); width:190px; padding:4px 2px; outline:none; cursor:pointer;}
 .chip{
   border:1px solid var(--line-strong); background:var(--surface); color:var(--ink-soft); border-radius:20px;
@@ -968,33 +986,78 @@ var showMyClientsOnly = loadMyOnlyPref();
    matchesMyClients 안에서 함께 검사하므로 오늘 할 일(모든 업무구분 단추·01/02/03), 체크리스트 보드, 비엘홀딩중 탭,
    KPI·단추 숫자까지 한꺼번에 같은 기준으로 걸러짐. 띄어쓰기·대소문자는 무시. 새로고침하면 해제됨(저장 안 함 —
    필터를 잊은 채로 다른 거래처 건이 가려져 놓치는 일이 없도록). */
-var clientFilterText = '';
+var clientFilterText = '';      // 입력칸에 지금 치고 있는 글자
 var clientFilterKey = '';
+var clientTerms = [];           // 확정해 둔 거래처 칩(여러 개 — 하나라도 들어 있으면 보임)
+var clientActiveKeys = [];      // 칩 + 지금 치는 글자(정규화) — 매칭에 쓰는 최종 목록
 function normClientKey_(v){ return String(v||'').toLowerCase().replace(/\s+/g,''); }
-function setClientFilter(v){ clientFilterText = String(v||''); clientFilterKey = normClientKey_(clientFilterText); }
-/* 담당자 걸러보기 — 거래처 필터 밑 선택칸에서 고른 담당자(엑셀 "담당자" 칸)의 건만 보여줌.
-   기본은 "전체 담당자"(내 거래처로 등록한 건이 모두 보임). 새로고침하면 해제됨(저장 안 함 —
-   필터를 잊은 채로 다른 담당자 건이 가려져 놓치는 일이 없도록). */
-var mgrFilterKey = '';
+function recalcClientKeys_(){
+  clientActiveKeys = clientTerms.map(normClientKey_).filter(Boolean);
+  if(clientFilterKey) clientActiveKeys.push(clientFilterKey);
+}
+function setClientFilter(v){ clientFilterText = String(v||''); clientFilterKey = normClientKey_(clientFilterText); recalcClientKeys_(); }
+function addClientTerm(v){
+  var t = String(v||'').trim(); if(!t) return false;
+  var k = normClientKey_(t);
+  if(clientTerms.some(function(x){ return normClientKey_(x)===k; })) return false;
+  clientTerms.push(t); recalcClientKeys_(); return true;
+}
+function removeClientTerm(i){ clientTerms.splice(i,1); recalcClientKeys_(); }
+function clearClientFilter(){ clientTerms = []; clientFilterText=''; clientFilterKey=''; recalcClientKeys_(); }
+
+/* 담당자 걸러보기 — 거래처 필터 밑 선택칸에서 고른 담당자(엑셀 "담당자" 칸)들의 건만 보여줌. 여러 명 선택 가능.
+   아무도 고르지 않으면 "전체 담당자"(내 거래처로 등록한 건이 모두 보임).
+   "기본값으로 저장"을 누르면 이 브라우저에 저장돼 다음에 열 때도 그 담당자들로 시작함(다른 사람 화면에는 영향 없음).
+   기본값으로 걸러 보는 중이면 선택칸에 "· 기본"이 붙고, "× 해제"로 잠깐 전체를 볼 수 있음(새로고침하면 다시 기본값). */
 var MGR_NONE_KEY = '__none__';
+var MGR_DEFAULT_LS = 'fw_mgrDefault';
+var mgrSel = {};         // 지금 선택한 담당자 키들 {키:true}
+var mgrSelN = 0;
+var mgrLabels_ = {};     // 키 → 화면에 보일 이름
 function normMgrKey_(v){ return String(v||'').trim().replace(/\s+/g,'').toLowerCase(); }
+function setMgrSel_(obj){ mgrSel = obj||{}; mgrSelN = Object.keys(mgrSel).length; }
+function loadMgrDefault_(){
+  try{
+    var raw = localStorage.getItem(MGR_DEFAULT_LS); if(!raw) return {keys:[], labels:{}};
+    var o = JSON.parse(raw); return {keys:(o.keys||[]), labels:(o.labels||{})};
+  }catch(e){ return {keys:[], labels:{}}; }
+}
+function saveMgrDefault_(keys){
+  try{
+    if(!keys.length){ localStorage.removeItem(MGR_DEFAULT_LS); return true; }
+    var labels = {}; keys.forEach(function(k){ labels[k] = mgrLabels_[k] || k; });
+    localStorage.setItem(MGR_DEFAULT_LS, JSON.stringify({keys:keys, labels:labels})); return true;
+  }catch(e){ return false; }
+}
+function mgrDefaultKeys_(){ return loadMgrDefault_().keys; }
+(function initMgrFromDefault_(){
+  var d = loadMgrDefault_(), o = {};
+  d.keys.forEach(function(k){ o[k]=true; if(d.labels[k]) mgrLabels_[k]=d.labels[k]; });
+  setMgrSel_(o);
+})();
 function matchesMgrFilter(s){
-  if(!mgrFilterKey) return true;
+  if(!mgrSelN) return true;
   var m = normMgrKey_(s.manager);
-  return mgrFilterKey===MGR_NONE_KEY ? !m : m===mgrFilterKey;
+  return m ? !!mgrSel[m] : !!mgrSel[MGR_NONE_KEY];
 }
 function matchesClientFilter(s){
   if(!matchesMgrFilter(s)) return false;
-  if(!clientFilterKey) return true;
-  return normClientKey_(s.client).indexOf(clientFilterKey)>=0 || normClientKey_(s.clientCode).indexOf(clientFilterKey)>=0;
+  if(!clientActiveKeys.length) return true;
+  var n = normClientKey_(s.client), c = normClientKey_(s.clientCode);
+  for(var i=0;i<clientActiveKeys.length;i++){
+    var k = clientActiveKeys[i];
+    if(n.indexOf(k)>=0 || c.indexOf(k)>=0) return true;
+  }
+  return false;
 }
+function mgrSelNames_(){ return Object.keys(mgrSel).map(function(k){ return k===MGR_NONE_KEY ? '담당자 없음' : (mgrLabels_[k]||k); }); }
 function clientFilterNote(){
   var t = '';
-  if(clientFilterKey) t += ' · 거래처 필터("'+clientFilterText.trim()+'") 적용 중';
-  if(mgrFilterKey) t += ' · 담당자 필터("'+(mgrFilterKey===MGR_NONE_KEY?'담당자 없음':mgrFilterLabel_)+'") 적용 중';
+  var terms = clientTerms.slice(); if(clientFilterText.trim()) terms.push(clientFilterText.trim());
+  if(terms.length) t += ' · 거래처 필터("'+terms.join(', ')+'") 적용 중';
+  if(mgrSelN) t += ' · 담당자 필터("'+mgrSelNames_().join(', ')+'") 적용 중';
   return t;
 }
-var mgrFilterLabel_ = '';
 function matchesMyClients(s){
   if(!matchesClientFilter(s)) return false;
   if(!showMyClientsOnly) return true;
@@ -1737,19 +1800,20 @@ function renderChips(){
     return '<button class="chip'+(activeFilter===c.key?' active':'')+'" data-chip="'+c.key+'" '+(c.disabled?'disabled':'')+'>'+c.label+'</button>';
   }).join('')+
     '<span class="filter-stack">'+
-    '<span class="client-filter'+(clientFilterKey?' on':'')+'">'+
+    '<span class="client-filter multi'+(clientActiveKeys.length?' on':'')+'" id="clientFilterBox">'+
       '<label for="clientFilterInput">거래처</label>'+
-      '<input id="clientFilterInput" type="text" list="clientFilterList" autocomplete="off" placeholder="거래처 걸러보기 (예: 풍산)" value="'+escapeHtml(clientFilterText)+'">'+
-      '<button type="button" id="clientFilterClear" title="거래처 필터 해제"'+(clientFilterKey?'':' hidden')+'>&times; 해제</button>'+
+      '<span class="cf-chips" id="clientChips">'+clientChipsHtml_()+'</span>'+
+      '<input id="clientFilterInput" type="text" list="clientFilterList" autocomplete="off" placeholder="'+(clientTerms.length?'+ 거래처 추가':'거래처 걸러보기 (예: 풍산)')+'" title="거래처를 치거나 고른 뒤 Enter를 누르면 칩으로 추가돼요. 여러 개를 추가하면 그 거래처들을 모두 볼 수 있어요." value="'+escapeHtml(clientFilterText)+'">'+
+      '<button type="button" id="clientFilterClear" title="거래처 필터 해제"'+(clientActiveKeys.length?'':' hidden')+'>&times; 해제</button>'+
       '<datalist id="clientFilterList">'+clientNameOptionsHtml_()+'</datalist>'+
     '</span>'+
-    '<span class="client-filter mgr-filter'+(mgrFilterKey?' on':'')+'">'+
-      '<label for="mgrFilterSelect">담당자</label>'+
-      '<select id="mgrFilterSelect" title="담당자별로 걸러보기 — 기본은 전체 담당자(내 거래처로 등록한 건이 모두 보임)">'+mgrFilterOptionsHtml_()+'</select>'+
-      '<button type="button" id="mgrFilterClear" title="담당자 필터 해제"'+(mgrFilterKey?'':' hidden')+'>&times; 해제</button>'+
+    '<span class="client-filter mgr-filter'+(mgrSelN?' on':'')+'" id="mgrFilterBox">'+
+      '<label for="mgrFilterBtn">담당자</label>'+
+      '<button type="button" id="mgrFilterBtn" class="mgr-btn" title="담당자를 골라서 걸러보기 — 여러 명 선택 가능 / 기본은 전체 담당자">'+escapeHtml(mgrSummaryText_())+' ▾</button>'+
+      '<button type="button" id="mgrFilterClear" title="담당자 필터 해제(잠깐 전체 보기)"'+(mgrSelN?'':' hidden')+'>&times; 해제</button>'+
+      '<div class="mgr-pop" id="mgrPop" hidden></div>'+
     '</span>'+
     '</span>';
-  lastMgrOptsKey = '';
   wireClientFilter_();
   wireMgrFilter_();
   document.querySelectorAll('[data-chip]').forEach(function(btn){
@@ -1763,61 +1827,127 @@ function clientNameOptionsHtml_(){
   names.sort(function(a,b){ return a.localeCompare(b,'ko'); });
   return names.map(function(n){ return '<option value="'+escapeHtml(n)+'"></option>'; }).join('');
 }
-/* 담당자 선택 목록 — 지금 불러온 건들의 담당자 이름(중복 제거, 가나다순) */
-function mgrFilterOptionsHtml_(){
-  var seen = {}, names = [], hasBlank = false;
+function clientChipsHtml_(){
+  return clientTerms.map(function(t,i){
+    return '<span class="cf-chip" title="'+escapeHtml(t)+'">'+escapeHtml(t)+'<b data-rm="'+i+'" title="이 거래처 빼기">&times;</b></span>';
+  }).join('');
+}
+function mgrSummaryText_(){
+  var names = mgrSelNames_();
+  if(!names.length) return '전체 담당자';
+  var t = names.length<=2 ? names.join(', ') : (names[0]+' 외 '+(names.length-1)+'명');
+  var d = mgrDefaultKeys_();
+  if(d.length && d.length===mgrSelN && d.every(function(k){ return mgrSel[k]; })) t += ' · 기본';
+  return t;
+}
+/* 목록에 보일 담당자들 — 지금 불러온 건들의 담당자 이름 + 선택/기본값에 들어 있는 이름(데이터에 없어도 풀 수 있게) */
+function mgrPopEntries_(){
+  var seen = {}, out = [], hasBlank = false;
+  function add(k, label){ if(!k || seen[k]) return; seen[k]=1; mgrLabels_[k]=label||mgrLabels_[k]||k; out.push({k:k, label:mgrLabels_[k]}); }
   allShipments.forEach(function(s){
     var n = String(s.manager||'').trim();
     if(!n){ hasBlank = true; return; }
-    var k = normMgrKey_(n); if(!seen[k]){ seen[k]=n; names.push(n); }
+    add(normMgrKey_(n), n);
   });
-  names.sort(function(a,b){ return a.localeCompare(b,'ko'); });
-  var html = '<option value="">전체 담당자</option>'+names.map(function(n){
-    var k = normMgrKey_(n);
-    return '<option value="'+escapeHtml(k)+'" data-label="'+escapeHtml(n)+'"'+(mgrFilterKey===k?' selected':'')+'>'+escapeHtml(n)+'</option>';
-  }).join('');
-  if(hasBlank) html += '<option value="'+MGR_NONE_KEY+'"'+(mgrFilterKey===MGR_NONE_KEY?' selected':'')+'>(담당자 없음)</option>';
-  return html;
+  Object.keys(mgrSel).forEach(function(k){ if(k!==MGR_NONE_KEY) add(k, mgrLabels_[k]); });
+  mgrDefaultKeys_().forEach(function(k){ if(k!==MGR_NONE_KEY) add(k, mgrLabels_[k]); });
+  out.sort(function(a,b){ return a.label.localeCompare(b.label,'ko'); });
+  if(hasBlank || mgrSel[MGR_NONE_KEY]) out.push({k:MGR_NONE_KEY, label:'(담당자 없음)'});
+  return out;
+}
+function mgrPopHtml_(){
+  var d = mgrDefaultKeys_();
+  var dText = d.length ? d.map(function(k){ return k===MGR_NONE_KEY?'담당자 없음':(mgrLabels_[k]||k); }).join(', ') : '없음';
+  return '<div class="mgr-pop-title">담당자 선택 <span>(여러 명 가능)</span></div>'+
+    '<div class="mgr-pop-list">'+mgrPopEntries_().map(function(e){
+      return '<label><input type="checkbox" data-mk="'+escapeHtml(e.k)+'"'+(mgrSel[e.k]?' checked':'')+'> '+escapeHtml(e.label)+'</label>';
+    }).join('')+'</div>'+
+    '<div class="mgr-pop-foot">'+
+      '<button type="button" class="btn btn-sm" id="mgrPopSaveDef" title="지금 체크한 담당자들을 이 브라우저의 기본값으로 저장합니다">현재 선택을 기본값으로 저장</button>'+
+      '<button type="button" class="btn btn-sm" id="mgrPopClearDef" title="저장해 둔 기본값을 지웁니다(다음부터 전체 담당자로 시작)">기본값 지우기</button>'+
+      '<button type="button" class="btn btn-sm" id="mgrPopAll" title="체크를 모두 풀고 잠깐 전체를 봅니다">전체 보기</button>'+
+    '</div>'+
+    '<div class="mgr-pop-note">저장된 기본값: <b>'+escapeHtml(dText)+'</b> · 이 브라우저에만 저장돼요</div>';
 }
 var lastMgrOptsKey = '';
-/* 자료를 새로 불러오거나 화면을 다시 그릴 때마다 담당자 목록과 "선택됨/해제" 표시를 맞춰 줌 */
+/* 화면을 다시 그릴 때마다 담당자 선택칸의 글자·"선택됨/해제" 표시를 맞춰 줌(열려 있는 목록은 건드리지 않음) */
 function refreshMgrFilter_(){
-  var sel = document.getElementById('mgrFilterSelect'); if(!sel) return;
-  var html = mgrFilterOptionsHtml_();
-  if(html!==lastMgrOptsKey){ sel.innerHTML = html; lastMgrOptsKey = html; }
-  var box = sel.parentNode, clr = document.getElementById('mgrFilterClear');
-  if(box) box.classList.toggle('on', !!mgrFilterKey);
-  if(clr) clr.hidden = !mgrFilterKey;
+  var btn = document.getElementById('mgrFilterBtn'); if(!btn) return;
+  btn.textContent = mgrSummaryText_()+' ▾';
+  var box = document.getElementById('mgrFilterBox'), clr = document.getElementById('mgrFilterClear');
+  if(box) box.classList.toggle('on', mgrSelN>0);
+  if(clr) clr.hidden = !mgrSelN;
 }
+function closeMgrPop_(){ var pop = document.getElementById('mgrPop'); if(pop) pop.hidden = true; }
 function wireMgrFilter_(){
-  var sel = document.getElementById('mgrFilterSelect'); if(!sel) return;
-  sel.addEventListener('change', function(){
-    mgrFilterKey = sel.value;
-    var opt = sel.options[sel.selectedIndex];
-    mgrFilterLabel_ = (opt && opt.dataset && opt.dataset.label) || '';
-    renderAll();
-  });
+  var btn = document.getElementById('mgrFilterBtn'); if(!btn) return;
+  var pop = document.getElementById('mgrPop');
+  function openPop(){ pop.innerHTML = mgrPopHtml_(); pop.hidden = false; wirePop(); }
+  function wirePop(){
+    pop.querySelectorAll('input[data-mk]').forEach(function(cb){
+      cb.addEventListener('change', function(){
+        var o = Object.assign({}, mgrSel);
+        if(cb.checked) o[cb.dataset.mk] = true; else delete o[cb.dataset.mk];
+        setMgrSel_(o); refreshMgrFilter_(); renderAll();
+      });
+    });
+    document.getElementById('mgrPopSaveDef').addEventListener('click', function(){
+      var keys = Object.keys(mgrSel);
+      if(!keys.length){ toast('먼저 담당자를 한 명 이상 체크해 주세요. (기본값을 없애려면 "기본값 지우기")', {err:true}); return; }
+      if(saveMgrDefault_(keys)){ toast('기본값으로 저장했어요: '+mgrSelNames_().join(', ')+' — 다음에 열어도 이 담당자들로 시작해요'); }
+      else toast('이 브라우저에서는 기본값을 저장할 수 없어요.', {err:true});
+      pop.innerHTML = mgrPopHtml_(); wirePop(); refreshMgrFilter_();
+    });
+    document.getElementById('mgrPopClearDef').addEventListener('click', function(){
+      saveMgrDefault_([]); toast('기본값을 지웠어요. 다음부터는 전체 담당자로 시작해요');
+      pop.innerHTML = mgrPopHtml_(); wirePop(); refreshMgrFilter_();
+    });
+    document.getElementById('mgrPopAll').addEventListener('click', function(){
+      setMgrSel_({}); pop.innerHTML = mgrPopHtml_(); wirePop(); refreshMgrFilter_(); renderAll();
+    });
+  }
+  btn.addEventListener('click', function(ev){ ev.stopPropagation(); if(pop.hidden) openPop(); else closeMgrPop_(); });
+  pop.addEventListener('click', function(ev){ ev.stopPropagation(); });
   var clr = document.getElementById('mgrFilterClear');
-  if(clr) clr.addEventListener('click', function(){ mgrFilterKey=''; mgrFilterLabel_=''; renderAll(); });
+  if(clr) clr.addEventListener('click', function(){ setMgrSel_({}); closeMgrPop_(); refreshMgrFilter_(); renderAll(); });
 }
+document.addEventListener('click', function(){ closeMgrPop_(); });
+document.addEventListener('keydown', function(ev){ if(ev.key==='Escape') closeMgrPop_(); });
+
 var clientFilterTimer = null;
-function applyClientFilterNow_(){
-  var el = document.getElementById('clientFilterInput');
-  var box = document.querySelector('#chipRow .client-filter');
-  var clr = document.getElementById('clientFilterClear');
-  if(box) box.classList.toggle('on', !!clientFilterKey);
-  if(clr) clr.hidden = !clientFilterKey;
-  renderAll();
+function refreshClientBox_(){
+  var box = document.getElementById('clientFilterBox'), chips = document.getElementById('clientChips');
+  var el = document.getElementById('clientFilterInput'), clr = document.getElementById('clientFilterClear');
+  if(chips) chips.innerHTML = clientChipsHtml_();
+  if(box) box.classList.toggle('on', clientActiveKeys.length>0);
+  if(clr) clr.hidden = !clientActiveKeys.length;
+  if(el) el.placeholder = clientTerms.length ? '+ 거래처 추가' : '거래처 걸러보기 (예: 풍산)';
 }
+function applyClientFilterNow_(){ refreshClientBox_(); renderAll(); }
 function wireClientFilter_(){
   var el = document.getElementById('clientFilterInput'); if(!el) return;
+  function commit(){
+    if(clientFilterTimer){ clearTimeout(clientFilterTimer); clientFilterTimer=null; }
+    var v = el.value;
+    if(!String(v).trim()) return;
+    el.value = ''; setClientFilter('');
+    addClientTerm(v);
+    applyClientFilterNow_();
+  }
   el.addEventListener('input', function(){
     setClientFilter(el.value);
     if(clientFilterTimer) clearTimeout(clientFilterTimer);
     clientFilterTimer = setTimeout(applyClientFilterNow_, 180); // 한 글자씩 칠 때마다 전체를 다시 그리지 않도록 잠깐 기다림
   });
+  el.addEventListener('keydown', function(ev){ if(ev.key==='Enter'){ ev.preventDefault(); commit(); } });
+  el.addEventListener('change', commit);   // 자동완성 목록에서 고르거나 칸을 벗어날 때도 칩으로 확정
+  var chips = document.getElementById('clientChips');
+  if(chips) chips.addEventListener('click', function(ev){
+    var b = ev.target.closest && ev.target.closest('b[data-rm]'); if(!b) return;
+    removeClientTerm(parseInt(b.dataset.rm,10)); applyClientFilterNow_();
+  });
   var clr = document.getElementById('clientFilterClear');
-  if(clr) clr.addEventListener('click', function(){ setClientFilter(''); el.value=''; applyClientFilterNow_(); });
+  if(clr) clr.addEventListener('click', function(){ clearClientFilter(); el.value=''; applyClientFilterNow_(); });
 }
 var TYPE_DEFS = [
   {key:'ALL', label:'전체'},
