@@ -145,7 +145,8 @@ img{max-width:100%;}
 .chip-row{display:flex; flex-wrap:wrap; gap:7px; margin-bottom:22px; align-items:center;}
 #typeChipRow{margin-bottom:8px;} .chip-row-imp{margin-bottom:22px;}
 .chip-row-label{font-size:11.5px; font-weight:700; color:var(--ink-soft); margin-right:4px; min-width:30px;}
-.client-filter{margin-left:auto; display:inline-flex; align-items:center; gap:6px; padding:3px 4px 3px 10px; border:1px solid var(--line); border-radius:16px; background:var(--surface);}
+.filter-stack{margin-left:auto; display:inline-flex; flex-direction:column; align-items:flex-end; gap:6px;}
+.client-filter{display:inline-flex; align-items:center; gap:6px; padding:3px 4px 3px 10px; border:1px solid var(--line); border-radius:16px; background:var(--surface);}
 .client-filter label{font-size:11.5px; font-weight:700; color:var(--ink-soft); letter-spacing:.3px;}
 .client-filter input{border:none; background:transparent; font:inherit; font-size:13px; color:var(--ink); width:190px; padding:4px 2px; outline:none;}
 .client-filter:focus-within{border-color:var(--steel);}
@@ -153,6 +154,7 @@ img{max-width:100%;}
 .client-filter.on label{color:var(--brass);}
 .client-filter button{font:inherit; font-size:11.5px; border:none; background:var(--ink); color:var(--surface); border-radius:12px; padding:4px 9px; cursor:pointer;}
 .client-filter button[hidden]{display:none;}
+.client-filter select{border:none; background:transparent; font:inherit; font-size:13px; color:var(--ink); width:190px; padding:4px 2px; outline:none; cursor:pointer;}
 .chip{
   border:1px solid var(--line-strong); background:var(--surface); color:var(--ink-soft); border-radius:20px;
   padding:6px 13px; font-size:12px; font-weight:600;
@@ -447,9 +449,6 @@ img{max-width:100%;}
 .lbp-tag.lv1{background:var(--rose); color:#fff;}
 .lbp-tag.lv2{background:var(--danger); color:#fff; font-size:12.5px; padding:4px 8px;}
 .lbp-tag.lv3{background:var(--danger); color:#fff; font-size:13.5px; font-weight:800; padding:4px 9px; box-shadow:0 0 0 2px var(--danger-soft);}
-.mgr-other{display:inline-block; background:var(--slate-soft); color:var(--slate); border-radius:3px; padding:1px 6px; font-weight:600;}
-.mgr-other.cover{background:var(--brass-soft); color:var(--brass);}
-.cover-bar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:var(--brass-soft); color:var(--brass); border:1px solid var(--brass); border-radius:3px; padding:8px 12px; margin-bottom:10px; font-size:13px; font-weight:600;}
 .edit-btn{border:none; background:transparent; color:var(--ink-soft); width:26px; height:26px; border-radius:3px; display:flex; align-items:center; justify-content:center; flex:none;}
 .edit-btn:hover{background:var(--surface-2); color:var(--ink);}
 
@@ -476,7 +475,7 @@ details.help[open] summary:before{content:"–";}
 .modal.wide{max-width:1040px;}
 .modal.mcwide{max-width:860px;}
 .modal.mcwide .modal-body{max-height:82vh;}
-.mc-grid, .checklist-item.mc-grid{display:grid; grid-template-columns:minmax(0,1fr) repeat(7,84px); column-gap:0; align-items:center; padding-left:6px; padding-right:6px;}
+.mc-grid, .checklist-item.mc-grid{display:grid; grid-template-columns:minmax(0,1fr) repeat(6,84px); column-gap:0; align-items:center; padding-left:6px; padding-right:6px;}
 .mc-grid > label.mc-cell{display:flex; align-items:center; justify-content:center; width:auto; cursor:pointer; padding:5px 0;}
 .mc-head{position:sticky; top:0; z-index:2; background:var(--surface); font-size:11.5px; font-weight:700; color:var(--ink-soft); border-bottom:1px solid var(--line-strong); padding-top:4px; padding-bottom:6px;}
 .mc-head span{text-align:center; white-space:nowrap;}
@@ -582,9 +581,6 @@ details.help[open] summary:before{content:"–";}
       <input class="search" id="searchInput" type="search" placeholder="FILE No · Line Booking No · HBL · MBL · PO No · 비고 · 거래처 · 담당자 검색">
       <button class="btn" id="myClientsToggleBtn"></button>
       <button class="btn" id="myClientsManageBtn">내 거래처 관리</button>
-      <button class="btn" id="coverToggleBtn" hidden></button>
-      <button class="btn" id="managerBtn">담당자 설정</button>
-      <button class="btn" id="handoverBtn">휴무 인수인계</button>
       <button class="btn" id="itemLabelSettingsBtn">항목명 설정</button>
       <button class="btn" id="csvTemplateBtn">CSV 서식</button>
       <button class="btn" id="addBtn">+ 신규 건</button>
@@ -598,7 +594,6 @@ details.help[open] summary:before{content:"–";}
   <div class="chip-row" id="chipRow"></div>
   <div class="chip-row" id="typeChipRow"></div>
   <div class="chip-row chip-row-imp" id="typeChipRowImp"></div>
-    <div class="cover-bar" id="coverBar" hidden></div>
   <div class="notice-bar" id="noticeBar" hidden><button class="btn btn-sm" id="noticeBtn">출항 안내문 만들기 (화주용)</button><button class="btn btn-sm" id="noticeDocBtn">서류마감 안내문 만들기 (화주용)</button><span id="noticeBarHint">지금 목록의 출항안내 건(오늘 할 일 + 앞으로 7일 내)으로 화주에게 보낼 안내문을 만들어요</span></div>
   <section class="board" id="board"></section>
 
@@ -686,7 +681,7 @@ var EXPECTED_SERVER_VERSION = 20261029; // Code.gs의 최신 SERVER_VERSION(참�
 /* 배너를 띄우는 기준 — "이 버전보다 낮으면 반드시 Code.gs를 올려야 함"인 최소 필요 버전.
    화면(index.html)만 바뀌고 Code.gs가 안 바뀐 업데이트는 이 숫자를 올리지 않으므로 배너가 뜨지 않음.
    Code.gs를 꼭 교체해야 하는 변경이 생길 때만 이 숫자를 그 버전으로 올림. */
-var MIN_REQUIRED_SERVER_VERSION = 20261026;
+var MIN_REQUIRED_SERVER_VERSION = 0;   // 0 = 배너를 띄우지 않음(Code.gs가 안 바뀐 동안). 꼭 교체해야 하는 Code.gs 변경이 생길 때만 그 버전 숫자로 올림
 function isValidWebappUrl_(u){
   u = String(u||'').trim();
   if(/^https:\/\/script\.google\.com\/(a\/macros\/[^\/\s]+\/|macros\/)s\/[A-Za-z0-9_\-]+\/exec$/.test(u)) return true;
@@ -977,102 +972,34 @@ var clientFilterText = '';
 var clientFilterKey = '';
 function normClientKey_(v){ return String(v||'').toLowerCase().replace(/\s+/g,''); }
 function setClientFilter(v){ clientFilterText = String(v||''); clientFilterKey = normClientKey_(clientFilterText); }
+/* 담당자 걸러보기 — 거래처 필터 밑 선택칸에서 고른 담당자(엑셀 "담당자" 칸)의 건만 보여줌.
+   기본은 "전체 담당자"(내 거래처로 등록한 건이 모두 보임). 새로고침하면 해제됨(저장 안 함 —
+   필터를 잊은 채로 다른 담당자 건이 가려져 놓치는 일이 없도록). */
+var mgrFilterKey = '';
+var MGR_NONE_KEY = '__none__';
+function normMgrKey_(v){ return String(v||'').trim().replace(/\s+/g,'').toLowerCase(); }
+function matchesMgrFilter(s){
+  if(!mgrFilterKey) return true;
+  var m = normMgrKey_(s.manager);
+  return mgrFilterKey===MGR_NONE_KEY ? !m : m===mgrFilterKey;
+}
 function matchesClientFilter(s){
+  if(!matchesMgrFilter(s)) return false;
   if(!clientFilterKey) return true;
   return normClientKey_(s.client).indexOf(clientFilterKey)>=0 || normClientKey_(s.clientCode).indexOf(clientFilterKey)>=0;
 }
-function clientFilterNote(){ return clientFilterKey ? ' · 거래처 필터("'+clientFilterText.trim()+'") 적용 중' : ''; }
-/* ================= 담당자별 "내 건" 구분 =================
-   한 거래처를 여러 담당자가 포트(지역)별로 나눠 맡는 경우(예: 풍산 — 중국·일본·인도는 나,
-   나머지는 다른 담당자)에, 남의 건을 캔슬로 바꾸지 않고도 내 건만 보도록 걸러줌.
-   - 기준 1: 엑셀 "담당자" 칸이 내 이름인 건 → 내 건
-   - 기준 2: 지역 보정 — 지정한 거래처(예: 풍산) 건 중 POD/Delivery에 내가 맡는 지역 글자가
-     들어 있으면 담당자 칸이 다른 사람이어도 내 건으로 봄(대신 들어간 건을 놓치지 않기 위함)
-   - 담당자 칸이 비어 있는 건은 놓치지 않도록 내 건으로 봄
-   - 대무: 특정 담당자를 "대무 중"으로 켜면 그 사람 건도 내 목록에 함께 보이고, 화면 위에 안내 띠가 뜸
-   설정은 이 브라우저에만 저장됨(구글시트·Code.gs 변경 없음) — 사람마다 다르므로 각자 설정함. */
-function lsGet_(k, dflt){ try{ var v=localStorage.getItem(k); return v===null?dflt:v; }catch(e){ return dflt; } }
-function lsSet_(k, v){ try{ localStorage.setItem(k, v); }catch(e){} }
-function lsGetJson_(k, dflt){ try{ var v=localStorage.getItem(k); return v===null?dflt:JSON.parse(v); }catch(e){ return dflt; } }
-var DEFAULT_MGR_REGION_RULES = [
-  {client:'풍산', keys:['CHINA','중국','JAPAN','일본','AICHI','OSAKA','TOKYO','NAGOYA','KOBE','YOKOHAMA','HAKATA','MOJI','SHIMIZU','INDIA','인도','NHAVA','DADRI','CHENNAI','BANGALORE','MUNDRA','KOLKATA','KANDLA','KATUPALI','DHAPPER','DAPPAR','TUGHLAKABAD']}
-];
-var myManagerName = lsGet_('fw_myManager','');
-var coverManagers = lsGetJson_('fw_coverManagers',[]);
-var coverClientCodes = lsGetJson_('fw_coverClients',[]);   // "내 거래처 관리"에서 대무로 체크한 거래처 코드(이 브라우저에만 저장)
-var coverOn = lsGet_('fw_coverOn','0')==='1';              // 대무 스위치 — 꺼두면 위 설정이 있어도 내 건만 보임
-function hasCoverTargets(){ return (coverManagers.length+coverClientCodes.length)>0; }
-function setCoverOn(v){ coverOn=!!v; lsSet_('fw_coverOn', coverOn?'1':'0'); mgrCacheBump_(); }
-var mgrRegionRules = lsGetJson_('fw_mgrRegionRules', DEFAULT_MGR_REGION_RULES);
-function normName_(v){ return String(v||'').trim().replace(/\s+/g,'').toLowerCase(); }
-/* 담당자·대무 판정은 목록을 그릴 때마다 건마다 여러 번 호출되므로 건별 결과를 캐시해 둠 —
-   설정이 바뀌거나 자료를 다시 불러오면 mgrCacheBump_()로 캐시를 무효화함(속도 저하 방지). */
-var mgrCacheToken = 1;
-function mgrCacheBump_(){ mgrCacheToken++; }
-function managerScopeOn(){ return !!normName_(myManagerName); }
-function mgrRuleMatches_(s){
-  if(!mgrRegionRules || !mgrRegionRules.length) return false;
-  var cName = String(s.client||'').replace(/\s+/g,'').toUpperCase();
-  var cCode = String(s.clientCode||'').replace(/\s+/g,'').toUpperCase();
-  var where = (String(s.pod||'')+' | '+String(s.delivery||'')).toUpperCase();
-  for(var i=0;i<mgrRegionRules.length;i++){
-    var r = mgrRegionRules[i]||{};
-    var ck = String(r.client||'').replace(/\s+/g,'').toUpperCase();
-    if(!ck || (cName.indexOf(ck)<0 && cCode.indexOf(ck)<0)) continue;
-    var keys = r.keys||[];
-    for(var j=0;j<keys.length;j++){
-      var k = String(keys[j]||'').trim().toUpperCase();
-      if(k && where.indexOf(k)>=0) return true;
-    }
-  }
-  return false;
+function clientFilterNote(){
+  var t = '';
+  if(clientFilterKey) t += ' · 거래처 필터("'+clientFilterText.trim()+'") 적용 중';
+  if(mgrFilterKey) t += ' · 담당자 필터("'+(mgrFilterKey===MGR_NONE_KEY?'담당자 없음':mgrFilterLabel_)+'") 적용 중';
+  return t;
 }
-function isCoveredManager_(name){
-  var n = normName_(name); if(!n) return false;
-  for(var i=0;i<coverManagers.length;i++){ if(normName_(coverManagers[i])===n) return true; }
-  return false;
-}
-function isMyShipment(s){
-  if(!managerScopeOn()) return true;
-  if(s.__mineTok===mgrCacheToken) return s.__mine;
-  var m = normName_(s.manager);
-  var r = (!m) || m===normName_(myManagerName) || mgrRuleMatches_(s);
-  s.__mineTok = mgrCacheToken; s.__mine = r;
-  return r;
-}
-/* 대무 대상 — 담당자 이름 또는 거래처 코드로 지정하고, 대무 스위치가 켜져 있을 때만 적용됨 */
-function isCoveredShipment_(s){
-  if(!coverOn) return false;
-  if(isCoveredManager_(s.manager)) return true;
-  var c = String(s.clientCode||'').trim();
-  if(!c) return false;
-  for(var i=0;i<coverClientCodes.length;i++){ if(String(coverClientCodes[i]).trim()===c) return true; }
-  return false;
-}
-/* 'mine' = 내 건(+대무 중인 담당자 건) / 'others' = 그 밖의 담당자 건(아래 별도 섹션용) */
-var managerScope = 'mine';
-function withManagerScope_(scope, fn){ var prev=managerScope; managerScope=scope; try{ return fn(); } finally { managerScope=prev; } }
-function matchesManagerScope(s){
-  if(!managerScopeOn()) return managerScope!=='others';
-  var mine = isMyShipment(s) || isCoveredShipment_(s);
-  return managerScope==='others' ? !mine : mine;
-}
-/* 목록의 담당자 칸 — 내 이름이 아닌 건(대무 중이거나 지역 보정으로 들어온 건)은 한눈에 알아보도록 표시 */
-function mgrCellHtml(s){
-  var nm = s.manager||'-';
-  if(!managerScopeOn() || normName_(s.manager)===normName_(myManagerName) || !normName_(s.manager))
-    return '<span class="mgr">'+escapeHtml(nm)+'</span>';
-  var cover = isCoveredShipment_(s);
-  var tip = cover ? '대무 중인 담당자의 건' : '지역 담당 규칙으로 내 목록에 들어온 건';
-  return '<span class="mgr"><span class="mgr-other'+(cover?' cover':'')+'" title="'+escapeHtml(tip)+'">'+escapeHtml(nm)+'</span></span>';
-}
+var mgrFilterLabel_ = '';
 function matchesMyClients(s){
-  if(!matchesManagerScope(s)) return false;
   if(!matchesClientFilter(s)) return false;
   if(!showMyClientsOnly) return true;
   if(!myClientCodes.length) return true; // 아직 목록을 설정하지 않았으면 필터링하지 않음
-  // 대무로 체크해 둔 거래처는 대무 스위치가 켜져 있는 동안만 내 목록에 함께 보임
-  return myClientCodes.indexOf(String(s.clientCode||'').trim())>=0 || isCoveredShipment_(s);
+  return myClientCodes.indexOf(String(s.clientCode||'').trim())>=0;
 }
 
 /* ================= date / dday helpers ================= */
@@ -1809,13 +1736,22 @@ function renderChips(){
   el.innerHTML = chips.map(function(c){
     return '<button class="chip'+(activeFilter===c.key?' active':'')+'" data-chip="'+c.key+'" '+(c.disabled?'disabled':'')+'>'+c.label+'</button>';
   }).join('')+
+    '<span class="filter-stack">'+
     '<span class="client-filter'+(clientFilterKey?' on':'')+'">'+
       '<label for="clientFilterInput">거래처</label>'+
       '<input id="clientFilterInput" type="text" list="clientFilterList" autocomplete="off" placeholder="거래처 걸러보기 (예: 풍산)" value="'+escapeHtml(clientFilterText)+'">'+
       '<button type="button" id="clientFilterClear" title="거래처 필터 해제"'+(clientFilterKey?'':' hidden')+'>&times; 해제</button>'+
       '<datalist id="clientFilterList">'+clientNameOptionsHtml_()+'</datalist>'+
+    '</span>'+
+    '<span class="client-filter mgr-filter'+(mgrFilterKey?' on':'')+'">'+
+      '<label for="mgrFilterSelect">담당자</label>'+
+      '<select id="mgrFilterSelect" title="담당자별로 걸러보기 — 기본은 전체 담당자(내 거래처로 등록한 건이 모두 보임)">'+mgrFilterOptionsHtml_()+'</select>'+
+      '<button type="button" id="mgrFilterClear" title="담당자 필터 해제"'+(mgrFilterKey?'':' hidden')+'>&times; 해제</button>'+
+    '</span>'+
     '</span>';
+  lastMgrOptsKey = '';
   wireClientFilter_();
+  wireMgrFilter_();
   document.querySelectorAll('[data-chip]').forEach(function(btn){
     btn.addEventListener('click', function(){ activeFilter=btn.dataset.chip; renderChips(); renderBoard(); renderKpis(); });
   });
@@ -1826,6 +1762,43 @@ function clientNameOptionsHtml_(){
   allShipments.forEach(function(s){ var n = String(s.client||'').trim(); if(n && !seen[n]){ seen[n]=1; names.push(n); } });
   names.sort(function(a,b){ return a.localeCompare(b,'ko'); });
   return names.map(function(n){ return '<option value="'+escapeHtml(n)+'"></option>'; }).join('');
+}
+/* 담당자 선택 목록 — 지금 불러온 건들의 담당자 이름(중복 제거, 가나다순) */
+function mgrFilterOptionsHtml_(){
+  var seen = {}, names = [], hasBlank = false;
+  allShipments.forEach(function(s){
+    var n = String(s.manager||'').trim();
+    if(!n){ hasBlank = true; return; }
+    var k = normMgrKey_(n); if(!seen[k]){ seen[k]=n; names.push(n); }
+  });
+  names.sort(function(a,b){ return a.localeCompare(b,'ko'); });
+  var html = '<option value="">전체 담당자</option>'+names.map(function(n){
+    var k = normMgrKey_(n);
+    return '<option value="'+escapeHtml(k)+'" data-label="'+escapeHtml(n)+'"'+(mgrFilterKey===k?' selected':'')+'>'+escapeHtml(n)+'</option>';
+  }).join('');
+  if(hasBlank) html += '<option value="'+MGR_NONE_KEY+'"'+(mgrFilterKey===MGR_NONE_KEY?' selected':'')+'>(담당자 없음)</option>';
+  return html;
+}
+var lastMgrOptsKey = '';
+/* 자료를 새로 불러오거나 화면을 다시 그릴 때마다 담당자 목록과 "선택됨/해제" 표시를 맞춰 줌 */
+function refreshMgrFilter_(){
+  var sel = document.getElementById('mgrFilterSelect'); if(!sel) return;
+  var html = mgrFilterOptionsHtml_();
+  if(html!==lastMgrOptsKey){ sel.innerHTML = html; lastMgrOptsKey = html; }
+  var box = sel.parentNode, clr = document.getElementById('mgrFilterClear');
+  if(box) box.classList.toggle('on', !!mgrFilterKey);
+  if(clr) clr.hidden = !mgrFilterKey;
+}
+function wireMgrFilter_(){
+  var sel = document.getElementById('mgrFilterSelect'); if(!sel) return;
+  sel.addEventListener('change', function(){
+    mgrFilterKey = sel.value;
+    var opt = sel.options[sel.selectedIndex];
+    mgrFilterLabel_ = (opt && opt.dataset && opt.dataset.label) || '';
+    renderAll();
+  });
+  var clr = document.getElementById('mgrFilterClear');
+  if(clr) clr.addEventListener('click', function(){ mgrFilterKey=''; mgrFilterLabel_=''; renderAll(); });
 }
 var clientFilterTimer = null;
 function applyClientFilterNow_(){
@@ -1908,7 +1881,12 @@ function renderTypeChips(){
     return '<button class="chip type-chip'+(activeType===t.key?' active':'')+'" data-type-chip="'+t.key+'"'+style+'>'+t.label+'<span class="chip-count mono'+(c>0?' has-count':'')+'">'+c+'</span></button>';
   }
   row.innerHTML = '<span class="chip-row-label">수출</span>' + TYPE_DEFS.filter(vis).map(chipHtml).join('');
-  if(rowImp) rowImp.innerHTML = '<span class="chip-row-label">수입</span>' + IMP_TYPE_DEFS.filter(vis).map(chipHtml).join('');
+  if(rowImp){
+    var impList = IMP_TYPE_DEFS.filter(vis);
+    // 지금 할 일이 있는 수입 단추가 하나도 없으면 "수입" 글자만 덩그러니 남지 않게 줄 전체를 숨김
+    rowImp.innerHTML = impList.length ? ('<span class="chip-row-label">수입</span>' + impList.map(chipHtml).join('')) : '';
+    rowImp.style.display = impList.length ? '' : 'none';
+  }
   document.querySelectorAll('#typeChipRow [data-type-chip], #typeChipRowImp [data-type-chip]').forEach(function(btn){
     btn.addEventListener('click', function(){ activeType=btn.dataset.typeChip; TODAY_TAB_SECTIONS.forEach(function(id){ delete sectionCollapsedOverride[id]; }); renderTypeChips(); renderBoard(); });
   });
@@ -2110,7 +2088,7 @@ function doorTrackingTable(list, sectionId){
       '<span class="mgmtno mono">'+escapeHtml(s.managementNo||s.id)+'</span>'+
       '<span class="client-cell"><button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="'+escapeHtml(s.client||'')+'">'+escapeHtml(s.client||'-')+'</button>'+(s.note?'<div class="note-line" title="'+escapeHtml(s.note)+'">'+escapeHtml(s.note)+'</div>':'')+'</span>'+
       '<span class="route-pill">'+escapeHtml((ROUTES[s.routeType]||{}).label||'-')+(s.billingOnly?' · 청구전용':'')+'</span>'+
-      mgrCellHtml(s)+
+      '<span class="mgr">'+escapeHtml(s.manager||'-')+'</span>'+
       '<span class="item-label">도착 확인·정산 완료</span>'+
       '<span>'+doorEtaHtml(s)+' '+badge+'</span>'+
       '<button class="edit-btn" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="상세/수정"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M11 2l3 3-8 8-3.5.5.5-3.5z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg></button>'+
@@ -2133,7 +2111,7 @@ function itemFeedTable(list, opts){
       '<span class="mgmtno mono">'+escapeHtml(s.managementNo||s.id)+'</span>'+
       '<span class="client-cell"><button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="'+escapeHtml(s.client||'')+'">'+escapeHtml(s.client||'-')+'</button>'+(s.note?'<div class="note-line" title="'+escapeHtml(s.note)+'">'+escapeHtml(s.note)+'</div>':'')+'</span>'+
       routePillHtml(s)+
-      mgrCellHtml(s)+
+      '<span class="mgr">'+escapeHtml(s.manager||'-')+'</span>'+
       '<span class="item-label">'+escapeHtml(it.label)+(it.billing?'<span class="billing-tag">청구</span>':'')+'</span>'+
       '<span>'+(d?('<span class="mono" style="font-size:11px;">'+d.date+(d.time?(' '+d.time):'')+'</span> '+badge):badge)+'</span>'+
       '<button class="edit-btn" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="상세/수정"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M11 2l3 3-8 8-3.5.5.5-3.5z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg></button>'+
@@ -2432,7 +2410,7 @@ function todayTable(list, sectionId, tableKey){
       '<span class="mgmtno mono">'+escapeHtml(s.managementNo||s.id)+'</span>'+
       '<span class="client-cell"><button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="'+escapeHtml(s.client||'')+'">'+escapeHtml(s.client||'-')+'</button>'+(s.note?'<div class="note-line" title="'+escapeHtml(s.note)+'">'+escapeHtml(s.note)+'</div>':'')+'</span>'+
       routePillHtml(s)+
-      mgrCellHtml(s)+
+      '<span class="mgr">'+escapeHtml(s.manager||'-')+'</span>'+
       '<span class="lb-wrap"><span class="bl-cell mono ref-lb" title="'+escapeHtml(s.lineBookingNo||'')+'">'+escapeHtml(s.lineBookingNo||'-')+'</span>'+cntrPillHtml_(s)+'</span>'+
       '<span class="bl-cell mono ref-hb" title="'+escapeHtml(s.hbl||'')+'">'+escapeHtml(s.hbl||'-')+'</span>'+
       '<span class="bl-cell mono ref-mb" title="'+escapeHtml(s.mbl||'')+'">'+escapeHtml(s.mbl||'-')+'</span>'+
@@ -2478,7 +2456,7 @@ function upcomingTable(list, sectionId){
       '<span class="mgmtno mono">'+escapeHtml(s.managementNo||s.id)+'</span>'+
       '<span class="client-cell"><button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="'+escapeHtml(s.client||'')+'">'+escapeHtml(s.client||'-')+'</button>'+(s.note?'<div class="note-line" title="'+escapeHtml(s.note)+'">'+escapeHtml(s.note)+'</div>':'')+'</span>'+
       routePillHtml(s)+
-      mgrCellHtml(s)+
+      '<span class="mgr">'+escapeHtml(s.manager||'-')+'</span>'+
       '<span class="lb-wrap"><span class="bl-cell mono ref-lb" title="'+escapeHtml(s.lineBookingNo||'')+'">'+escapeHtml(s.lineBookingNo||'-')+'</span>'+cntrPillHtml_(s)+'</span>'+
       '<span class="bl-cell mono ref-hb" title="'+escapeHtml(s.hbl||'')+'">'+escapeHtml(s.hbl||'-')+'</span>'+
       '<span class="bl-cell mono ref-mb" title="'+escapeHtml(s.mbl||'')+'">'+escapeHtml(s.mbl||'-')+'</span>'+
@@ -2498,7 +2476,7 @@ function unassignedTable(list){
     return '<div class="trow" style="grid-template-columns:132px minmax(140px,1fr) 66px 172px 1fr;min-width:660px;">'+
       '<span class="mgmtno mono">'+escapeHtml(s.managementNo||s.id)+'</span>'+
       '<button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'">'+escapeHtml(s.client||'-')+'</button>'+
-      mgrCellHtml(s)+
+      '<span class="mgr">'+escapeHtml(s.manager||'-')+'</span>'+
       '<span class="mgr">'+escapeHtml(s.service||'-')+' / '+escapeHtml(s.tradeType||'-')+'</span>'+
       '<button class="btn btn-sm" data-act="edit" data-id="'+escapeHtml(s.id)+'">루틴 지정하기</button>'+
       '</div>';
@@ -2579,25 +2557,12 @@ function renderSections(board, sections){
       var sec = document.getElementById(head.dataset.toggle);
       var nowCollapsed = sec.classList.toggle('collapsed');
       sectionCollapsedOverride[head.dataset.toggle] = nowCollapsed;
-      if(!nowCollapsed && head.dataset.toggle==='sec-other-mgr') fillOtherMgrBody_();
     });
   });
   wireBoardEvents();
   wireSortHeaders();
   sections.forEach(function(sec){ if(sec.bulk){ wireSelectCheckboxes(sec.id, sec.bulk.items); wireBulkBar(sec.id, sec.bulk.items); } });
   if(document.getElementById('sec-checklist')) wireChecklistSection();
-}
-var otherMgrQuery_ = '';
-function fillOtherMgrBody_(){
-  var el = document.getElementById('otherMgrBody');
-  if(!el || el.dataset.filled==='1') return;
-  var list = withManagerScope_('others', function(){
-    return feedTodayAll().filter(function(x){ return matchesSearch(x.s, otherMgrQuery_); });
-  });
-  list.sort(function(a,b){ return (a.sortKey===undefined?9999:a.sortKey)-(b.sortKey===undefined?9999:b.sortKey); });
-  el.innerHTML = todayTable(list,'sec-other-mgr','others');
-  el.dataset.filled = '1';
-  wireBoardEvents(); wireSortHeaders();
 }
 function renderTodayTab(board, q){
   var sections=[];
@@ -2651,18 +2616,6 @@ function renderTodayTab(board, q){
   var rem = feedRemaining().filter(function(x){return matchesSearch(x.s,q);});
   var remLbl = activeType==='ALL' ? '모든 업무구분' : TYPE_LABEL[activeType];
   sections.push({id:'sec-remaining', tag:nextTag_(), title:'그 외 전체 (기준일이 아직 남은 건)', sub:remLbl+' 중 위 섹션에 해당하지 않는 모든 대기 건 · 기준일이 가까운 건이 위 · 기준일이 되면 자동으로 "오늘 할 일"로 넘어감', color:'slate', body:todayTable(rem,'sec-remaining','remaining'), count:rem.length, bulk:{items:rem.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
-  // 다른 담당자 건 — 내 담당(+대무)이 아닌 건을 접힌 상태로 맨 아래에 모아둠(평소엔 위 섹션·단추 숫자에서 빠짐)
-  if(managerScopeOn()){
-    // 건수만 먼저 한 번에 세고(가벼움), 실제 표는 사용자가 이 섹션을 펼칠 때 그림 —
-    // 평소에는 접혀 있으므로 화면 그리는 속도에 거의 영향이 없게 함.
-    var othersCount = withManagerScope_('others', function(){
-      return activeShipments().filter(function(s2){ return matchesMyClients(s2) && matchesSearch(s2,q); }).length;
-    });
-    if(othersCount){
-      otherMgrQuery_ = q;
-      sections.push({id:'sec-other-mgr', tag:nextTag_(), title:'다른 담당자 건', sub:'엑셀 담당자 칸이 나('+escapeHtml(myManagerName)+')가 아닌 건 · 평소에는 위 목록과 단추 숫자에서 빠져 있음 · 대무할 때는 "대무 켜기"로 함께 볼 수 있음 · 펼칠 때 목록을 만듭니다', color:'slate', body:'<div id="otherMgrBody" data-filled="0"><div class="trow empty">펼치면 목록을 불러옵니다…</div></div>', count:othersCount});
-    }
-  }
   renderSections(board, sections);
 }
 /* ================= 부킹확인중 (자유형식 메모장) 탭 =================
@@ -2928,7 +2881,7 @@ function blHoldingTable(list){
       '<span class="mgmtno mono">'+escapeHtml(s.managementNo||s.id)+'</span>'+
       '<button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="'+escapeHtml(s.client||'')+'">'+escapeHtml(s.client||'-')+'</button>'+
       routePillHtml(s)+
-      mgrCellHtml(s)+
+      '<span class="mgr">'+escapeHtml(s.manager||'-')+'</span>'+
       '<span class="lb-wrap"><span class="bl-cell mono ref-lb" title="'+escapeHtml(s.lineBookingNo||'')+'">'+escapeHtml(s.lineBookingNo||'-')+'</span>'+cntrPillHtml_(s)+'</span>'+
       '<span class="bl-cell mono ref-hb" title="'+escapeHtml(s.hbl||'')+'">'+escapeHtml(s.hbl||'-')+'</span>'+
       '<span class="bl-cell mono ref-mb" title="'+escapeHtml(s.mbl||'')+'">'+escapeHtml(s.mbl||'-')+'</span>'+
@@ -3446,7 +3399,7 @@ function refreshClientDatalist_(){
   var html = clientNameOptionsHtml_();
   if(html!==lastClientOptsKey){ dl.innerHTML = html; lastClientOptsKey = html; }
 }
-function renderAll(){ refreshClientDatalist_(); renderMyClientsToggle(); renderManagerBar(); renderKpis(); renderTabRow(); renderTypeChips(); renderBoard(); renderArchive(); renderRouteDocs(); }
+function renderAll(){ refreshClientDatalist_(); refreshMgrFilter_(); renderMyClientsToggle(); renderKpis(); renderTabRow(); renderTypeChips(); renderBoard(); renderArchive(); renderRouteDocs(); }
 function wireBoardEvents(){
   // renderSections()와 renderArchive() 양쪽에서 호출될 수 있어, 같은 화면 갱신 주기 안에서
   // 이미 배선된 요소를 다시 배선하면 리스너가 중복으로 쌓일 수 있음 — wired 플래그로 방지.
@@ -3620,7 +3573,7 @@ async function apiGet(){
 function checkServerVersion_(json){
   var b = document.getElementById('versionBanner'); if(!b) return;
   var v = json && json.serverVersion ? Number(json.serverVersion) : 0;
-  if(v < MIN_REQUIRED_SERVER_VERSION){
+  if(MIN_REQUIRED_SERVER_VERSION > 0 && v < MIN_REQUIRED_SERVER_VERSION){
     b.hidden = false;
     b.innerHTML = '내 시트의 <b>Code.gs</b>가 예전 버전이에요 (현재 '+(v||'버전 표시 없음')+' / 필요 '+MIN_REQUIRED_SERVER_VERSION+'). 최신 Code.gs로 교체해 저장한 뒤 <b>배포 &gt; 배포 관리 &gt; 연필 아이콘 &gt; 새 버전</b>으로 다시 배포해 주세요. 그 전에는 새 기능이 일부 동작하지 않을 수 있어요.';
   } else { b.hidden = true; b.innerHTML = ''; }
@@ -4441,91 +4394,6 @@ function collectKnownClients(){
   });
   return Object.keys(map).sort().map(function(code){ return {code:code, name:map[code]}; });
 }
-/* ===== 담당자 설정(내 이름·대무·지역 보정) ===== */
-function allManagerNames_(){
-  var set={}, out=[];
-  allShipments.forEach(function(s){ var n=String(s.manager||'').trim(); if(n && !set[normName_(n)]){ set[normName_(n)]=1; out.push(n); } });
-  out.sort(); return out;
-}
-function clientNameOfCode_(code){
-  var c = String(code||'').trim();
-  for(var i=0;i<allShipments.length;i++){ if(String(allShipments[i].clientCode||'').trim()===c && allShipments[i].client) return allShipments[i].client; }
-  return c;
-}
-function renderManagerBar(){
-  var btn = document.getElementById('managerBtn');
-  if(btn){
-    btn.textContent = managerScopeOn() ? ('내 담당: '+myManagerName) : '담당자 설정';
-    btn.title = managerScopeOn() ? '엑셀 담당자 칸이 내 이름인 건만 보는 중 · 클릭해서 변경·대무 설정'
-                                 : '내 이름을 넣으면 내 담당 건만 보이고, 다른 담당자 건은 맨 아래 "다른 담당자 건"으로 내려갑니다';
-    btn.classList.toggle('btn-primary', managerScopeOn());
-  }
-  var sw = document.getElementById('coverToggleBtn');
-  if(sw){
-    sw.hidden = !hasCoverTargets();
-    sw.textContent = coverOn ? '대무 보는 중' : '대무 켜기';
-    sw.title = coverOn ? '대무로 지정한 거래처·담당자 건을 내 목록에 함께 보는 중 · 클릭하면 끕니다'
-                       : '대무로 지정한 거래처·담당자 건을 내 목록에 함께 봅니다 · 대상은 "내 거래처 관리"의 대무 칸과 "담당자 설정"에서 정합니다';
-    sw.classList.toggle('btn-primary', coverOn);
-  }
-  var bar = document.getElementById('coverBar');
-  if(!bar) return;
-  var on = coverOn && hasCoverTargets();
-  bar.hidden = !on;
-  if(!on) return;
-  var who = [];
-  if(coverManagers.length) who.push(coverManagers.join(', ')+' 담당');
-  if(coverClientCodes.length) who.push(coverClientCodes.map(function(c){ return clientNameOfCode_(c); }).join(', '));
-  bar.innerHTML = '대무 보는 중 — '+escapeHtml(who.join(' · '))+' 건이 내 목록에 함께 있어요'+
-    '<button class="btn btn-sm" id="coverOffBtn">대무 끄기</button>';
-  var off = document.getElementById('coverOffBtn');
-  if(off) off.addEventListener('click', function(){ setCoverOn(false); renderAll(); toast('대무를 껐어요'); });
-}
-function openManagerModal(){
-  var names = allManagerNames_();
-  var coverSet = {}; coverManagers.forEach(function(n){ coverSet[normName_(n)]=n; });
-  var rulesText = (mgrRegionRules||[]).map(function(r){ return String(r.client||'')+': '+((r.keys||[]).join(', ')); }).join('\n');
-  var coverHtml = names.filter(function(n){ return normName_(n)!==normName_(myManagerName); }).map(function(n){
-    return '<label class="mc-cell" style="justify-content:flex-start;gap:7px;padding:4px 0;"><input type="checkbox" data-cover-name="'+escapeHtml(n)+'" '+(coverSet[normName_(n)]?'checked':'')+'><span>'+escapeHtml(n)+'</span></label>';
-  }).join('') || '<div style="font-size:12.5px;color:var(--ink-soft);">엑셀에서 불러온 다른 담당자 이름이 아직 없어요.</div>';
-  document.getElementById('modalContent').innerHTML =
-    '<div class="modal-head"><h3>담당자 설정</h3><button class="modal-close" id="mgCloseBtn">&times;</button></div>'+
-    '<div class="modal-body">'+
-    '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;">엑셀 <b>담당자</b> 칸이 내 이름인 건만 화면에 보이게 합니다. 다른 담당자 건은 지워지거나 캔슬되지 않고 맨 아래 <b>"다른 담당자 건"</b> 섹션에 접혀서 그대로 있어요. 비워 두면 예전처럼 모든 담당자 건이 함께 보입니다. 이 설정은 이 브라우저에만 저장돼요(구글시트는 그대로).</div>'+
-    '<div style="margin-bottom:6px;font-weight:700;font-size:13px;">내 이름</div>'+
-    '<input type="text" id="mgName" list="mgNameList" value="'+escapeHtml(myManagerName)+'" placeholder="예: 이현정" style="width:100%;border:1px solid var(--line-strong);border-radius:2px;padding:7px 9px;background:var(--surface);color:var(--ink);margin-bottom:14px;">'+
-    '<datalist id="mgNameList">'+names.map(function(n){return '<option value="'+escapeHtml(n)+'">';}).join('')+'</datalist>'+
-    '<div style="margin-bottom:6px;font-weight:700;font-size:13px;">대무 중인 담당자</div>'+
-    '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:6px;">체크한 담당자의 건이 내 목록에 함께 나오고, 화면 위에 노란 띠로 알려줍니다. 휴무가 끝나면 체크를 풀거나 띠의 "대무 끄기"를 누르세요.</div>'+
-    '<div id="mgCoverList" style="max-height:24vh;overflow-y:auto;margin-bottom:14px;">'+coverHtml+'</div>'+
-    '<div style="margin-bottom:6px;font-weight:700;font-size:13px;">지역 담당 보정</div>'+
-    '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:6px;">한 거래처를 포트별로 나눠 맡을 때 씁니다. 아래에 적은 거래처 건은 POD·Delivery에 그 글자가 들어 있으면 담당자 칸이 다른 사람이어도 내 건으로 봐요(내 지역 건이 다른 사람 이름으로 들어와도 놓치지 않게). 한 줄에 하나씩 <b>거래처: 지역글자, 지역글자</b> 형식.</div>'+
-    '<textarea id="mgRules" rows="4" style="width:100%;border:1px solid var(--line-strong);border-radius:2px;padding:7px 9px;background:var(--surface);color:var(--ink);font-size:12.5px;">'+escapeHtml(rulesText)+'</textarea>'+
-    '</div>'+
-    '<div class="modal-foot"><span class="mono" style="font-size:11.5px;color:var(--ink-soft);">담당자 칸이 비어 있는 건은 항상 내 목록에 보입니다</span><button class="btn btn-primary" id="mgSaveBtn">저장</button></div>';
-  document.getElementById('modalOverlay').hidden = false;
-  document.getElementById('mgCloseBtn').addEventListener('click', closeModal);
-  document.getElementById('mgSaveBtn').addEventListener('click', function(){
-    myManagerName = document.getElementById('mgName').value.trim();
-    var cov=[]; document.querySelectorAll('#mgCoverList input[data-cover-name]').forEach(function(el){ if(el.checked) cov.push(el.dataset.coverName); });
-    coverManagers = cov;
-    var rules=[];
-    String(document.getElementById('mgRules').value||'').split('\n').forEach(function(line){
-      var i = line.indexOf(':'); if(i<0) return;
-      var c = line.slice(0,i).trim(); if(!c) return;
-      var keys = line.slice(i+1).split(',').map(function(k){return k.trim();}).filter(Boolean);
-      if(keys.length) rules.push({client:c, keys:keys});
-    });
-    mgrRegionRules = rules;
-    lsSet_('fw_myManager', myManagerName);
-    lsSet_('fw_coverManagers', JSON.stringify(coverManagers));
-    lsSet_('fw_mgrRegionRules', JSON.stringify(mgrRegionRules));
-    if(coverManagers.length && !coverOn) setCoverOn(true);   // 대무 담당자를 새로 체크하면 바로 켜줌
-    mgrCacheBump_();
-    closeModal(); renderAll();
-    toast(myManagerName ? ('내 담당("'+myManagerName+'") 건만 보도록 설정했어요'+(coverManagers.length?(' · 대무: '+coverManagers.join(', ')):'')) : '담당자 구분을 껐어요');
-  });
-}
 function openMyClientsModal(){
   editingId = null;
   var known = collectKnownClients();
@@ -4539,8 +4407,7 @@ function openMyClientsModal(){
   var ediSet = {}; ediClientCodes.forEach(function(c){ ediSet[c]=true; });
   var poNoteSet = {}; poNoteClientCodes.forEach(function(c){ poNoteSet[c]=true; });
 
-  var MC_HEAD = '<div class="mc-grid mc-head"><span style="text-align:left;"></span><span>배차</span><span>PRE-ALERT</span><span>보험</span><span>프리타임</span><span>EDI</span><span>PO→비고</span><span>대무</span></div>';
-  var coverSet_ = {}; coverClientCodes.forEach(function(c){ coverSet_[String(c).trim()]=true; });
+  var MC_HEAD = '<div class="mc-grid mc-head"><span style="text-align:left;"></span><span>배차</span><span>PRE-ALERT</span><span>보험</span><span>프리타임</span><span>EDI</span><span>PO→비고</span></div>';
   function renderRows(filterQ){
     var q=(filterQ||'').trim().toLowerCase();
     var rows = q ? allRows.filter(function(r){ return String(r.code||'').toLowerCase().indexOf(q)>=0 || String(r.name||'').toLowerCase().indexOf(q)>=0; }) : allRows;
@@ -4556,7 +4423,6 @@ function openMyClientsModal(){
         '<label class="mc-cell" title="체크하면 이 화주의 건에 프리타임 필요=YES가 자동으로 걸립니다(출항일 기준 추적)"><input type="checkbox" data-freetime-code="'+escapeHtml(r.code)+'" '+(freeTimeSet[r.code]?'checked':'')+'></label>'+
         '<label class="mc-cell" title="체크하면 이 화주의 건에 EDI 필요=YES가 자동으로 걸립니다(서류마감일 기준 추적)"><input type="checkbox" data-edi-code="'+escapeHtml(r.code)+'" '+(ediSet[r.code]?'checked':'')+'></label>'+
         '<label class="mc-cell" title="체크하면 이 화주 건의 엑셀 PO No가 비고(특이사항)에 자동으로 들어갑니다"><input type="checkbox" data-ponote-code="'+escapeHtml(r.code)+'" '+(poNoteSet[r.code]?'checked':'')+'></label>'+
-        '<label class="mc-cell" title="대무(동료 휴무 대신 맡기)할 거래처 — 위쪽 \'대무 켜기\' 스위치를 켠 동안에만 내 목록에 함께 보입니다(이 브라우저에만 저장)"><input type="checkbox" data-cover-code="'+escapeHtml(r.code)+'" '+(coverSet_[r.code]?'checked':'')+'></label>'+
         '</div>';
     }).join('');
   }
@@ -4571,12 +4437,6 @@ function openMyClientsModal(){
     document.querySelectorAll('#mcList input[data-dispatch-code]').forEach(function(el){
       el.addEventListener('change', function(){
         if(el.checked) dispatchSet[el.dataset.dispatchCode]=true; else delete dispatchSet[el.dataset.dispatchCode];
-        updateCount();
-      });
-    });
-    document.querySelectorAll('#mcList input[data-cover-code]').forEach(function(el){
-      el.addEventListener('change', function(){
-        if(el.checked) coverSet_[el.dataset.coverCode]=true; else delete coverSet_[el.dataset.coverCode];
         updateCount();
       });
     });
@@ -4650,10 +4510,6 @@ function openMyClientsModal(){
   });
   document.getElementById('mcSaveBtn').addEventListener('click', async function(){
     var codes = Object.keys(workingSet);
-    // 대무 거래처는 사람마다 다르고 수시로 바뀌므로 구글시트가 아니라 이 브라우저에만 저장함
-    coverClientCodes = Object.keys(coverSet_);
-    lsSet_('fw_coverClients', JSON.stringify(coverClientCodes));
-    mgrCacheBump_();
     try{
       var dispatchCodes = Object.keys(dispatchSet);
       var preAlertCodes = Object.keys(preAlertSet);
@@ -4936,142 +4792,6 @@ function openNoticeModal(kind){
   });
   draw();
 }
-/* ================= 휴무 인수인계 =================
-   내가 자리를 비우는 기간에 처리해야 할 내 건들을 날짜별로 모아 줄글(+CSV)로 만들어 줌.
-   오늘 할 일(01)·앞으로 7일 내(02)·그 외 전체(03)에 흩어져 있는 미완료 항목을 모두 모은 뒤,
-   각 항목의 기준일이 지정한 기간 안에 드는 것만 추림. 기간 시작 전에 이미 기한이 지난 건과
-   기준일이 비어 있는 건은 놓치기 쉬우므로 맨 앞에 따로 묶어서 보여줌. */
-function handoverRows_(startD, endD){
-  var seen = {}, out = [];
-  feedTodayAll().concat(feedUpcomingAll(), feedRemainingAll()).forEach(function(x){
-    var key = x.s.id+'|'+x.type+'|'+(x.item&&x.item.key);
-    if(seen[key]) return; seen[key]=true;
-    var r = refInfoOf(x);
-    var d = toDate(r.val);
-    var bucket, day=null;
-    if(!d) bucket = 'nodate';
-    else { day = dayFloor(d); bucket = (day<startD) ? 'past' : (day<=endD ? 'in' : null); }
-    if(bucket===null) return;
-    out.push({x:x, bucket:bucket, day:day, refKind:r.kind, refVal:r.val});
-  });
-  out.sort(function(a,b){
-    var o = {past:0, nodate:1, in:2};
-    if(o[a.bucket]!==o[b.bucket]) return o[a.bucket]-o[b.bucket];
-    var ta = a.day?a.day.getTime():0, tb = b.day?b.day.getTime():0;
-    if(ta!==tb) return ta-tb;
-    return String(a.x.s.managementNo||'').localeCompare(String(b.x.s.managementNo||''));
-  });
-  return out;
-}
-function handoverTaskLabel_(x){
-  var tl = TYPE_LABEL[x.type] || x.type;
-  var il = (x.item && x.item.label) || '';
-  var norm = function(v){ return String(v||'').replace(/[\s\-_]/g,'').toLowerCase(); };
-  return (!il || norm(il)===norm(tl) || norm(il).indexOf(norm(tl))===0) ? (il||tl) : (tl+' · '+il);
-}
-function handoverText_(rows, startD, endD, who){
-  if(!rows.length) return '';
-  var fd = function(d){ var f=fmtDate(d); return f.date; };
-  var lines = ['휴무 인수인계 ('+fd(startD)+' ~ '+fd(endD)+')'+(who?(' · '+who+' 담당'):''), ''];
-  var groups = [], gmap = {};
-  rows.forEach(function(r){
-    var gk = r.bucket==='in' ? ('D'+r.day.getTime()) : r.bucket;
-    if(!gmap[gk]){ gmap[gk] = {key:gk, bucket:r.bucket, day:r.day, items:{}, order:[]}; groups.push(gmap[gk]); }
-    var g = gmap[gk], sk = r.x.s.id;
-    if(!g.items[sk]){ g.items[sk] = {s:r.x.s, tasks:[], refs:[]}; g.order.push(sk); }
-    g.items[sk].tasks.push(handoverTaskLabel_(r.x));
-    var rf = r.refVal ? (r.refKind+' '+fmtDate(r.refVal).date) : (r.refKind+' 미입력');
-    if(g.items[sk].refs.indexOf(rf)<0) g.items[sk].refs.push(rf);
-  });
-  var WD = ['일','월','화','수','목','금','토'];
-  groups.forEach(function(g){
-    var title = g.bucket==='past' ? '[기간 시작 전에 이미 기한이 지난 건]'
-             : g.bucket==='nodate' ? '[기준일이 비어 있어 확인이 필요한 건]'
-             : '['+fd(g.day)+' ('+WD[g.day.getDay()]+')]';
-    lines.push(title);
-    g.order.forEach(function(sk){
-      var it = g.items[sk], s = it.s;
-      var head = [s.managementNo||s.id, s.client||'-'];
-      var ref = String(s.lineBookingNo||'').trim() || String(s.hbl||'').trim();
-      if(ref) head.push(ref);
-      var v = vesselFullOf_(s); if(v) head.push(v);
-      if(s.pod) head.push(s.pod);
-      lines.push('- '+head.join(' / '));
-      lines.push('  · '+it.tasks.join(', ')+' ('+it.refs.join(' · ')+')');
-    });
-    lines.push('');
-  });
-  return lines.join('\n').replace(/\n+$/,'\n');
-}
-function handoverCsv_(rows){
-  var head = ['기준일','요일','구분','관리번호','거래처','담당자','업무','Line Booking No','House B/L No','모선/항차','POD','기준일종류'];
-  var WD = ['일','월','화','수','목','금','토'];
-  var esc = function(v){ v = String(v===undefined||v===null?'':v); return /[,"\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; };
-  var body = rows.map(function(r){
-    var s = r.x.s;
-    return [
-      r.day?fmtDate(r.day).date:'', r.day?WD[r.day.getDay()]:'',
-      r.bucket==='past'?'기한 지남':(r.bucket==='nodate'?'기준일 없음':'기간 내'),
-      s.managementNo||s.id, s.client||'', s.manager||'', handoverTaskLabel_(r.x),
-      s.lineBookingNo||'', s.hbl||'', vesselFullOf_(s)||'', s.pod||'', r.refKind||''
-    ].map(esc).join(',');
-  });
-  return head.join(',')+'\n'+body.join('\n');
-}
-function openHandoverModal(){
-  editingId = null;
-  var t = new Date();
-  var start = new Date(t.getFullYear(), t.getMonth(), t.getDate()+1);
-  var end = new Date(t.getFullYear(), t.getMonth(), t.getDate()+7);
-  var iso = function(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); };
-  var rows = [];
-  function draw(){
-    var sv = document.getElementById('hoStart').value, ev = document.getElementById('hoEnd').value;
-    var sd = sv ? dayFloor(new Date(sv+'T00:00:00')) : dayFloor(start);
-    var ed = ev ? dayFloor(new Date(ev+'T00:00:00')) : dayFloor(end);
-    if(ed<sd) ed = sd;
-    rows = handoverRows_(sd, ed);
-    document.getElementById('hoOut').value = handoverText_(rows, sd, ed, myManagerName) || '해당 기간에 넘길 일이 없습니다.';
-    document.getElementById('hoCount').textContent = rows.length+'개 항목 · '
-      + rows.filter(function(r){return r.bucket==='past';}).length+'개는 이미 기한 지남';
-  }
-  document.getElementById('modalContent').innerHTML =
-    '<div class="modal-head"><h3>휴무 인수인계 만들기</h3><button class="modal-close" id="hoCloseBtn">&times;</button></div>'+
-    '<div class="modal-body">'+
-    '<div class="nt-head"><b>기간</b>'+
-      '<input type="date" id="hoStart" value="'+iso(start)+'">'+
-      '<span style="color:var(--ink-soft);">~</span>'+
-      '<input type="date" id="hoEnd" value="'+iso(end)+'">'+
-      '<span style="color:var(--ink-soft);">지금 화면에 보이는 내 건(내 거래처·담당자 기준) 중 기준일이 이 기간에 드는 미완료 항목만 모읍니다 · 기간 전에 이미 기한이 지난 건과 기준일이 비어 있는 건도 맨 앞에 함께 넣습니다</span></div>'+
-    '<textarea id="hoOut" spellcheck="false" style="min-height:46vh;"></textarea>'+
-    '</div>'+
-    '<div class="modal-foot"><span class="mono" style="font-size:11.5px;color:var(--ink-soft);" id="hoCount"></span>'+
-      '<button class="btn" id="hoCsvBtn">CSV로 저장</button>'+
-      '<button class="btn btn-primary" id="hoCopyBtn">인수인계문 복사</button></div>';
-  document.getElementById('modalContent').classList.add('wide');
-  document.getElementById('modalOverlay').hidden = false;
-  document.getElementById('hoCloseBtn').addEventListener('click', closeModal);
-  document.getElementById('hoStart').addEventListener('change', draw);
-  document.getElementById('hoEnd').addEventListener('change', draw);
-  document.getElementById('hoCopyBtn').addEventListener('click', function(){
-    var ta = document.getElementById('hoOut'), txt = ta.value;
-    if(!txt){ toast('복사할 내용이 없습니다.', {err:true}); return; }
-    var done = function(){ toast('인수인계문을 복사했습니다. 메신저·메일에 붙여넣기(Ctrl+V) 하세요.'); };
-    var fallback = function(){ try{ ta.select(); document.execCommand('copy'); done(); }catch(e){ toast('복사에 실패했습니다. 내용을 직접 선택해서 복사해 주세요.', {err:true}); } };
-    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(done, fallback); } else fallback();
-  });
-  document.getElementById('hoCsvBtn').addEventListener('click', function(){
-    if(!rows.length){ toast('저장할 내용이 없습니다.', {err:true}); return; }
-    var blob = new Blob(['﻿'+handoverCsv_(rows)], {type:'text/csv;charset=utf-8;'});
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url; a.download = '휴무_인수인계_'+document.getElementById('hoStart').value+'_'+document.getElementById('hoEnd').value+'.csv';
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast('CSV로 저장했습니다. 구글시트에서 열어 공유하세요.');
-  });
-  draw();
-}
 function openItemLabelSettingsModal(){
   editingId = null;
   // working: routeType -> itemKey -> 현재 입력값(라벨) — 취소 시 버려짐, 저장 시에만 반영
@@ -5187,9 +4907,6 @@ document.getElementById('myClientsToggleBtn').addEventListener('click', function
   showMyClientsOnly = !showMyClientsOnly; saveMyOnlyPref(showMyClientsOnly); renderAll();
 });
 document.getElementById('myClientsManageBtn').addEventListener('click', openMyClientsModal);
-document.getElementById('managerBtn').addEventListener('click', openManagerModal);
-document.getElementById('handoverBtn').addEventListener('click', openHandoverModal);
-document.getElementById('coverToggleBtn').addEventListener('click', function(){ setCoverOn(!coverOn); renderAll(); toast(coverOn?'대무 거래처·담당자 건을 함께 봅니다':'대무를 껐어요'); });
 document.getElementById('itemLabelSettingsBtn').addEventListener('click', openItemLabelSettingsModal);
 document.getElementById('noticeBtn').addEventListener('click', function(){ openNoticeModal('dep'); });
 document.getElementById('noticeDocBtn').addEventListener('click', function(){ openNoticeModal('doc'); });
