@@ -2086,10 +2086,10 @@ function renderTabRow(){
   var tabs=[
     {key:'TODAY', label:'오늘 할 일', count: feedTodayAll().length + feedUnassigned().length},
     {key:'BL_HOLDING', label:'비엘홀딩중', count: feedBlHolding().length},
-    {key:'BOOKING_HOLD', label:'부킹확인중', count: bookingHolds.filter(function(b){return (b['상태']||'대기중')==='대기중';}).length}
+    {key:'CANCELLED', label:'캔슬', count: feedCancelled().length, plain:true}
   ];
   document.getElementById('tabRow').innerHTML = tabs.map(function(t){
-    return '<button class="tab-btn'+(activeTab===t.key?' active':'')+'" data-tab="'+t.key+'">'+t.label+'<span class="tab-count mono'+(t.count>0?' has-count':'')+'">'+t.count+'</span></button>';
+    return '<button class="tab-btn'+(activeTab===t.key?' active':'')+'" data-tab="'+t.key+'">'+t.label+'<span class="tab-count mono'+(t.count>0&&!t.plain?' has-count':'')+'">'+t.count+'</span></button>';
   }).join('');
   document.querySelectorAll('[data-tab]').forEach(function(btn){
     btn.addEventListener('click', function(){
@@ -2155,7 +2155,7 @@ function goToSection(id){
 var sectionCollapsedOverride = {};
 /* 오늘 할 일 탭의 섹션(01·02·03 및 기한 지난 건 별도 섹션)은 업무구분 단추(전체 포함)를 누르면 항상 모두 펼쳐진 상태로 시작함 */
 var TODAY_TAB_SECTIONS = ['sec-today','sec-upcoming','sec-remaining','sec-prealert-old','sec-insurance-old','sec-freetime-old','sec-edi-old','sec-blissue-old'];
-function defaultSectionCollapsed(id){ if(TODAY_TAB_SECTIONS.indexOf(id)>=0) return false; return id!=='sec-today' && id!=='sec-search' && id!=='sec-booking-hold' && id!=='sec-bl-holding' && id!=='sec-blissue-old' && id!=='sec-prealert-old' && id!=='sec-insurance-old' && id!=='sec-freetime-old' && id!=='sec-edi-old'; }
+function defaultSectionCollapsed(id){ if(TODAY_TAB_SECTIONS.indexOf(id)>=0) return false; return id!=='sec-today' && id!=='sec-search' && id!=='sec-booking-hold' && id!=='sec-bl-holding' && id!=='sec-cancelled' && id!=='sec-blissue-old' && id!=='sec-prealert-old' && id!=='sec-insurance-old' && id!=='sec-freetime-old' && id!=='sec-edi-old'; }
 function routePillHtml(s){
   var lcl = isLclRoute(s.routeType);
   var doorBadge = '';
@@ -3023,6 +3023,61 @@ function blHoldingTable(list){
       '</div>';
   }).join('');
 }
+/* ================= 캔슬 탭 — 캔슬로 바꾼 건을 한곳에 모아 보고, 잘못 캔슬한 건은 "복구"로 되돌림 ================= */
+function feedCancelled(){
+  return allShipments.filter(function(s){ return statusOf(s)==='cancelled' && matchesFilter(s) && matchesMyClients(s); })
+    .sort(function(a,b){
+      var da = toDate(a.etd), db = toDate(b.etd);
+      var ta = da ? da.getTime() : -Infinity, tb = db ? db.getTime() : -Infinity;
+      if(ta!==tb) return tb-ta;                       // 출항일 늦은(최근) 건이 위로
+      return String(b.managementNo||'').localeCompare(String(a.managementNo||''));
+    });
+}
+var CANCEL_GRID = 'grid-template-columns:132px minmax(130px,1.2fr) minmax(150px,.9fr) minmax(74px,.6fr) minmax(var(--w-lb,140px),1fr) minmax(var(--w-hb,140px),1fr) minmax(var(--w-mb,140px),1fr) minmax(100px,1fr) 128px minmax(110px,1.2fr) 84px;min-width:calc(1000px + var(--w-lb,140px) + var(--w-hb,140px) + var(--w-mb,140px));';
+function cancelledTable(list){
+  if(list.length===0) return '<div class="trow empty">캔슬한 건이 없습니다</div>';
+  var head = '<div class="trow head bl-hold-row" style="'+CANCEL_GRID+'">'+
+    '<span>관리번호</span><span>거래처명</span><span>루틴</span><span>담당자</span>'+
+    '<span>Line Booking No</span><span>House B/L No</span><span>Master B/L No</span><span>VESSEL / 항차</span><span style="text-align:center;">ETD</span><span>비고</span><span></span></div>';
+  return head + list.map(function(s){
+    var etdFmt = fmtDate(s.etd);
+    return '<div class="trow bl-hold-row cancel-row" style="'+CANCEL_GRID+'">'+
+      '<span class="mgmtno mono">'+escapeHtml(s.managementNo||s.id)+'</span>'+
+      '<button class="client-name" data-act="edit" data-id="'+escapeHtml(s.id)+'" title="'+escapeHtml(s.client||'')+'">'+escapeHtml(s.client||'-')+'</button>'+
+      routePillHtml(s)+
+      '<span class="mgr">'+escapeHtml(s.manager||'-')+'</span>'+
+      '<span class="lb-wrap"><span class="bl-cell mono ref-lb" title="'+escapeHtml(s.lineBookingNo||'')+'">'+escapeHtml(s.lineBookingNo||'-')+'</span>'+cntrPillHtml_(s)+'</span>'+
+      '<span class="bl-cell mono ref-hb" title="'+escapeHtml(s.hbl||'')+'">'+escapeHtml(s.hbl||'-')+'</span>'+
+      '<span class="bl-cell mono ref-mb" title="'+escapeHtml(s.mbl||'')+'">'+escapeHtml(s.mbl||'-')+'</span>'+
+      vesselCellHtml(s)+
+      '<span class="mono" style="font-size:11px;text-align:center;">'+(etdFmt.date==='—'?'-':escapeHtml(etdFmt.date))+'</span>'+
+      remarkCellHtml(s)+
+      '<button class="btn btn-sm" data-act="uncancel" data-id="'+escapeHtml(s.id)+'" title="캔슬을 풀고 진행중으로 되돌립니다">복구</button>'+
+      '</div>';
+  }).join('');
+}
+function renderCancelledTab(board, q){
+  var sections=[];
+  if(q){
+    var results = searchResults(q);
+    sections.push({id:'sec-search', tag:'Q', title:'검색 결과', sub:'관리번호(FILE No) · Line Booking No · House B/L No · Master B/L No · PO No · 비고 · 거래처 · 담당자 — 상태(완료·캔슬 포함) 전체에서 검색'+clientFilterNote(), color:'teal', body:searchResultTable(results), count:results.length});
+  } else {
+    var list = feedCancelled();
+    sections.push({id:'sec-cancelled', tag:'캔슬', title:'캔슬한 건', sub:'캔슬로 바꿔 둔 건 모음 · 잘못 캔슬했다면 오른쪽 "복구"를 누르세요 — 진행중으로 돌아가 오늘 할 일에 다시 나타납니다 · 거래처·담당자 걸러보기 적용 · 출항일 최근 순'+clientFilterNote(), color:'slate', body:cancelledTable(list), count:list.length});
+  }
+  renderSections(board, sections);
+}
+/* 복구: 캔슬 표시만 풀어 줌(체크리스트·다른 칸은 그대로). 화면에 먼저 반영하고 저장 — 실패하면 되돌림 */
+function uncancelShipment(id){
+  var s = byId[id]; if(!s) return;
+  var prev = s.cancelled;
+  s.cancelled = false;
+  noteSaveStart(id, s);
+  renderAll();
+  apiPost({action:'upsertOne', id: s.managementNo, data: {'캔슬': false}})
+    .then(function(){ noteSaveDone(id); toast('"'+(s.managementNo||id)+'" 건을 복구했습니다. 진행중으로 돌아갔어요.'); })
+    .catch(function(e){ noteSaveFail(id); s.cancelled = prev; renderAll(); toast('복구 실패: '+e.message, {err:true}); });
+}
 function renderBlHoldingTab(board, q){
   var sections=[];
   if(q){
@@ -3064,7 +3119,8 @@ function renderBoard(){
   if(activeTab==='TODAY') renderTodayTab(board, q);
   else if(activeTab==='CHECKLIST') renderChecklistTab(board, q);
   else if(activeTab==='BL_HOLDING') renderBlHoldingTab(board, q);
-  else renderBookingHoldTab(board, q);
+  else if(activeTab==='CANCELLED') renderCancelledTab(board, q);
+  else renderTodayTab(board, q);   // (부킹확인중 탭은 없앰 — 알 수 없는 탭 값이면 오늘 할 일로)
   fitRefCols_();
 }
 
@@ -3568,6 +3624,14 @@ function wireBoardEvents(){
       var label = s ? (s.managementNo||id) : id;
       if(!confirm('"'+label+'" 건의 비엘 홀딩을 해제할까요?\n(해제 후 맨 앞 체크로 최종 비엘 발행완료 처리를 할 수 있습니다.)')) return;
       releaseBlHold(id);
+    });
+  });
+  document.querySelectorAll('[data-act="uncancel"]').forEach(function(btn){
+    if(btn.dataset.wired) return; btn.dataset.wired='1';
+    btn.addEventListener('click', function(){
+      var sh = byId[btn.dataset.id];
+      if(!confirm('"'+(sh?(sh.managementNo||sh.id):btn.dataset.id)+'" 건의 캔슬을 풀고 진행중으로 되돌릴까요?')) return;
+      uncancelShipment(btn.dataset.id);
     });
   });
   // 홀딩 해제 전에 발행완료 체크를 누른 경우 — 체크되지 않고 안내만 보여줌
