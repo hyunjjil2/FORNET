@@ -248,6 +248,7 @@ img{max-width:100%;}
 .trow.head{background:var(--surface-2); font-size:10.5px; font-weight:600; color:var(--ink-soft); letter-spacing:.3px; padding:7px 16px;}
 .trow.empty{color:var(--ink-soft); font-size:12.5px; padding:16px; grid-template-columns:1fr; min-width:0; justify-items:center;}
 .trow:not(.head):not(.empty):hover{background:var(--surface-2);}
+.trow.today.soon3{background:color-mix(in srgb, var(--brass) 6%, transparent);}
 .trow.today{grid-template-columns:22px 40px minmax(118px,.9fr) minmax(132px,1.3fr) minmax(96px,.8fr) minmax(66px,.5fr) minmax(var(--w-lb,148px),1fr) minmax(var(--w-hb,148px),1fr) minmax(var(--w-mb,148px),1fr) minmax(96px,1fr) minmax(92px,1fr) minmax(164px,1.2fr) minmax(108px,.8fr) 34px; align-items:start; padding-top:11px; padding-bottom:11px;
   min-width:calc(1016px + var(--w-lb,148px) + var(--w-hb,148px) + var(--w-mb,148px));}
 .trow.today.eta2{grid-template-columns:22px 40px minmax(118px,.9fr) minmax(132px,1.3fr) minmax(96px,.8fr) minmax(66px,.5fr) minmax(var(--w-lb,148px),1fr) minmax(var(--w-hb,148px),1fr) minmax(var(--w-mb,148px),1fr) minmax(96px,1fr) minmax(92px,1fr) minmax(150px,1.2fr) minmax(94px,.7fr) minmax(108px,.8fr) 34px;
@@ -321,6 +322,8 @@ img{max-width:100%;}
 .doc-sub-wrap{display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;}
 .doc-sub{font:inherit; font-size:11.5px; line-height:1.2; padding:3px 7px; border-radius:10px; border:1px solid var(--line); background:var(--surface); color:var(--ink); cursor:pointer;}
 .doc-sub.todo:hover{border-color:var(--steel); color:var(--steel);}
+.doc-sub.locked{background:transparent; color:var(--ink-soft); border-style:dashed; cursor:not-allowed; opacity:.75;}
+.pa-steps .doc-sub.todo{border-color:var(--rose); color:var(--rose); background:var(--rose-soft);}
 .doc-sub.done{background:var(--teal-soft,#dff1ee); color:var(--teal); border-color:transparent; cursor:default; text-decoration:line-through;}
 .date-badge-cell{display:flex; flex-direction:column; align-items:center; gap:3px;}
 .date-badge-cell .mono{font-size:11.5px; color:var(--ink-soft);}
@@ -695,7 +698,7 @@ async function gateHash_(pw){
   return Array.prototype.map.call(new Uint8Array(buf), function(b){ return ('0'+b.toString(16)).slice(-2); }).join('');
 }
 var WEBAPP_URL_KEY = 'fw_webapp_url';
-var EXPECTED_SERVER_VERSION = 20261029; // Code.gs의 최신 SERVER_VERSION(참고용)
+var EXPECTED_SERVER_VERSION = 20261106; // Code.gs의 최신 SERVER_VERSION(참고용)
 /* 배너를 띄우는 기준 — "이 버전보다 낮으면 반드시 Code.gs를 올려야 함"인 최소 필요 버전.
    화면(index.html)만 바뀌고 Code.gs가 안 바뀐 업데이트는 이 숫자를 올리지 않으므로 배너가 뜨지 않음.
    Code.gs를 꼭 교체해야 하는 변경이 생길 때만 이 숫자를 그 버전으로 올림. */
@@ -848,7 +851,7 @@ function routeItems(routeType, billingOnly){
 
 /* 프론트 <-> 시트 헤더/필드 매핑 */
 var INFO_HEADERS = ['관리번호','루틴','청구전용','캔슬','서비스','수출입','거래처코드','거래처명','담당자','POL','POD','Delivery',
-  'DOC CLS','CFS CLS','ETD','ETA(PORT)','ETA(DOOR)','Door배송','Line Booking No','House B/L No','Master B/L No','PO No','선사','운송사','VESSEL','항차',"20'","40'",'40HQ','터미널','특이사항',
+  'DOC CLS','CFS CLS','ETD','ETA(PORT)','ETA(DOOR)','Door배송','배차필요','프리알러트필요','보험필요','프리타임필요','EDI필요','기타필요','기타기한','기타메모','비엘홀딩','Line Booking No','House B/L No','Master B/L No','PO No','선사','운송사','VESSEL','항차',"20'","40'",'40HQ','터미널','특이사항',
   '생성일시','수정일시'];
 var FIELD_TO_HEADER = {
   managementNo:'관리번호', routeType:'루틴', billingOnly:'청구전용', cancelled:'캔슬',
@@ -937,7 +940,7 @@ var FIELD_ALIASES = {
   etaPort: ['ETA(PORT)','ETAPORT','ETA PORT','ETA'], etaDoor: ['ETA(DOOR)','ETADOOR','ETA DOOR'],
   lineBookingNo: ['LINEBOOKINGNO','LINE BOOKING NO','LINE BOOKING NUMBER'],
   hbl: ['HOUSEB/LNO','HOUSE B/L NO','HBL'], mbl: ['MASTERB/LNO','MASTER B/L NO','MBL'], poNo: ['PONO','PO NO','PO 번호','PO번호','PO NUMBER'],
-  carrier: ['선사'], forwarder: ['운송사'], vessel: ['VESSEL','선박','선박명','모선','모선명'], voyage: ['항차','VOYAGE','VOY','VOYNO','항차번호'],
+  carrier: ['선사'], forwarder: ['운송사'], vessel: ['VESSEL','선명','선박','선박명','모선','모선명','선명/항차','VESSEL/항차','VESSEL/VOYAGE','VESSEL/VOY','선박/항차','모선/항차'], voyage: ['항차','VOYAGE','VOY','VOYNO','항차번호'],
   cntr20: ["20'",'20','20FT','20GP','20피트'], cntr40: ["40'",'40','40FT','40GP','40피트'], cntr40hq: ['40HQ',"40'HQ",'40HC','40HIGHCUBE'], terminal: ['터미널'], note: ['특이사항']
 };
 var REQUIRED_HEADER_DISPLAY = ['관리번호','루틴','서비스','수출입','거래처코드','거래처명','담당자','POL','POD','DOC CLS','CFS CLS','ETD','ETA(PORT)','ETA(DOOR)','Line Booking No','House B/L No','Master B/L No','PO No','선사','VESSEL','항차',"20'","40'",'40HQ','터미널','특이사항'];
@@ -2391,6 +2394,17 @@ function todayHeadHtml(tk){
 }
 /* 서류마감 행의 "묶음" 표시 — 면장·서류마감(·CHK BL) 각각의 완료 여부를 작은 알약으로 보여주고, 안 된 것은 눌러서 바로 체크 */
 function docSubHtml(x){
+  /* PRE-ALERT 2단계 — (1) PRE-ALERT 발송 → (2) 최종 PRE-ALERT 발송을 알약 두 개로 보여줌. 끝난 단계는 ✓, 안 된 단계는 눌러서 바로 체크.
+     순서가 정해져 있으므로 (1)이 끝나기 전에는 (2) 알약이 잠겨 있고 눌러도 체크되지 않음. */
+  if(x.type==='prealert'){
+    var pchk = x.s.checklist||{}, k1 = preAlertItemKeyFor(x.s.routeType), k2 = PREALERT_FINAL_KEY;
+    var steps = [{key:k1, label:'PRE-ALERT 발송'}, {key:k2, label:'최종 PRE-ALERT 발송'}];
+    return '<div class="doc-sub-wrap pa-steps">'+steps.map(function(m, i){
+      if(pchk[m.key]) return '<span class="doc-sub done" title="'+escapeHtml(m.label)+' 완료">✓ '+escapeHtml(m.label)+'</span>';
+      if(i===1 && !pchk[k1]) return '<span class="doc-sub locked" title="먼저 PRE-ALERT 발송을 완료해야 합니다">'+escapeHtml(m.label)+'</span>';
+      return '<button class="doc-sub todo" data-act="toggle" data-id="'+escapeHtml(x.s.id)+'" data-item="'+m.key+'" title="'+escapeHtml(m.label)+' 완료 처리">'+escapeHtml(m.label)+'</button>';
+    }).join('')+'</div>';
+  }
   if(x.type!=='docCls' && x.type!=='jigyeol') return '';
   var g = groupForItemKey(x.s, x.item.key); if(!g) return '';
   var chk = x.s.checklist||{};
@@ -2524,7 +2538,8 @@ function typeItemCellHtml(x){
   var same = norm(it.label)===norm(tl);
   // 항목 이름이 구분 이름으로 시작하면(예: ISF/ISF 신고, 프리타임/프리타임 신청, 보험/보험가입) 같은 말을 두 줄로 쓰지 않고
   // 색 블록 하나에 항목 이름만 표시
-  if(!same && norm(it.label).indexOf(norm(tl))===0 && x.type!=='blissue' && x.type!=='etc'){ tl = it.label; same = true; }
+  if(!same && norm(it.label).indexOf(norm(tl))===0 && x.type!=='blissue' && x.type!=='etc' && x.type!=='prealert'){ tl = it.label; same = true; }
+  if(x.type==='prealert'){ same = true; }   // 아래 알약 두 개가 단계를 보여주므로 항목 이름을 또 쓰지 않음
   return '<span class="ti-cell"><span class="type-tag '+x.type+'">'+tl+'</span>'+
     '<span class="item-label">'+(same?'':escapeHtml(it.label))+(it.billing?'<span class="billing-tag">청구</span>':'')+holidayTagHtml(x)+blHoldTagHtml(x)+blBizTagHtml(x)+docSubHtml(x)+lbpTagHtml_(x)+'</span></span>';
 }
@@ -2575,12 +2590,15 @@ function upcomingHeadHtml(){
     '<span></span>'+
     '</div>';
 }
+var UPCOMING_SOON_DAYS = 3;
 function upcomingTable(list, sectionId){
   list = applySort('upcoming', list, TODAY_SORT_GETTERS);
   if(list.length===0) return '<div class="trow empty">해당 항목 없음</div>';
   var rows = list.map(function(x){
     var s=x.s, it=x.item;
-    return '<div class="trow today'+(showEtaCol()?' eta2':'')+'">'+
+    /* 기한이 오늘부터 3일 이내(내일~D-3)인 건은 아주 연한 색으로 살짝만 표시 — 눈에 확 띄지 않게 */
+    var soon = (x.dd!==null && x.dd!==undefined && x.dd>=1 && x.dd<=UPCOMING_SOON_DAYS);
+    return '<div class="trow today'+(showEtaCol()?' eta2':'')+(soon?' soon3':'')+'">'+
       selectCbHtml(sectionId, s.id, it.key)+
       docMainCheckHtml(x)+
       '<span class="mgmtno mono">'+escapeHtml(s.managementNo||s.id)+'</span>'+
@@ -2714,7 +2732,7 @@ function renderTodayTab(board, q){
   if(activeType==='ALL' || activeType==='duesoon' || activeType==='docCls' || activeType==='door' || activeType==='isf' || activeType==='jigyeol' || activeType==='freetime' || activeType==='etc' || activeType==='edi'){
     var upcoming = feedUpcoming().filter(function(x){return matchesSearch(x.s,q);});
     var upcomingTypeLbl = activeType==='ALL' ? '출항안내·서류마감·도착확인·ISF·지결·프리타임·EDI·기타' : TYPE_LABEL[activeType];
-    sections.push({id:'sec-upcoming', tag:'02', title:'앞으로 '+UPCOMING_WINDOW_DAYS+'일 내 예정', sub:upcomingTypeLbl+' 중 아직 기한 전이지만 '+UPCOMING_WINDOW_DAYS+'일 이내로 다가온 건 · 기한이 되면 자동으로 "오늘 할 일"로 넘어감', color:'slate', body:upcomingTable(upcoming,'sec-upcoming'), count:upcoming.length, bulk:{items:upcoming.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
+    sections.push({id:'sec-upcoming', tag:'02', title:'앞으로 '+UPCOMING_WINDOW_DAYS+'일 내 예정', sub:upcomingTypeLbl+' 중 아직 기한 전이지만 '+UPCOMING_WINDOW_DAYS+'일 이내로 다가온 건 · 기한이 되면 자동으로 "오늘 할 일"로 넘어감 · 내일~'+UPCOMING_SOON_DAYS+'일 이내 건은 아주 연한 색으로 살짝 표시', color:'slate', body:upcomingTable(upcoming,'sec-upcoming'), count:upcoming.length, bulk:{items:upcoming.map(function(x){return {id:x.s.id,item:x.item.key,managementNo:x.s.managementNo};})}});
   }
   // "기한일로부터 N일 이상 지난 건"은 오늘 할 일(01)과 분리해 별도 섹션으로 — PRE-ALERT(기한일 7일 이상), 비엘발행(출항 D+2일 이상)
   function nextTag_(){ var n = sections.filter(function(x){return /^\d+$/.test(x.tag);}).length+1; return (n<10?'0':'')+n; }
@@ -4460,6 +4478,13 @@ function parseRows(rawRows){
       }
       else { out[field] = (v===undefined||v===null) ? '' : String(v).trim(); }
     });
+    /* 선명 칸에 항차가 붙어 있고("OOCL SINGAPORE 069W") 항차 칸은 따로 없거나 비어 있으면 모선명/항차로 나눔 —
+       안 나누면 시트에 남아 있던 예전 항차(094W)가 그대로 붙어 화면에 틀린 항차가 보임(엑셀 빈 칸은 기존 값을 안 덮어쓰므로).
+       항차로 보는 조건: 마지막 단어에 숫자와 영문자가 함께 있고(069W·S123·0095W), 앞에 모선명이 남을 때만 — "WAN HAI 305"처럼 숫자만이면 나누지 않음 */
+    if(out.vessel && !out.voyage){
+      var vm = String(out.vessel).match(/^(.*[A-Za-z].*?)\s+([A-Za-z0-9]{3,8})$/);
+      if(vm && /\d/.test(vm[2]) && /[A-Za-z]/.test(vm[2])){ out.vessel = vm[1].trim(); out.voyage = vm[2].toUpperCase(); }
+    }
     if(out.routeTypeRaw){ var rk = ROUTE_LABEL_TO_KEY[normHeader(out.routeTypeRaw)]; out.routeType = rk||''; delete out.routeTypeRaw; }
     if(!out.routeType && (out.service||out.tradeType)){ out.routeType = deriveRouteFromServiceTrade(out.service, out.tradeType); }
     return out;
