@@ -248,6 +248,7 @@ img{max-width:100%;}
 .trow.head{background:var(--surface-2); font-size:10.5px; font-weight:600; color:var(--ink-soft); letter-spacing:.3px; padding:7px 16px;}
 .trow.empty{color:var(--ink-soft); font-size:12.5px; padding:16px; grid-template-columns:1fr; min-width:0; justify-items:center;}
 .trow:not(.head):not(.empty):hover{background:var(--surface-2);}
+.hidden-note{display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:9px 16px; background:var(--brass-soft); color:var(--ink); font-size:12.5px; border-bottom:1px solid var(--line);}
 .trow.today.soon3{background:color-mix(in srgb, var(--brass) 6%, transparent);}
 .trow.today{grid-template-columns:22px 40px minmax(118px,.9fr) minmax(132px,1.3fr) minmax(96px,.8fr) minmax(66px,.5fr) minmax(var(--w-lb,148px),1fr) minmax(var(--w-hb,148px),1fr) minmax(var(--w-mb,148px),1fr) minmax(96px,1fr) minmax(92px,1fr) minmax(164px,1.2fr) minmax(108px,.8fr) 34px; align-items:start; padding-top:11px; padding-bottom:11px;
   min-width:calc(1016px + var(--w-lb,148px) + var(--w-hb,148px) + var(--w-mb,148px));}
@@ -2647,9 +2648,23 @@ var SEARCH_SORT_GETTERS = {
   docCls: function(s){ return toDate(s.docCls); }
 };
 function searchDateHtml_(v){ var d = toDate(v) ? fmtDate(v) : null; return d ? '<span class="mono" style="font-size:12px;">'+d.date+(d.time?'<br><span style="color:var(--ink-soft);">'+d.time+'</span>':'')+'</span>' : '<span class="mono" style="color:var(--ink-soft);">-</span>'; }
+/* 담당자·거래처 걸러보기 때문에 검색 결과에서 빠진 건 수 — 예: 기본값이 "이현정"인데 한선율 담당 건의 관리번호를 검색하면 0건으로 보이는 문제를 알려주기 위함 */
+function searchHiddenCount_(q){
+  if(!q) return 0;
+  return allShipments.filter(function(s){ return matchesSearch(s,q) && !matchesClientFilter(s); }).length;
+}
+function searchHiddenNoteHtml_(){
+  var el = document.getElementById('searchInput');
+  var q = el ? String(el.value||'').trim().toLowerCase() : '';
+  var n = searchHiddenCount_(q);
+  if(!n) return '';
+  return '<div class="hidden-note"><span>⚠ <b>걸러보기(담당자·거래처)</b> 때문에 가려진 검색 결과가 <b>'+n+'건</b> 더 있어요.</span>'+
+    '<button class="btn btn-sm" data-act="clearfilters">걸러보기 풀고 보기</button></div>';
+}
 function searchResultTable(list){
+  var hiddenNote = searchHiddenNoteHtml_();
   list = applySort('search', list, SEARCH_SORT_GETTERS);
-  if(list.length===0) return '<div class="trow empty">일치하는 건이 없습니다</div>';
+  if(list.length===0) return hiddenNote+'<div class="trow empty">일치하는 건이 없습니다</div>';
   var head = '<div class="trow head" style="grid-template-columns:'+SEARCH_COLS+';min-width:'+SEARCH_MIN_W+'px;">'+
     '<span>'+sortHeadHtml('search','mgmtno','관리번호')+'</span>'+
     '<span>'+sortHeadHtml('search','client','거래처명')+'</span>'+
@@ -2682,7 +2697,7 @@ function searchResultTable(list){
       '<button class="edit-btn" data-act="editnote" data-id="'+escapeHtml(s.id)+'" title="비고 입력·수정"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M11 2l3 3-8 8-3.5.5.5-3.5z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg></button>'+
       '</div>';
   }).join('');
-  return head + rows;
+  return hiddenNote + head + rows;
 }
 var VARS={danger:['--danger','--danger-soft'],steel:['--steel','--steel-soft'],teal:['--teal','--teal-soft'],plum:['--plum','--plum-soft'],slate:['--slate','--slate-soft'],brass:['--brass','--brass-soft'],warn:['--warn','--warn-soft'],rose:['--rose','--rose-soft'],indigo:['--indigo','--indigo-soft'],sky:['--sky','--sky-soft']};
 function renderSections(board, sections){
@@ -3642,6 +3657,12 @@ function wireBoardEvents(){
       var label = s ? (s.managementNo||id) : id;
       if(!confirm('"'+label+'" 건의 비엘 홀딩을 해제할까요?\n(해제 후 맨 앞 체크로 최종 비엘 발행완료 처리를 할 수 있습니다.)')) return;
       releaseBlHold(id);
+    });
+  });
+  document.querySelectorAll('[data-act="clearfilters"]').forEach(function(btn){
+    if(btn.dataset.wired) return; btn.dataset.wired='1';
+    btn.addEventListener('click', function(){
+      clearClientFilter(); setMgrSel_({}); refreshClientBox_(); refreshMgrFilter_(); renderAll();
     });
   });
   document.querySelectorAll('[data-act="uncancel"]').forEach(function(btn){
