@@ -564,6 +564,14 @@ details.help[open] summary:before{content:"–";}
   .kpi-strip{grid-template-columns:repeat(3,1fr);}
   .field-grid{grid-template-columns:1fr;}
 }
+
+/* 건 상세/수정 창 — 가로를 넓혀 칸을 4열(화면이 좁으면 3열·2열·1열)로 배치해서 아래로 스크롤을 덜 하게 함 */
+.modal.detail{max-width:1180px;}
+.modal.detail .modal-body{max-height:82vh;}
+.modal.detail .field-grid{grid-template-columns:repeat(4,minmax(0,1fr));}
+@media (max-width:1180px){ .modal.detail .field-grid{grid-template-columns:repeat(3,minmax(0,1fr));} }
+@media (max-width:900px){ .modal.detail .field-grid{grid-template-columns:repeat(2,minmax(0,1fr));} }
+@media (max-width:760px){ .modal.detail .field-grid{grid-template-columns:1fr;} }
 </style>
 </head>
 <body>
@@ -4321,6 +4329,7 @@ function openModal(id){
     return '<div class="field'+(f.full?' full':'')+'"><label>'+f.label+(f.req?' *':'')+'</label>'+inner+'</div>';
   }).join('');
   var routeOptionsHtml = '<option value="">— 미지정 —</option>' + ROUTE_ORDER.map(function(k){ return '<option value="'+k+'" '+(s.routeType===k?'selected':'')+'>'+ROUTES[k].label+'</option>'; }).join('');
+  var mcEl = document.getElementById('modalContent'); mcEl.classList.remove('wide'); mcEl.classList.remove('mcwide'); mcEl.classList.add('detail');   // 건 상세 창은 가로로 넓게(칸을 4열로) — 스크롤을 덜 내리도록
   document.getElementById('modalContent').innerHTML =
     '<div class="modal-head"><h3>'+(isNew?'신규 건 등록':'건 상세 / 수정')+'</h3><button class="modal-close" id="modalCloseBtn">&times;</button></div>'+
     '<div class="modal-body"><div class="field-grid">'+infoHtml+
@@ -4384,7 +4393,7 @@ function openModal(id){
   var delBtn = document.getElementById('deleteBtn'); if(delBtn) delBtn.addEventListener('click', deleteFromModal);
   refreshLclRow();
 }
-function closeModal(){ document.getElementById('modalOverlay').hidden = true; editingId = null; document.getElementById('modalContent').classList.remove('wide'); document.getElementById('modalContent').classList.remove('mcwide'); }
+function closeModal(){ document.getElementById('modalOverlay').hidden = true; editingId = null; document.getElementById('modalContent').classList.remove('detail'); document.getElementById('modalContent').classList.remove('wide'); document.getElementById('modalContent').classList.remove('mcwide'); }
 
 async function saveModal(){
   var isNew = !editingId;
