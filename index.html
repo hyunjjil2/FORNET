@@ -567,6 +567,9 @@ details.help[open] summary:before{content:"–";}
 
 /* 건 상세/수정 창 — 가로를 넓혀 칸을 4열(화면이 좁으면 3열·2열·1열)로 배치해서 아래로 스크롤을 덜 하게 함 */
 .modal.detail{max-width:1180px;}
+.field.keydate input{border:2px solid var(--danger); background:color-mix(in srgb, var(--danger) 4%, var(--surface, transparent));}
+.field.keydate label{color:var(--danger); font-weight:700;}
+.field.keydate .key-tag{font-size:10px; font-weight:600; margin-left:4px; opacity:.85;}
 .modal.detail .modal-body{max-height:82vh;}
 .modal.detail .field-grid{grid-template-columns:repeat(4,minmax(0,1fr));}
 @media (max-width:1180px){ .modal.detail .field-grid{grid-template-columns:repeat(3,minmax(0,1fr));} }
@@ -4053,9 +4056,9 @@ var INFO_FIELDS = [
   {k:'pol', label:'POL', type:'text'},
   {k:'pod', label:'POD', type:'text'},
   {k:'delivery', label:'DELIVERY', type:'text'},
-  {k:'docCls', label:'DOC CLS', type:'datetime'},
+  {k:'docCls', label:'DOC CLS', type:'datetime', key:true},
   {k:'cfsCls', label:'CFS CLS', type:'datetime'},
-  {k:'etd', label:'ETD', type:'datetime'},
+  {k:'etd', label:'ETD', type:'datetime', key:true},
   {k:'etaPort', label:'ETA(PORT)', type:'datetime'},
   {k:'etaDoor', label:'ETA(DOOR)', type:'datetime'},
   {k:'lineBookingNo', label:'Line Booking No', type:'text'},
@@ -4066,9 +4069,9 @@ var INFO_FIELDS = [
   {k:'vessel', label:'VESSEL', type:'text'},
   {k:'voyage', label:'항차', type:'text'},
   {k:'cntr20', label:"컨테이너 20' 수량", type:'text'},
-  {k:'cntr40', label:"컨테이너 40' 수량", type:'text'},
+  {k:'cntr40', label:"컨테이너 40' 수량", type:'text', hide:true},   // hide: 상세창에는 안 보임(저장해도 기존 값은 그대로 유지)
   {k:'cntr40hq', label:'컨테이너 40HQ 수량', type:'text'},
-  {k:'terminal', label:'터미널', type:'text'},
+  {k:'terminal', label:'터미널', type:'text', hide:true},
   {k:'note', label:'비고', type:'textarea', full:true}
 ];
 function modalChecklistHtml(routeType, billingOnly, checklist, hidePreAlertItem, hideDispatchItem){
@@ -4320,13 +4323,14 @@ function openModal(id){
   var defaultEtcNeeded = !!s.etcNeeded;
   var defaultBlHolding = !!s.blHolding;
   var infoHtml = INFO_FIELDS.map(function(f){
+    if(f.hide) return '';
     var val = s[f.k]!==undefined ? s[f.k] : '';
     var inner;
     if(f.type==='select'){ inner='<select data-k="'+f.k+'"><option value=""></option>'+f.opts.map(function(o){return '<option value="'+escapeHtml(o)+'" '+(matchesSelectOpt(f.k,val,o)?'selected':'')+'>'+escapeHtml(o)+'</option>';}).join('')+'</select>'; }
     else if(f.type==='datetime'){ inner='<input type="datetime-local" data-k="'+f.k+'" value="'+fmtDateInput(val)+'">'; }
     else if(f.type==='textarea'){ inner='<textarea data-k="'+f.k+'">'+escapeHtml(val)+'</textarea>'; }
     else { inner='<input type="text" data-k="'+f.k+'" value="'+escapeHtml(val)+'">'; }
-    return '<div class="field'+(f.full?' full':'')+'"><label>'+f.label+(f.req?' *':'')+'</label>'+inner+'</div>';
+    return '<div class="field'+(f.full?' full':'')+(f.key?' keydate':'')+'"><label>'+f.label+(f.req?' *':'')+(f.key?' <span class="key-tag">업무 기준일</span>':'')+'</label>'+inner+'</div>';
   }).join('');
   var routeOptionsHtml = '<option value="">— 미지정 —</option>' + ROUTE_ORDER.map(function(k){ return '<option value="'+k+'" '+(s.routeType===k?'selected':'')+'>'+ROUTES[k].label+'</option>'; }).join('');
   var mcEl = document.getElementById('modalContent'); mcEl.classList.remove('wide'); mcEl.classList.remove('mcwide'); mcEl.classList.add('detail');   // 건 상세 창은 가로로 넓게(칸을 4열로) — 스크롤을 덜 내리도록
@@ -4790,9 +4794,21 @@ function openMyClientsModal(){
    "출항안내" 업무구분에 떠 있는 건(오늘 할 일 + 앞으로 7일 내)을 거래처별로 골라, 모선별로 묶은 안내문을 만들어 복사.
    줄 형식: PO No / House B/L No / POD / ATD-ETA : 월/일-월/일 (상태)  — 같은 House B/L의 건은 PO를 _로 합쳐 한 줄로.
    상태(출항 완료 · 출항 지연 · 직접 쓴 문구)는 항상 직접 고름. 상태에 "출항 완료"가 들어 있으면 ATD, 아니면 ETD로 표기. */
-function noticeDate_(v, withTime){
+/* refYear: 기준 연도(생략하면 올해). 날짜의 연도가 기준 연도와 다르면 '27/01/01' 처럼 연도를 붙여 표기함.
+   ETD는 올해와 비교, ETA는 ETD의 연도와 비교(ETD가 없으면 올해와 비교) — noticeEtaYear_ 참고 */
+function noticeEtaYear_(s){ var d = toDate(s.etd); return d ? d.getFullYear() : new Date().getFullYear(); }
+function noticeDate_(v, withTime, refYear){
   var d = toDate(v); if(!d) return '-';
   var t = '';
+  var ry = (refYear==null) ? new Date().getFullYear() : refYear;
+  if(d.getFullYear() !== ry){
+    var yy = String(d.getFullYear()).slice(-2), mm = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0');
+    if(withTime){
+      var h0 = d.getHours(), m0 = d.getMinutes();
+      if((h0||m0) && !(h0===9 && m0===0)) t = ' '+String(h0).padStart(2,'0')+':'+String(m0).padStart(2,'0');
+    }
+    return yy+'/'+mm+'/'+dd+t;
+  }
   if(withTime){
     var h = d.getHours(), m = d.getMinutes();
     // 엑셀 날짜만 있는 값이 09:00으로 들어오는 경우가 있어 00:00·09:00은 시간 없는 것으로 봄
@@ -4930,7 +4946,7 @@ function buildNoticeText_(items){
       var note = String(m.note||'').trim();
       var lab = /출항\s*완료/.test(note) ? 'ATD-ETA' : 'ETD-ETA';
       var eta = m.s.etaPort ? m.s.etaPort : m.s.etaDoor;
-      return m.pos.join('_')+' / '+(String(m.s.hbl||'').trim()||'-')+' / '+noticePodOf_(m.s)+' / '+lab+' : '+noticeDate_(m.s.etd,true)+'-'+noticeDate_(eta,false)+(note?(' ('+note+')'):'');
+      return m.pos.join('_')+' / '+(String(m.s.hbl||'').trim()||'-')+' / '+noticePodOf_(m.s)+' / '+lab+' : '+noticeDate_(m.s.etd,true)+'-'+noticeDate_(eta,false,noticeEtaYear_(m.s))+(note?(' ('+note+')'):'');
     });
     return v+'\n'+lines.join('\n');
   });
@@ -4985,7 +5001,7 @@ function openNoticeModal(kind){
       return '<div class="nt-row">'+
         '<input type="checkbox" data-nt-on="'+escapeHtml(s.id)+'" '+(st.on?'checked':'')+'>'+
         '<span class="mono">'+miss(s.poNo)+(upIds[s.id]?'<br><span class="nt-up" title="앞으로 7일 내 예정(02)에 있는 건">02 예정</span>':'')+'</span>'+
-        '<span class="mono">'+miss(String(s.hbl||'').trim())+'<br><span style="color:var(--ink-soft);">'+escapeHtml(noticePodOf_(s))+' · ETD '+escapeHtml(noticeDate_(s.etd,true))+' · ETA '+escapeHtml(noticeDate_(s.etaPort||s.etaDoor,false))+'</span></span>'+
+        '<span class="mono">'+miss(String(s.hbl||'').trim())+'<br><span style="color:var(--ink-soft);">'+escapeHtml(noticePodOf_(s))+' · ETD '+escapeHtml(noticeDate_(s.etd,true))+' · ETA '+escapeHtml(noticeDate_(s.etaPort||s.etaDoor,false,noticeEtaYear_(s)))+'</span></span>'+
         '<span>'+(vesselFullOf_(s)?escapeHtml(vesselFullOf_(s)):'<span class="nt-miss">모선 미입력</span>')+'</span>'+
         presetSel+
         '<input type="text" data-nt-note="'+escapeHtml(s.id)+'" value="'+escapeHtml(st.note)+'" placeholder="예: 00시 출항 완료, 실출항일 확인 중">'+
