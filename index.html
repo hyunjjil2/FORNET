@@ -398,6 +398,7 @@ img{max-width:100%;}
 .nt-row .mono{overflow-wrap:anywhere;}
 .nt-row select,.nt-row input[type=text]{border:1px solid var(--line-strong); border-radius:2px; padding:4px 6px; background:var(--surface); color:var(--ink); font:inherit; width:100%; min-width:0;}
 .nt-miss{color:var(--danger); font-weight:700;}
+.nt-all{font-weight:700; padding:3px 8px; border:1px solid var(--line-strong); border-radius:2px; background:var(--surface-2);}
 .nt-upl{display:inline-flex; align-items:center; gap:5px; font-size:12.5px; cursor:pointer; white-space:nowrap;}
 .nt-up{display:inline-block; margin-top:2px; font-size:10.5px; padding:1px 6px; border-radius:8px; background:var(--surface-2); color:var(--ink-soft); font-family:inherit;}
 #ntOut{width:100%; min-height:200px; border:1px solid var(--line-strong); border-radius:2px; padding:10px; background:var(--surface); color:var(--ink); font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; resize:vertical; margin-top:12px;}
@@ -5014,6 +5015,8 @@ function openNoticeModal(kind){
     var items = rowsOf().filter(function(s){ return stOf(s).on; }).map(function(s){ return {s:s, note:stOf(s).note, myeon:stOf(s).myeon}; });
     document.getElementById('ntOut').value = items.length ? (isDoc ? buildDocNoticeText_(items) : buildNoticeText_(items)) : '';
     document.getElementById('ntCount').textContent = items.length+'건 선택';
+    var allEl = document.getElementById('ntAll');
+    if(allEl){ var tot = rowsOf().length; allEl.disabled = !tot; allEl.checked = tot>0 && items.length===tot; allEl.indeterminate = items.length>0 && items.length<tot; }
   }
   function wire(){
     document.querySelectorAll('#ntList [data-nt-myeon]').forEach(function(el){ el.addEventListener('change', function(){ state[el.dataset.ntMyeon].myeon = el.checked; refreshText(); }); });
@@ -5033,6 +5036,7 @@ function openNoticeModal(kind){
     '<div class="modal-head"><h3>'+(isDoc?'서류마감':'출항')+' 안내문 만들기</h3><button class="modal-close" id="ntCloseBtn">&times;</button></div>'+
     '<div class="modal-body">'+
     '<div class="nt-head"><b>거래처</b><select id="ntClient">'+clientOptionsHtml()+'</select>'+
+    '<label class="nt-upl nt-all" title="아래 목록에 보이는 건을 한 번에 모두 체크하거나 모두 해제합니다."><input type="checkbox" id="ntAll"> 전체 선택</label>'+
     '<label class="nt-upl" title="기본은 오늘 할 일 01에 있는 건만 나옵니다. 켜면 앞으로 7일 내 예정(02) 건도 목록에 나오고, 체크는 꺼진 채로 나와요."><input type="checkbox" id="ntShowUp"> 앞으로 7일 내 예정(02)도 보기'+(cs.upcoming.length?' ('+cs.upcoming.length+'건)':'')+'</label>'+
     '<span style="color:var(--ink-soft);">'+(isDoc?'담을 건을 체크하면 아래 안내문이 바로 바뀝니다. 면장을 아직 체크 안 한 건은 "면장 필요"가 자동으로 켜져 있어요(끌 수 있음). 아래 칸에서 문구를 직접 고쳐서 복사해도 돼요.':'담을 건을 체크하고 상태를 고르면 아래 안내문이 바로 바뀝니다. 아래 칸에서 문구를 직접 고쳐서 복사해도 돼요.')+'</span></div>'+
     '<div id="ntList"></div>'+
@@ -5043,6 +5047,11 @@ function openNoticeModal(kind){
   document.getElementById('modalOverlay').hidden = false;
   document.getElementById('ntCloseBtn').addEventListener('click', closeModal);
   document.getElementById('ntClient').addEventListener('change', function(){ selClient = this.value; draw(); });
+  document.getElementById('ntAll').addEventListener('change', function(){
+    var on = this.checked;
+    rowsOf().forEach(function(s){ stOf(s).on = on; });
+    draw();
+  });
   document.getElementById('ntShowUp').addEventListener('change', function(){
     showUp = this.checked; buildClients();
     document.getElementById('ntClient').innerHTML = clientOptionsHtml();
