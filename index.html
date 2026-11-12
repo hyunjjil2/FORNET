@@ -390,7 +390,21 @@ img{max-width:100%;}
 .flag-pill.edi-pending{background:var(--plum-soft); color:var(--plum);}
 .flag-pill.edi-done{background:var(--teal-soft); color:var(--teal);}
 .notice-bar[hidden], .notice-bar .btn[hidden]{display:none !important;}
-.notice-bar{display:flex; align-items:center; gap:10px; margin:2px 0 10px; font-size:12px; color:var(--ink-soft);}
+.term-pill{display:inline-block; font-size:11px; line-height:1.35; padding:1px 7px; border-radius:2px; border:1px solid var(--line-strong); color:var(--ink-soft); background:var(--surface); white-space:normal; font-family:inherit;}
+.term-pill.delay{color:var(--danger); border-color:var(--danger); background:color-mix(in srgb, var(--danger) 7%, var(--surface)); font-weight:700;}
+.term-pill.warn{color:var(--brass); border-color:var(--brass);}
+.term-pill.done{color:var(--ink); border-color:var(--line-strong); background:var(--surface-2);}
+.term-pill.ok{color:var(--ink-soft);}
+.term-pill.none{color:var(--ink-soft); border-style:dashed;}
+.term-pill.check{box-shadow:inset 3px 0 0 var(--brass);}
+.term-line{margin-top:3px;}
+.term-apply{padding:1px 7px; font-size:11px; margin-left:4px;}
+.term-status{font-size:12px; color:var(--ink-soft);}
+.term-status .t-delay{color:var(--danger);}
+.term-status .t-check{color:var(--brass);}
+.term-status.stale{color:var(--danger); font-weight:600;}
+#termBar{display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap;}
+.notice-bar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:2px 0 10px; font-size:12px; color:var(--ink-soft);}
 .nt-head{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; font-size:12.5px;}
 .nt-head select{border:1px solid var(--line-strong); border-radius:2px; padding:6px 8px; background:var(--surface); color:var(--ink); font:inherit;}
 .nt-row{display:grid; grid-template-columns:24px 70px minmax(210px,1.4fr) minmax(130px,1fr) 118px minmax(150px,1.2fr); gap:8px; align-items:center; padding:6px 0; border-bottom:1px solid var(--line); font-size:12.5px;}
@@ -398,6 +412,7 @@ img{max-width:100%;}
 .nt-row .mono{overflow-wrap:anywhere;}
 .nt-row select,.nt-row input[type=text]{border:1px solid var(--line-strong); border-radius:2px; padding:4px 6px; background:var(--surface); color:var(--ink); font:inherit; width:100%; min-width:0;}
 .nt-miss{color:var(--danger); font-weight:700;}
+.nt-all{font-weight:700; padding:3px 8px; border:1px solid var(--line-strong); border-radius:2px; background:var(--surface-2);}
 .nt-upl{display:inline-flex; align-items:center; gap:5px; font-size:12.5px; cursor:pointer; white-space:nowrap;}
 .nt-up{display:inline-block; margin-top:2px; font-size:10.5px; padding:1px 6px; border-radius:8px; background:var(--surface-2); color:var(--ink-soft); font-family:inherit;}
 #ntOut{width:100%; min-height:200px; border:1px solid var(--line-strong); border-radius:2px; padding:10px; background:var(--surface); color:var(--ink); font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; resize:vertical; margin-top:12px;}
@@ -627,7 +642,7 @@ details.help[open] summary:before{content:"–";}
   <div class="chip-row" id="chipRow"></div>
   <div class="chip-row" id="typeChipRow"></div>
   <div class="chip-row chip-row-imp" id="typeChipRowImp"></div>
-  <div class="notice-bar" id="noticeBar" hidden><button class="btn btn-sm" id="noticeBtn">출항 안내문 만들기 (화주용)</button><button class="btn btn-sm" id="noticeDocBtn">서류마감 안내문 만들기 (화주용)</button><span id="noticeBarHint">지금 목록의 출항안내 건(오늘 할 일 + 앞으로 7일 내)으로 화주에게 보낼 안내문을 만들어요</span></div>
+  <div class="notice-bar" id="noticeBar" hidden><button class="btn btn-sm" id="noticeBtn">출항 안내문 만들기 (화주용)</button><button class="btn btn-sm" id="noticeDocBtn">서류마감 안내문 만들기 (화주용)</button><span id="termBar"></span><input type="file" id="termFileInput" accept=".xls,.xlsx" hidden><span id="noticeBarHint">지금 목록의 출항안내 건(오늘 할 일 + 앞으로 7일 내)으로 화주에게 보낼 안내문을 만들어요</span></div>
   <section class="board" id="board"></section>
 
   <div class="foot">
@@ -2009,6 +2024,7 @@ function renderTypeChips(){
     ntBar.hidden = !(activeTab==='TODAY' && (activeType==='duesoon' || activeType==='docCls'));
     var nb = document.getElementById('noticeBtn'), nd = document.getElementById('noticeDocBtn'), nh = document.getElementById('noticeBarHint');
     if(nb) nb.hidden = (activeType==='docCls'); if(nd) nd.hidden = (activeType!=='docCls');
+    var tb = document.getElementById('termBar'); if(tb) tb.innerHTML = (activeType==='duesoon' && !ntBar.hidden) ? termBarHtml_() : '';
     if(nh) nh.textContent = activeType==='docCls' ? '지금 목록의 서류마감 건(오늘 할 일 + 앞으로 7일 내)으로 화주에게 보낼 안내문을 만들어요 · 면장을 아직 안 체크한 건은 "면장 필요"로 자동 표시' : '지금 목록의 출항안내 건(오늘 할 일 + 앞으로 7일 내)으로 화주에게 보낼 안내문을 만들어요';
   }
   var rowImp = document.getElementById('typeChipRowImp');
@@ -2379,6 +2395,7 @@ function refCellHtml(x){
     var ed = toDate(x.s.etd) ? fmtDate(x.s.etd) : null;
     extra = '<span class="eta-line"><span class="eta-src-tag ref-kind" style="margin-left:0;">ETD</span>'+(ed?'<span class="mono">'+ed.date+(ed.time?(' '+ed.time):'')+'</span>':'<span class="mono" style="color:var(--ink-soft);">-</span>')+'</span>';
   }
+  if(x.type==='duesoon' && TERM_SCHED){ var tb = termBadgeHtml_(x.s); if(tb) extra += '<span class="eta-line term-line">'+tb+'</span>'; }
   return kindHtml+dateHtml+badge+extra;
 }
 /* "오늘 할 일"/"앞으로 N일 내" 표의 맨 오른쪽 날짜 열 헤더 라벨 — 도착확인(door)만 필터링해서
@@ -4598,6 +4615,8 @@ async function handleFile(file){
   try{
     var buf = await file.arrayBuffer();
     var wb = XLSX.read(buf, {type:'array', cellDates:true});
+    // 트레드링스 터미널 스케줄 엑셀을 업무 엑셀 올리기로 잘못 올린 경우 → 시트에 넣지 않고 터미널 대조용으로만 읽음
+    if(termIngest_(wb, file.name)){ setUploadBtnBusy(false); hideUploadStatus(); return; }
     var sheet = wb.Sheets[wb.SheetNames[0]];
     uploadStatusStep('데이터 정리 중…', '엑셀 안의 빈 행을 정리하고 있습니다');
     sheet = trimSheetToRealData(sheet);
@@ -4796,6 +4815,195 @@ function openMyClientsModal(){
    상태(출항 완료 · 출항 지연 · 직접 쓴 문구)는 항상 직접 고름. 상태에 "출항 완료"가 들어 있으면 ATD, 아니면 ETD로 표기. */
 /* refYear: 기준 연도(생략하면 올해). 날짜의 연도가 기준 연도와 다르면 '27/01/01' 처럼 연도를 붙여 표기함.
    ETD는 올해와 비교, ETA는 ETD의 연도와 비교(ETD가 없으면 올해와 비교) — noticeEtaYear_ 참고 */
+/* ===== 터미널 스케줄 대조 (트레드링스 "컨테이너 터미널 스케줄" 엑셀) =====
+   - 엑셀은 이 브라우저 안에서만 읽고 대조함 → 구글 시트에 저장하지 않으므로 평소 새로고침·검색·저장 속도와 동료 시트에 영향 없음.
+     같은 PC 브라우저에만 기억(localStorage fw_termSched) — 다른 PC에서는 다시 올려야 함.
+   - 대시보드의 ETD는 절대 바꾸지 않음. 출항안내 건 옆에 "출항 지연 10/29 → 11/12" 같은 표시만 하고,
+     출항 안내문 창에서는 문구를 미리 채워 줌(ETD 자리에 터미널 출항일 + "(출항 지연, 기존 10/29)").
+   - 매칭: 모선명(공백·기호 무시) + 선적항(POL ↔ 엑셀 Port, 부산·신항은 같은 부산으로 봄) [+ 터미널 칸이 있으면 터미널].
+     그 중 "대시보드 ETD 2일 전 이후의 첫 출항"을 그 건의 출항으로 봄.
+   - 출항 완료: 엑셀에 상태(Departed) 칸이 없어서 "Departure ≤ 엑셀 조회 일시"이면 출항 완료로 봄.
+   - 확인 필요: ① 대시보드 ETD가 엑셀 범위(가장 이른 출항일)보다 앞이라 지연인지 다음 항차인지 모를 때
+               ② 같은 항구의 다른 터미널에 같은 모선 출항이 3일 안에 또 있을 때 → 안내문 문구 자동 입력 안 함("문구 넣기" 버튼으로만). */
+var TERM_SCHED = null;
+var TERM_LS_KEY = 'fw_termSched';
+var TERM_DAY = 86400000;
+function termVKey_(v){ return String(v||'').toUpperCase().replace(/[^0-9A-Z가-힣]/g,''); }
+function termPortGroup_(p){
+  var u = String(p||'').toUpperCase().replace(/\s+/g,'');
+  if(!u) return null;
+  if(/BUSAN|PUSAN|부산/.test(u)) return 'BUSAN';
+  if(/KWANGYANG|GWANGYANG|광양|YEOSU|여수/.test(u)) return 'KWANGYANG';
+  if(/ULSAN|울산/.test(u)) return 'ULSAN';
+  if(/INCHEON|INCHON|인천/.test(u)) return 'INCHEON';
+  if(/PYEONGTAEK|PYONGTAEK|평택/.test(u)) return 'PYEONGTAEK';
+  if(/POHANG|포항/.test(u)) return 'POHANG';
+  if(/MASAN|마산/.test(u)) return 'MASAN';
+  if(/KUNSAN|GUNSAN|군산/.test(u)) return 'KUNSAN';
+  if(/DAESAN|SEOSAN|대산|서산/.test(u)) return 'DAESAN';
+  return null;
+}
+function termParseDate_(v){
+  if(v===null || v===undefined || v==='') return null;
+  if(v instanceof Date) return isNaN(v.getTime()) ? null : v.getTime();
+  if(typeof v==='number'){ var d0 = toDate(v); return d0 ? d0.getTime() : null; }
+  var m = String(v).trim().match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})(?:[ T](\d{1,2}):(\d{2}))?/);
+  if(m) return new Date(+m[1], +m[2]-1, +m[3], +(m[4]||0), +(m[5]||0)).getTime();
+  var d = toDate(v); return d ? d.getTime() : null;
+}
+/* 엑셀(워크북)이 트레드링스 터미널 스케줄인지 + 읽기. 아니면 null */
+function termParseWorkbook_(wb, fileName){
+  var ws = wb.Sheets[wb.SheetNames[0]]; if(!ws) return null;
+  var aoa = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:''});
+  var hi = -1, col = {}, asOf = null;
+  for(var i=0; i<Math.min(aoa.length, 10); i++){
+    var r = aoa[i].map(function(c){ return String(c).trim().toUpperCase().replace(/\s+/g,''); });
+    var ci = r.indexOf('조회일시'); if(ci>=0 && asOf===null) asOf = termParseDate_(aoa[i][ci+1]);
+    if(r.indexOf('VESSELNAME')>=0 && r.indexOf('DEPARTURE')>=0){
+      hi = i;
+      ['PORT','TERMINAL','VESSELNAME','VESSELCALL','DEPARTURE','ARRIVAL','CARRIER'].forEach(function(k){ col[k] = r.indexOf(k); });
+      break;
+    }
+  }
+  if(hi<0) return null;
+  var rows = [];
+  for(var j=hi+1; j<aoa.length; j++){
+    var a = aoa[j], vessel = String(a[col.VESSELNAME]||'').trim(); if(!vessel) continue;
+    rows.push([String(col.PORT>=0?a[col.PORT]:'').trim(), String(col.TERMINAL>=0?a[col.TERMINAL]:'').trim(), vessel, String(col.VESSELCALL>=0?a[col.VESSELCALL]:'').trim(), termParseDate_(a[col.DEPARTURE])]);
+  }
+  return {asOf: asOf || Date.now(), fileName: fileName||'', uploadedAt: Date.now(), rows: rows};
+}
+function termBuild_(raw){
+  var idx = {}, minDep = null, maxDep = null;
+  raw.rows.forEach(function(a){
+    var r = {port:a[0], terminal:a[1], vessel:a[2], call:a[3], dep:a[4]};
+    var k = termVKey_(r.vessel); (idx[k] = idx[k] || []).push(r);
+    if(r.dep!=null){ if(minDep===null || r.dep<minDep) minDep = r.dep; if(maxDep===null || r.dep>maxDep) maxDep = r.dep; }
+  });
+  Object.keys(idx).forEach(function(k){ idx[k].sort(function(x,y){ return (x.dep==null?9e15:x.dep)-(y.dep==null?9e15:y.dep); }); });
+  return {asOf:raw.asOf, fileName:raw.fileName, uploadedAt:raw.uploadedAt, count:raw.rows.length, minDep:minDep, maxDep:maxDep, idx:idx};
+}
+function termLoad_(){
+  try{ var s = localStorage.getItem(TERM_LS_KEY); if(s){ var raw = JSON.parse(s); if(raw && raw.rows) TERM_SCHED = termBuild_(raw); } }catch(e){ TERM_SCHED = null; }
+}
+function termSave_(raw){ try{ localStorage.setItem(TERM_LS_KEY, JSON.stringify(raw)); }catch(e){} }
+function termClear_(){ TERM_SCHED = null; try{ localStorage.removeItem(TERM_LS_KEY); }catch(e){} }
+function termIsToday_(){ if(!TERM_SCHED) return false; var a = new Date(TERM_SCHED.asOf), n = new Date(); return a.getFullYear()===n.getFullYear() && a.getMonth()===n.getMonth() && a.getDate()===n.getDate(); }
+function termMd_(ms){ var d = new Date(ms); return (d.getMonth()+1)+'/'+d.getDate(); }
+function termMdHm_(ms){ var d = new Date(ms); return termMd_(ms)+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+/* 대시보드 모선명으로 찾을 키들 — VESSEL 칸 끝에 항차가 붙어 있으면 뗀 이름으로도 찾음 */
+function termVesselKeys_(s){
+  var v = String(s.vessel||'').trim(), y = String(s.voyage||'').trim(), keys = [];
+  if(!v) return keys;
+  keys.push(termVKey_(v));
+  var vk = termVKey_(v), yk = termVKey_(y);
+  if(yk && vk.length>yk.length && vk.slice(-yk.length)===yk) keys.push(vk.slice(0, -yk.length));
+  var m = v.match(/^(.*?)[\s]+([0-9A-Z\-]{3,8})$/i);
+  if(m && /[0-9]/.test(m[2]) && /[A-Z가-힣]/i.test(m[1])){ var k2 = termVKey_(m[1]); if(keys.indexOf(k2)<0) keys.push(k2); }
+  return keys.filter(function(k){ return k; });
+}
+/* 한 건의 터미널 대조 결과. 터미널 스케줄을 안 올렸거나 항공·모선 미입력이면 null.
+   status: ok(일정 같음) / delay(지연, 아직 출항 전) / early(앞당겨짐) / done(출항 완료) / none(엑셀에 없음) / noetd(대시보드 ETD 없음) */
+function termCheckOf_(s){
+  if(!TERM_SCHED || !s) return null;
+  if(/AIR/i.test(String(s.routeType||'')) || /항공|AIR/i.test(String(s.service||''))) return null;
+  var keys = termVesselKeys_(s); if(!keys.length) return null;
+  var cands = [];
+  keys.forEach(function(k){ (TERM_SCHED.idx[k]||[]).forEach(function(r){ if(cands.indexOf(r)<0) cands.push(r); }); });
+  var pg = termPortGroup_(s.pol);
+  if(pg) cands = cands.filter(function(r){ return termPortGroup_(r.port)===pg; });
+  cands = cands.filter(function(r){ return r.dep!=null; });
+  var tn = termVKey_(s.terminal);
+  if(tn && cands.length){ var tc = cands.filter(function(r){ var t = termVKey_(r.terminal); return t && (t.indexOf(tn)>=0 || tn.indexOf(t)>=0); }); if(tc.length) cands = tc; }
+  cands.sort(function(a,b){ return a.dep-b.dep; });
+  var etdD = toDate(s.etd), res = {asOf:TERM_SCHED.asOf};
+  var beforeRange = !!(etdD && TERM_SCHED.minDep!=null && dayFloor(etdD).getTime() < dayFloor(new Date(TERM_SCHED.minDep)).getTime());
+  if(!etdD){
+    if(!cands.length){ res.status = 'none'; return res; }
+    var fut = cands.filter(function(r){ return r.dep > TERM_SCHED.asOf; });
+    res.status = 'noetd'; res.row = fut[0] || cands[cands.length-1]; res.check = true; res.reason = '대시보드 ETD가 비어 있어요'; return res;
+  }
+  var base = dayFloor(etdD).getTime();
+  var after = cands.filter(function(r){ return r.dep >= base - 2*TERM_DAY; });
+  if(!after.length){
+    res.status = 'none'; res.beforeRange = beforeRange;
+    res.reason = beforeRange ? ('엑셀에는 '+termMd_(TERM_SCHED.minDep)+' 이후 출항분만 있어요 — 그 전에 이미 출항했을 수 있어요') : '이 항구(POL)의 터미널 스케줄에서 이 모선을 못 찾았어요(모선명 표기 확인)';
+    return res;
+  }
+  var r = after[0]; res.row = r;
+  res.diffDays = Math.round((dayFloor(new Date(r.dep)).getTime() - base)/TERM_DAY);
+  res.departed = r.dep <= TERM_SCHED.asOf;
+  res.status = res.departed ? 'done' : (res.diffDays>0 ? 'delay' : (res.diffDays<0 ? 'early' : 'ok'));
+  var nx = after[1];
+  if(nx && (nx.dep - r.dep) < 3*TERM_DAY && termVKey_(nx.terminal)!==termVKey_(r.terminal)){ res.check = true; res.reason = '같은 항구의 다른 터미널('+nx.terminal+' '+termMd_(nx.dep)+')에도 이 모선 출항이 있어요'; }
+  else if(beforeRange && res.diffDays>0){ res.check = true; res.reason = '대시보드 ETD('+termMd_(etdD.getTime())+')가 엑셀 범위('+termMd_(TERM_SCHED.minDep)+'~)보다 앞이라, 지연인지 다음 항차인지 확인이 필요해요'; }
+  return res;
+}
+/* 출항 안내문에 미리 넣을 문구와 ETD 자리 날짜. 바뀔 게 없으면 null */
+function termNoticeOf_(s, tc){
+  tc = tc || termCheckOf_(s);
+  if(!tc || !tc.row) return null;
+  var etdD = toDate(s.etd), was = etdD ? termMd_(etdD.getTime()) : '';
+  var changed = tc.diffDays && tc.diffDays!==0;
+  if(tc.status==='done') return {note:'출항 완료'+(changed&&was?', 기존 '+was:''), dep:changed?tc.row.dep:null};
+  if(tc.status==='delay') return {note:'출항 지연'+(was?', 기존 '+was:''), dep:tc.row.dep};
+  if(tc.status==='early') return {note:'출항일 변경'+(was?', 기존 '+was:''), dep:tc.row.dep};
+  return null;
+}
+var TERM_NOTE_RE = /출항\s*(지연|완료)|출항일\s*변경/;
+termLoad_();
+function termBadgeHtml_(s, tc){
+  tc = (tc===undefined) ? termCheckOf_(s) : tc;
+  if(!tc) return '';
+  var r = tc.row, tip = '';
+  if(r) tip = '트레드링스 터미널 스케줄('+termMdHm_(tc.asOf)+' 기준) · '+r.port+' '+r.terminal+' · '+r.vessel+' '+r.call+' · 출항 '+termMdHm_(r.dep);
+  var etdD = toDate(s.etd), was = etdD ? termMd_(etdD.getTime()) : '';
+  var cls = 'ok', txt = '';
+  if(tc.status==='ok'){ cls = 'ok'; txt = '터미널 출항 '+termMdHm_(r.dep)+' (일정 같음)'; }
+  else if(tc.status==='delay'){ cls = 'delay'; txt = '⚠ 출항 지연 '+was+' → '+termMd_(r.dep)+' (+'+tc.diffDays+'일)'; }
+  else if(tc.status==='early'){ cls = 'warn'; txt = '출항일 앞당겨짐 '+was+' → '+termMd_(r.dep); }
+  else if(tc.status==='done'){ cls = 'done'; txt = '✓ 출항 완료 '+termMdHm_(r.dep)+(tc.diffDays?' (기존 '+was+')':''); }
+  else if(tc.status==='noetd'){ cls = 'warn'; txt = '터미널 출항 '+termMd_(r.dep)+' · ETD 미입력'; }
+  else { cls = 'none'; txt = '터미널 스케줄에 없음'; tip = tc.reason||''; }
+  if(tc.check){ txt += ' · 확인 필요'; cls += ' check'; if(tc.reason) tip = (tip?tip+'\n':'')+'확인 필요: '+tc.reason; }
+  return '<span class="term-pill '+cls+'" title="'+escapeHtml(tip)+'">'+escapeHtml(txt)+'</span>';
+}
+function termSummary_(){
+  if(!TERM_SCHED) return null;
+  var c = {delay:0, done:0, check:0, none:0, ok:0, early:0, noetd:0, total:0};
+  var cs = noticeCandidates_('dep');
+  cs.today.concat(cs.upcoming).forEach(function(s){
+    var tc = termCheckOf_(s); if(!tc) return;
+    c.total++; c[tc.status] = (c[tc.status]||0)+1; if(tc.check) c.check++;
+  });
+  return c;
+}
+function termBarHtml_(){
+  if(!TERM_SCHED) return '<button class="btn btn-sm" id="termUploadBtn" title="트레드링스 > 컨테이너 터미널 스케줄 > Excel 다운로드로 받은 파일(.xls)을 올리면, 출항안내 건의 모선·ETD를 터미널 출항 일정과 대조해요. 대시보드의 ETD는 바뀌지 않아요.">터미널 스케줄 올리기</button>';
+  var c = termSummary_() || {};
+  var stale = !termIsToday_();
+  return '<button class="btn btn-sm" id="termUploadBtn" title="오늘 받은 트레드링스 터미널 스케줄 엑셀로 다시 올리기">터미널 스케줄 다시 올리기</button>'+
+    '<span class="term-status'+(stale?' stale':'')+'" title="'+escapeHtml((TERM_SCHED.fileName||'')+' · '+TERM_SCHED.count+'행 · 이 PC 브라우저에만 저장됨')+'">'+
+      (stale?'⚠ 오늘 파일이 아니에요 · ':'')+'터미널 '+termMdHm_(TERM_SCHED.asOf)+' 기준'+
+      ' · <b class="t-delay">지연 '+(c.delay||0)+'</b> · 출항 완료 '+(c.done||0)+(c.early?' · 앞당겨짐 '+c.early:'')+' · <b class="t-check">확인 필요 '+((c.check||0)+(c.none||0))+'</b>'+
+    '</span><button class="btn btn-sm btn-ghost" id="termClearBtn" title="올린 터미널 스케줄을 지우고 표시를 끕니다">지우기</button>';
+}
+function termIngest_(wb, fileName){
+  var raw = termParseWorkbook_(wb, fileName);
+  if(!raw) return false;
+  TERM_SCHED = termBuild_(raw); termSave_(raw);
+  var c = termSummary_() || {};
+  toast('터미널 스케줄 '+raw.rows.length.toLocaleString()+'행을 읽었어요('+termMdHm_(raw.asOf)+' 기준) · 출항안내 '+(c.total||0)+'건 대조: 지연 '+(c.delay||0)+', 출항 완료 '+(c.done||0)+', 확인 필요 '+((c.check||0)+(c.none||0)));
+  renderAll();
+  return true;
+}
+async function termHandleFile_(file){
+  try{
+    var buf = await file.arrayBuffer();
+    var wb = XLSX.read(buf, {type:'array'});
+    if(!termIngest_(wb, file.name)) toast('트레드링스 "컨테이너 터미널 스케줄" 엑셀이 아닌 것 같아요 — Vessel Name·Departure 열을 찾지 못했어요.', {err:true});
+  }catch(e){ toast('터미널 스케줄 파일을 읽지 못했어요: '+e.message, {err:true}); }
+}
 function noticeEtaYear_(s){ var d = toDate(s.etd); return d ? d.getFullYear() : new Date().getFullYear(); }
 function noticeDate_(v, withTime, refYear){
   var d = toDate(v); if(!d) return '-';
@@ -4938,15 +5146,18 @@ function buildNoticeText_(items){
     var merged = [], byMbl = {}; // (이름은 옛날 그대로지만 지금은 House B/L 기준으로 합침)
     groups[v].forEach(function(it){
       var mbl = String(it.s.hbl||'').trim();
-      if(mbl && byMbl[mbl]){ byMbl[mbl].pos.push(it.s.poNo||'-'); if(!byMbl[mbl].note && it.note) byMbl[mbl].note = it.note; return; }
-      var m = {s:it.s, pos:[it.s.poNo||'-'], note:it.note||''};
+      if(mbl && byMbl[mbl]){ byMbl[mbl].pos.push(it.s.poNo||'-'); if(!byMbl[mbl].note && it.note){ byMbl[mbl].note = it.note; byMbl[mbl].termDep = it.termDep||null; } return; }
+      var m = {s:it.s, pos:[it.s.poNo||'-'], note:it.note||'', termDep:it.termDep||null};
       merged.push(m); if(mbl) byMbl[mbl] = m;
     });
     var lines = merged.map(function(m){
       var note = String(m.note||'').trim();
       var lab = /출항\s*완료/.test(note) ? 'ATD-ETA' : 'ETD-ETA';
       var eta = m.s.etaPort ? m.s.etaPort : m.s.etaDoor;
-      return m.pos.join('_')+' / '+(String(m.s.hbl||'').trim()||'-')+' / '+noticePodOf_(m.s)+' / '+lab+' : '+noticeDate_(m.s.etd,true)+'-'+noticeDate_(eta,false,noticeEtaYear_(m.s))+(note?(' ('+note+')'):'');
+      // 터미널 스케줄로 지연·출항 완료가 확인된 건은 ETD 자리에 터미널 출항일(대시보드 ETD는 그대로 둠)
+      var etdTxt = m.termDep ? noticeDate_(new Date(m.termDep), false) : noticeDate_(m.s.etd,true);
+      var etaRef = m.termDep ? new Date(m.termDep).getFullYear() : noticeEtaYear_(m.s);
+      return m.pos.join('_')+' / '+(String(m.s.hbl||'').trim()||'-')+' / '+noticePodOf_(m.s)+' / '+lab+' : '+etdTxt+'-'+noticeDate_(eta,false,etaRef)+(note?(' ('+note+')'):'');
     });
     return v+'\n'+lines.join('\n');
   });
@@ -4974,7 +5185,21 @@ function openNoticeModal(kind){
   var state = {};   // id -> {on, note}
   var PRESETS = ['', '출항 완료', '출항 지연'];
   function rowsOf(){ var fk = isDoc?'docCls':'etd'; return cands.filter(function(s){ return (s.clientCode||s.client||'-')===selClient; }).sort(function(a,b){ var da=toDate(a[fk]), db=toDate(b[fk]); return (da?da.getTime():9e15)-(db?db.getTime():9e15); }); }
-  function stOf(s){ if(!state[s.id]) state[s.id] = {on:!upIds[s.id], note:'', myeon:(isDoc?docNeedsMyeon_(s):false)}; return state[s.id]; }
+  function stOf(s){
+    if(!state[s.id]){
+      var st0 = {on:!upIds[s.id], note:'', myeon:(isDoc?docNeedsMyeon_(s):false), termDep:null};
+      // 터미널 스케줄을 올려 둔 경우: 지연·출항 완료 건은 문구를 미리 채움(확인 필요 건은 자동으로 안 넣고 "문구 넣기" 버튼으로만)
+      if(!isDoc){ var tc = termCheckOf_(s), tn = (tc && !tc.check) ? termNoticeOf_(s, tc) : null; if(tn){ st0.note = tn.note; st0.termDep = tn.dep; } }
+      state[s.id] = st0;
+    }
+    return state[s.id];
+  }
+  function termRowHtml(s){
+    if(isDoc || !TERM_SCHED) return '';
+    var tc = termCheckOf_(s); if(!tc) return '';
+    var btn = (tc.check && termNoticeOf_(s, tc)) ? ' <button class="btn btn-sm term-apply" data-nt-term="'+escapeHtml(s.id)+'" title="확인해 보고 맞으면 눌러서 지연/출항 완료 문구를 넣어요">문구 넣기</button>' : '';
+    return '<br>'+termBadgeHtml_(s, tc)+btn;
+  }
   function miss(v){ return v ? escapeHtml(v) : '<span class="nt-miss">미입력</span>'; }
   function draw(){
     var rows = rowsOf();
@@ -5001,7 +5226,7 @@ function openNoticeModal(kind){
       return '<div class="nt-row">'+
         '<input type="checkbox" data-nt-on="'+escapeHtml(s.id)+'" '+(st.on?'checked':'')+'>'+
         '<span class="mono">'+miss(s.poNo)+(upIds[s.id]?'<br><span class="nt-up" title="앞으로 7일 내 예정(02)에 있는 건">02 예정</span>':'')+'</span>'+
-        '<span class="mono">'+miss(String(s.hbl||'').trim())+'<br><span style="color:var(--ink-soft);">'+escapeHtml(noticePodOf_(s))+' · ETD '+escapeHtml(noticeDate_(s.etd,true))+' · ETA '+escapeHtml(noticeDate_(s.etaPort||s.etaDoor,false,noticeEtaYear_(s)))+'</span></span>'+
+        '<span class="mono">'+miss(String(s.hbl||'').trim())+'<br><span style="color:var(--ink-soft);">'+escapeHtml(noticePodOf_(s))+' · ETD '+escapeHtml(noticeDate_(s.etd,true))+' · ETA '+escapeHtml(noticeDate_(s.etaPort||s.etaDoor,false,noticeEtaYear_(s)))+'</span>'+termRowHtml(s)+'</span>'+
         '<span>'+(vesselFullOf_(s)?escapeHtml(vesselFullOf_(s)):'<span class="nt-miss">모선 미입력</span>')+'</span>'+
         presetSel+
         '<input type="text" data-nt-note="'+escapeHtml(s.id)+'" value="'+escapeHtml(st.note)+'" placeholder="예: 00시 출항 완료, 실출항일 확인 중">'+
@@ -5011,13 +5236,19 @@ function openNoticeModal(kind){
     wire(); refreshText();
   }
   function refreshText(){
-    var items = rowsOf().filter(function(s){ return stOf(s).on; }).map(function(s){ return {s:s, note:stOf(s).note, myeon:stOf(s).myeon}; });
+    var items = rowsOf().filter(function(s){ return stOf(s).on; }).map(function(s){ var st = stOf(s); return {s:s, note:st.note, myeon:st.myeon, termDep:(st.termDep && TERM_NOTE_RE.test(st.note)) ? st.termDep : null}; });
     document.getElementById('ntOut').value = items.length ? (isDoc ? buildDocNoticeText_(items) : buildNoticeText_(items)) : '';
     document.getElementById('ntCount').textContent = items.length+'건 선택';
+    var allEl = document.getElementById('ntAll');
+    if(allEl){ var tot = rowsOf().length; allEl.disabled = !tot; allEl.checked = tot>0 && items.length===tot; allEl.indeterminate = items.length>0 && items.length<tot; }
   }
   function wire(){
     document.querySelectorAll('#ntList [data-nt-myeon]').forEach(function(el){ el.addEventListener('change', function(){ state[el.dataset.ntMyeon].myeon = el.checked; refreshText(); }); });
     document.querySelectorAll('#ntList [data-nt-on]').forEach(function(el){ el.addEventListener('change', function(){ state[el.dataset.ntOn].on = el.checked; refreshText(); }); });
+    document.querySelectorAll('#ntList [data-nt-term]').forEach(function(el){ el.addEventListener('click', function(){
+      var sx = byId[el.dataset.ntTerm]; var tn = sx ? termNoticeOf_(sx) : null; if(!tn) return;
+      var st = stOf(sx); st.note = tn.note; st.termDep = tn.dep; draw();
+    }); });
     document.querySelectorAll('#ntList [data-nt-preset]').forEach(function(el){ el.addEventListener('change', function(){
       var id = el.dataset.ntPreset, inp = document.querySelector('#ntList [data-nt-note="'+id+'"]');
       if(el.value!=='__custom'){ state[id].note = el.value; inp.value = el.value; } else { inp.focus(); }
@@ -5033,6 +5264,7 @@ function openNoticeModal(kind){
     '<div class="modal-head"><h3>'+(isDoc?'서류마감':'출항')+' 안내문 만들기</h3><button class="modal-close" id="ntCloseBtn">&times;</button></div>'+
     '<div class="modal-body">'+
     '<div class="nt-head"><b>거래처</b><select id="ntClient">'+clientOptionsHtml()+'</select>'+
+    '<label class="nt-upl nt-all" title="아래 목록에 보이는 건을 한 번에 모두 체크하거나 모두 해제합니다."><input type="checkbox" id="ntAll"> 전체 선택</label>'+
     '<label class="nt-upl" title="기본은 오늘 할 일 01에 있는 건만 나옵니다. 켜면 앞으로 7일 내 예정(02) 건도 목록에 나오고, 체크는 꺼진 채로 나와요."><input type="checkbox" id="ntShowUp"> 앞으로 7일 내 예정(02)도 보기'+(cs.upcoming.length?' ('+cs.upcoming.length+'건)':'')+'</label>'+
     '<span style="color:var(--ink-soft);">'+(isDoc?'담을 건을 체크하면 아래 안내문이 바로 바뀝니다. 면장을 아직 체크 안 한 건은 "면장 필요"가 자동으로 켜져 있어요(끌 수 있음). 아래 칸에서 문구를 직접 고쳐서 복사해도 돼요.':'담을 건을 체크하고 상태를 고르면 아래 안내문이 바로 바뀝니다. 아래 칸에서 문구를 직접 고쳐서 복사해도 돼요.')+'</span></div>'+
     '<div id="ntList"></div>'+
@@ -5043,6 +5275,11 @@ function openNoticeModal(kind){
   document.getElementById('modalOverlay').hidden = false;
   document.getElementById('ntCloseBtn').addEventListener('click', closeModal);
   document.getElementById('ntClient').addEventListener('change', function(){ selClient = this.value; draw(); });
+  document.getElementById('ntAll').addEventListener('change', function(){
+    var on = this.checked;
+    rowsOf().forEach(function(s){ stOf(s).on = on; });
+    draw();
+  });
   document.getElementById('ntShowUp').addEventListener('change', function(){
     showUp = this.checked; buildClients();
     document.getElementById('ntClient').innerHTML = clientOptionsHtml();
@@ -5175,6 +5412,11 @@ document.getElementById('myClientsManageBtn').addEventListener('click', openMyCl
 document.getElementById('itemLabelSettingsBtn').addEventListener('click', openItemLabelSettingsModal);
 document.getElementById('noticeBtn').addEventListener('click', function(){ openNoticeModal('dep'); });
 document.getElementById('noticeDocBtn').addEventListener('click', function(){ openNoticeModal('doc'); });
+document.getElementById('noticeBar').addEventListener('click', function(e){
+  if(e.target.closest('#termUploadBtn')){ document.getElementById('termFileInput').click(); return; }
+  if(e.target.closest('#termClearBtn')){ termClear_(); renderAll(); toast('터미널 스케줄 표시를 껐어요.'); }
+});
+document.getElementById('termFileInput').addEventListener('change', function(){ var f = this.files && this.files[0]; this.value = ''; if(f) termHandleFile_(f); });
 document.getElementById('archiveCleanupBtn').addEventListener('click', async function(){
   var btn = this;
   btn.disabled = true; btn.textContent = '정리 중…';
