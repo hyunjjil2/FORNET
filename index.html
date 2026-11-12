@@ -391,12 +391,12 @@ img{max-width:100%;}
 .flag-pill.edi-done{background:var(--teal-soft); color:var(--teal);}
 .notice-bar[hidden], .notice-bar .btn[hidden]{display:none !important;}
 .term-pill{display:inline-block; font-size:11px; line-height:1.35; padding:1px 7px; border-radius:2px; border:1px solid var(--line-strong); color:var(--ink-soft); background:var(--surface); white-space:normal; overflow-wrap:normal; word-break:keep-all; max-width:100%; font-family:inherit;}
-.term-pill.delay{color:var(--danger); border-color:var(--danger); background:color-mix(in srgb, var(--danger) 7%, var(--surface)); font-weight:700;}
-.term-pill.warn{color:var(--brass); border-color:var(--brass);}
-.term-pill.done{color:var(--ink); border-color:var(--line-strong); background:var(--surface-2);}
-.term-pill.ok{color:var(--ink-soft);}
-.term-pill.none{color:var(--ink-soft); border-style:dashed;}
-.term-pill.check{box-shadow:inset 3px 0 0 var(--brass);}
+.term-pill.tp-delay{color:var(--danger); border-color:var(--danger); background:color-mix(in srgb, var(--danger) 7%, var(--surface)); font-weight:700;}
+.term-pill.tp-warn{color:var(--brass); border-color:var(--brass);}
+.term-pill.tp-done{color:var(--ink); border-color:var(--line-strong); background:var(--surface-2);}
+.term-pill.tp-ok{color:var(--ink-soft);}
+.term-pill.tp-none{color:var(--ink-soft); border-style:dashed;}
+.term-pill.tp-check{box-shadow:inset 3px 0 0 var(--brass);}
 .term-line{margin-top:3px;}
 .term-apply{padding:1px 7px; font-size:11px; white-space:nowrap;}
 .term-wrap{display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin-top:3px;}
@@ -4959,14 +4959,14 @@ function termBadgeHtml_(s, tc){
   var r = tc.row, tip = '';
   if(r) tip = '트레드링스 터미널 스케줄('+termMdHm_(tc.asOf)+' 기준) · '+r.port+' '+r.terminal+' · '+r.vessel+' '+r.call+' · 출항 '+termMdHm_(r.dep);
   var etdD = toDate(s.etd), was = etdD ? termMd_(etdD.getTime()) : '';
-  var cls = 'ok', txt = '';
-  if(tc.status==='ok'){ cls = 'ok'; txt = '터미널 출항 '+termMdHm_(r.dep)+' (일정 같음)'; }
-  else if(tc.status==='delay'){ cls = 'delay'; txt = '⚠ 출항 지연 '+was+' → '+termMd_(r.dep)+' (+'+tc.diffDays+'일)'; }
-  else if(tc.status==='early'){ cls = 'warn'; txt = '출항일 앞당겨짐 '+was+' → '+termMd_(r.dep); }
-  else if(tc.status==='done'){ cls = 'done'; txt = '✓ 출항 완료 '+termMdHm_(r.dep)+(tc.diffDays?' (기존 '+was+')':''); }
-  else if(tc.status==='noetd'){ cls = 'warn'; txt = '터미널 출항 '+termMd_(r.dep)+' · ETD 미입력'; }
-  else { cls = 'none'; txt = '터미널 스케줄에 없음'; tip = tc.reason||''; }
-  if(tc.check){ txt += ' · 확인 필요'; cls += ' check'; if(tc.reason) tip = (tip?tip+'\n':'')+'확인 필요: '+tc.reason; }
+  var cls = 'tp-ok', txt = '';   // 클래스 이름은 tp- 로 시작(기존 .check(체크 단추) 같은 공용 클래스와 겹치면 모양이 깨짐)
+  if(tc.status==='ok'){ cls = 'tp-ok'; txt = '터미널 출항 '+termMdHm_(r.dep)+' (일정 같음)'; }
+  else if(tc.status==='delay'){ cls = 'tp-delay'; txt = '⚠ 출항 지연 '+was+' → '+termMd_(r.dep)+' (+'+tc.diffDays+'일)'; }
+  else if(tc.status==='early'){ cls = 'tp-warn'; txt = '출항일 앞당겨짐 '+was+' → '+termMd_(r.dep); }
+  else if(tc.status==='done'){ cls = 'tp-done'; txt = '✓ 출항 완료 '+termMdHm_(r.dep)+(tc.diffDays?' (기존 '+was+')':''); }
+  else if(tc.status==='noetd'){ cls = 'tp-warn'; txt = '터미널 출항 '+termMd_(r.dep)+' · ETD 미입력'; }
+  else { cls = 'tp-none'; txt = '터미널 스케줄에 없음'; tip = tc.reason||''; }
+  if(tc.check){ txt += ' · 확인 필요'; cls += ' tp-check'; if(tc.reason) tip = (tip?tip+'\n':'')+'확인 필요: '+tc.reason; }
   return '<span class="term-pill '+cls+'" title="'+escapeHtml(tip)+'">'+escapeHtml(txt)+'</span>';
 }
 function termSummary_(){
