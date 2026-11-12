@@ -400,10 +400,23 @@ img{max-width:100%;}
 .term-line{margin-top:3px;}
 .term-apply{padding:1px 7px; font-size:11px; white-space:nowrap;}
 .term-wrap{display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin-top:3px;}
+.term-wrap .term-pill{flex:0 0 auto; max-width:100%;}   /* 알약은 줄어들지 않고, 칸이 모자라면 "문구 넣기" 버튼만 다음 줄로 */
 .term-status{font-size:12px; color:var(--ink-soft);}
 .term-status .t-delay{color:var(--danger);}
 .term-status .t-check{color:var(--brass);}
 .term-status.stale{color:var(--danger); font-weight:600;}
+.term-cnt{border:0; background:none; padding:1px 3px; font:inherit; color:inherit; cursor:pointer; text-decoration:underline; text-underline-offset:2px; border-radius:2px;}
+.term-cnt:hover{background:var(--surface-2); color:var(--ink);}
+.term-cnt:focus-visible{outline:2px solid var(--steel, var(--ink)); outline-offset:1px;}
+.term-cnt.t-delay{color:var(--danger); font-weight:700;}
+.term-cnt.t-check{color:var(--brass); font-weight:700;}
+.tl-note{font-size:12px; color:var(--ink-soft); margin-bottom:10px;}
+.tl-row{display:grid; grid-template-columns:110px minmax(110px,1fr) minmax(130px,1.1fr) 92px 92px minmax(110px,1fr) minmax(220px,2fr); gap:8px; align-items:start; padding:8px 4px; border-bottom:1px solid var(--line); font-size:12.5px; cursor:pointer;}
+.tl-row:not(.head):hover{background:var(--surface-2);}
+.tl-row.head{font-size:11px; font-weight:700; color:var(--ink-soft); cursor:default;}
+.tl-row .mono{overflow-wrap:anywhere;}
+.tl-sub{font-size:11px; color:var(--ink-soft);}
+.tl-reason{font-size:11.5px; color:var(--ink); margin-top:4px; line-height:1.45;}
 #termBar{display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap;}
 .notice-bar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:2px 0 10px; font-size:12px; color:var(--ink-soft);}
 .nt-head{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; font-size:12.5px;}
@@ -511,6 +524,9 @@ details.help[open] summary:before{content:"–";}
 .modal-head h3{font-family:"Fraunces",serif; font-size:18px; font-weight:600;}
 .modal-close{background:none; border:none; font-size:20px; color:var(--ink-soft); line-height:1; padding:4px;}
 .modal.wide{max-width:1040px;}
+.modal.wide.ntwide{max-width:1320px;}
+.modal.ntwide .nt-row{grid-template-columns:24px 92px minmax(300px,1.9fr) minmax(150px,1fr) 118px minmax(190px,1.2fr);}
+.modal.ntwide .nt-row.head{align-items:end;}
 .modal.mcwide{max-width:860px;}
 .modal.mcwide .modal-body{max-height:82vh;}
 .mc-grid, .checklist-item.mc-grid{display:grid; grid-template-columns:minmax(0,1fr) repeat(6,84px); column-gap:0; align-items:center; padding-left:6px; padding-right:6px;}
@@ -4351,7 +4367,7 @@ function openModal(id){
     return '<div class="field'+(f.full?' full':'')+(f.key?' keydate':'')+'"><label>'+f.label+(f.req?' *':'')+(f.key?' <span class="key-tag">업무 기준일</span>':'')+'</label>'+inner+'</div>';
   }).join('');
   var routeOptionsHtml = '<option value="">— 미지정 —</option>' + ROUTE_ORDER.map(function(k){ return '<option value="'+k+'" '+(s.routeType===k?'selected':'')+'>'+ROUTES[k].label+'</option>'; }).join('');
-  var mcEl = document.getElementById('modalContent'); mcEl.classList.remove('wide'); mcEl.classList.remove('mcwide'); mcEl.classList.add('detail');   // 건 상세 창은 가로로 넓게(칸을 4열로) — 스크롤을 덜 내리도록
+  var mcEl = document.getElementById('modalContent'); mcEl.classList.remove('wide'); mcEl.classList.remove('mcwide'); mcEl.classList.remove('ntwide'); mcEl.classList.add('detail');   // 건 상세 창은 가로로 넓게(칸을 4열로) — 스크롤을 덜 내리도록
   document.getElementById('modalContent').innerHTML =
     '<div class="modal-head"><h3>'+(isNew?'신규 건 등록':'건 상세 / 수정')+'</h3><button class="modal-close" id="modalCloseBtn">&times;</button></div>'+
     '<div class="modal-body"><div class="field-grid">'+infoHtml+
@@ -4415,7 +4431,7 @@ function openModal(id){
   var delBtn = document.getElementById('deleteBtn'); if(delBtn) delBtn.addEventListener('click', deleteFromModal);
   refreshLclRow();
 }
-function closeModal(){ document.getElementById('modalOverlay').hidden = true; editingId = null; document.getElementById('modalContent').classList.remove('detail'); document.getElementById('modalContent').classList.remove('wide'); document.getElementById('modalContent').classList.remove('mcwide'); }
+function closeModal(){ document.getElementById('modalOverlay').hidden = true; editingId = null; document.getElementById('modalContent').classList.remove('ntwide'); document.getElementById('modalContent').classList.remove('detail'); document.getElementById('modalContent').classList.remove('wide'); document.getElementById('modalContent').classList.remove('mcwide'); }
 
 async function saveModal(){
   var isNew = !editingId;
@@ -4986,7 +5002,10 @@ function termBarHtml_(){
   return '<button class="btn btn-sm" id="termUploadBtn" title="오늘 받은 트레드링스 터미널 스케줄 엑셀로 다시 올리기">터미널 스케줄 다시 올리기</button>'+
     '<span class="term-status'+(stale?' stale':'')+'" title="'+escapeHtml((TERM_SCHED.fileName||'')+' · '+TERM_SCHED.count+'행 · 이 PC 브라우저에만 저장됨')+'">'+
       (stale?'⚠ 오늘 파일이 아니에요 · ':'')+'터미널 '+termMdHm_(TERM_SCHED.asOf)+' 기준'+
-      ' · <b class="t-delay">지연 '+(c.delay||0)+'</b> · 출항 완료 '+(c.done||0)+(c.early?' · 앞당겨짐 '+c.early:'')+' · <b class="t-check">확인 필요 '+((c.check||0)+(c.none||0))+'</b>'+
+      ' · <button class="term-cnt t-delay" data-term-list="delay" title="지연 건 보기">지연 '+(c.delay||0)+'</button>'+
+      ' · <button class="term-cnt" data-term-list="done" title="출항 완료 건 보기">출항 완료 '+(c.done||0)+'</button>'+
+      (c.early?' · <button class="term-cnt" data-term-list="early" title="출항일 앞당겨진 건 보기">앞당겨짐 '+c.early+'</button>':'')+
+      ' · <button class="term-cnt t-check" data-term-list="check" title="확인 필요 건과 이유 보기">확인 필요 '+((c.check||0)+(c.none||0))+'</button>'+
     '</span><button class="btn btn-sm btn-ghost" id="termClearBtn" title="올린 터미널 스케줄을 지우고 표시를 끕니다">지우기</button>';
 }
 function termIngest_(wb, fileName){
@@ -5004,6 +5023,65 @@ async function termHandleFile_(file){
     var wb = XLSX.read(buf, {type:'array'});
     if(!termIngest_(wb, file.name)) toast('트레드링스 "컨테이너 터미널 스케줄" 엑셀이 아닌 것 같아요 — Vessel Name·Departure 열을 찾지 못했어요.', {err:true});
   }catch(e){ toast('터미널 스케줄 파일을 읽지 못했어요: '+e.message, {err:true}); }
+}
+/* 요약줄의 "지연 n / 출항 완료 n / 앞당겨짐 n / 확인 필요 n"을 누르면 그 건들만 작은 창으로 보여줌.
+   누를 때만 계산(브라우저에 이미 있는 데이터 사용, 서버 요청 없음) → 평소 새로고침·검색·저장 속도에 영향 없음. */
+var TERM_LIST_LABEL = {delay:'출항 지연', done:'출항 완료', early:'출항일 앞당겨짐', check:'확인 필요'};
+function termListItems_(kind){
+  var cs = noticeCandidates_('dep'), up = {}, out = [];
+  cs.upcoming.forEach(function(s){ up[s.id] = true; });
+  cs.today.concat(cs.upcoming).forEach(function(s){
+    var tc = termCheckOf_(s); if(!tc) return;
+    var hit = (kind==='check') ? (tc.check || tc.status==='none' || tc.status==='noetd') : (tc.status===kind);
+    if(hit) out.push({s:s, tc:tc, up:!!up[s.id]});
+  });
+  out.sort(function(a,b){ var da = toDate(a.s.etd), db = toDate(b.s.etd); return (da?da.getTime():9e15)-(db?db.getTime():9e15); });
+  return out;
+}
+function termReasonText_(s, tc){
+  var r = tc.row, etdD = toDate(s.etd), was = etdD ? termMd_(etdD.getTime()) : '-';
+  var base = '';
+  if(tc.status==='delay') base = '대시보드 ETD '+was+' → 터미널 출항 '+termMdHm_(r.dep)+' (+'+tc.diffDays+'일), 아직 출항 전';
+  else if(tc.status==='done') base = '터미널 출항 시각('+termMdHm_(r.dep)+')이 엑셀 조회 시각('+termMdHm_(tc.asOf)+')보다 지나서 출항 완료로 봤어요'+(tc.diffDays?' · 대시보드 ETD는 '+was:'');
+  else if(tc.status==='early') base = '대시보드 ETD '+was+'보다 터미널 출항('+termMdHm_(r.dep)+')이 빨라요';
+  else if(tc.status==='ok') base = '터미널 출항 '+termMdHm_(r.dep)+' — 대시보드 ETD와 같은 날';
+  else if(tc.status==='noetd') base = '대시보드 ETD가 비어 있어요 · 터미널 출항 '+termMdHm_(r.dep);
+  else base = tc.reason || '터미널 스케줄에서 못 찾았어요';
+  if(tc.check && tc.reason && tc.status!=='none') base = tc.reason+(r?' · 터미널 출항 '+termMdHm_(r.dep):'');
+  return base;
+}
+function openTermListModal(kind){
+  if(!TERM_SCHED) return;
+  editingId = null;
+  var items = termListItems_(kind), label = TERM_LIST_LABEL[kind]||kind;
+  var head = '<div class="tl-row head"><span>관리번호</span><span>거래처</span><span>모선</span><span>대시보드 ETD</span><span>터미널 출항</span><span>터미널</span><span>'+(kind==='check'?'확인이 필요한 이유':'내용')+'</span></div>';
+  var body = items.length ? items.map(function(it){
+    var s = it.s, tc = it.tc, r = tc.row, etdD = toDate(s.etd);
+    return '<div class="tl-row" data-tl-open="'+escapeHtml(s.id)+'" title="눌러서 건 상세/수정 열기">'+
+      '<span class="mono">'+escapeHtml(s.managementNo||s.id)+(it.up?'<br><span class="nt-up">02 예정</span>':'')+'</span>'+
+      '<span>'+escapeHtml(s.client||'-')+'</span>'+
+      '<span>'+escapeHtml(vesselFullOf_(s)||'-')+'<br><span class="tl-sub">'+escapeHtml(s.pol||'POL 미입력')+'</span></span>'+
+      '<span class="mono">'+(etdD?escapeHtml(termMdHm_(etdD.getTime())):'-')+'</span>'+
+      '<span class="mono">'+(r?escapeHtml(termMdHm_(r.dep)):'-')+'</span>'+
+      '<span>'+(r?escapeHtml(r.terminal)+'<br><span class="tl-sub">'+escapeHtml(r.port+' · '+r.call)+'</span>':'-')+'</span>'+
+      '<span>'+termBadgeHtml_(s, tc)+'<div class="tl-reason">'+escapeHtml(termReasonText_(s, tc))+'</div></span>'+
+    '</div>';
+  }).join('') : '<div style="padding:16px 0;color:var(--ink-soft);">해당하는 건이 없어요.</div>';
+  var mc = document.getElementById('modalContent');
+  mc.classList.remove('detail'); mc.classList.remove('mcwide'); mc.classList.remove('ntwide'); mc.classList.add('wide');
+  mc.innerHTML =
+    '<div class="modal-head"><h3>터미널 대조 · '+escapeHtml(label)+' '+items.length+'건</h3><button class="modal-close" id="tlCloseBtn">&times;</button></div>'+
+    '<div class="modal-body">'+
+      '<div class="tl-note">트레드링스 터미널 스케줄 '+escapeHtml(termMdHm_(TERM_SCHED.asOf))+' 기준'+(termIsToday_()?'':' <b style="color:var(--danger);">(오늘 파일이 아니에요)</b>')+' · 출항안내 01·02 건 중 · 행을 누르면 건 상세/수정이 열려요. 대시보드 ETD는 바뀌지 않아요.</div>'+
+      '<div class="tl-list">'+head+body+'</div>'+
+    '</div>'+
+    '<div class="modal-foot"><span class="mono" style="font-size:11.5px;color:var(--ink-soft);">'+items.length+'건</span>'+
+      (items.length?'<button class="btn btn-primary" id="tlNoticeBtn" title="이 건들만 체크된 채로 출항 안내문 창을 열어요(거래처별로 나눠서 만들어요)">이 건들로 출항 안내문 만들기</button>':'<span></span>')+'</div>';
+  document.getElementById('modalOverlay').hidden = false;
+  document.getElementById('tlCloseBtn').addEventListener('click', closeModal);
+  mc.querySelectorAll('[data-tl-open]').forEach(function(el){ el.addEventListener('click', function(){ openModal(el.dataset.tlOpen); }); });
+  var nb = document.getElementById('tlNoticeBtn');
+  if(nb) nb.addEventListener('click', function(){ openNoticeModal('dep', items.map(function(it){ return it.s.id; })); });
 }
 function noticeEtaYear_(s){ var d = toDate(s.etd); return d ? d.getFullYear() : new Date().getFullYear(); }
 function noticeDate_(v, withTime, refYear){
@@ -5164,8 +5242,10 @@ function buildNoticeText_(items){
   });
   return '출항 안내 드립니다.\n\n'+blocks.join('\n\n');
 }
-function openNoticeModal(kind){
+function openNoticeModal(kind, presetIds){
   kind = (kind==='doc') ? 'doc' : 'dep';
+  // presetIds: 터미널 대조 창의 "이 건들로 출항 안내문 만들기" — 그 건들만 체크된 채로 열고, 02 건이 있으면 02도 보기를 켬
+  var presetSet = null; if(presetIds && presetIds.length){ presetSet = {}; presetIds.forEach(function(id){ presetSet[id] = true; }); }
   var isDoc = (kind==='doc');
   editingId = null;
   var cs = noticeCandidates_(kind);
@@ -5173,6 +5253,10 @@ function openNoticeModal(kind){
   var showUp = false;   // 기본: 01(오늘 할 일)만. 켜면 02(앞으로 7일 내 예정)도 목록에 나옴
   var cands = cs.today.slice();
   var clientsMap = {}, clients = [], selClient = '';
+  if(presetSet){
+    showUp = cs.upcoming.some(function(s){ return presetSet[s.id]; });
+    var firstS = byId[presetIds[0]]; if(firstS) selClient = firstS.clientCode || firstS.client || '-';
+  }
   function buildClients(){
     cands = showUp ? cs.today.concat(cs.upcoming) : cs.today.slice();
     clientsMap = {}; clients = [];
@@ -5188,7 +5272,7 @@ function openNoticeModal(kind){
   function rowsOf(){ var fk = isDoc?'docCls':'etd'; return cands.filter(function(s){ return (s.clientCode||s.client||'-')===selClient; }).sort(function(a,b){ var da=toDate(a[fk]), db=toDate(b[fk]); return (da?da.getTime():9e15)-(db?db.getTime():9e15); }); }
   function stOf(s){
     if(!state[s.id]){
-      var st0 = {on:(isDoc ? !upIds[s.id] : true), note:'',   // 출항 안내문은 02 건도 처음부터 체크된 채로(서류마감은 02 건 체크 꺼짐)
+      var st0 = {on:(presetSet ? !!presetSet[s.id] : (isDoc ? !upIds[s.id] : true)), note:'',   // 출항 안내문은 02 건도 처음부터 체크된 채로(서류마감은 02 건 체크 꺼짐)
                   myeon:(isDoc?docNeedsMyeon_(s):false), termDep:null};
       // 터미널 스케줄을 올려 둔 경우: 지연·출항 완료 건은 문구를 미리 채움(확인 필요 건은 자동으로 안 넣고 "문구 넣기" 버튼으로만)
       if(!isDoc){ var tc = termCheckOf_(s), tn = (tc && !tc.check) ? termNoticeOf_(s, tc) : null; if(tn){ st0.note = tn.note; st0.termDep = tn.dep; } }
@@ -5267,13 +5351,13 @@ function openNoticeModal(kind){
     '<div class="modal-body">'+
     '<div class="nt-head"><b>거래처</b><select id="ntClient">'+clientOptionsHtml()+'</select>'+
     '<label class="nt-upl nt-all" title="아래 목록에 보이는 건을 한 번에 모두 체크하거나 모두 해제합니다."><input type="checkbox" id="ntAll"> 전체 선택</label>'+
-    '<label class="nt-upl" title="기본은 오늘 할 일 01에 있는 건만 나옵니다. 켜면 앞으로 7일 내 예정(02) 건도 목록에 나와요'+(isDoc?'(체크는 꺼진 채로).':'(체크된 채로).')+'"><input type="checkbox" id="ntShowUp"> 앞으로 7일 내 예정(02)도 보기'+(cs.upcoming.length?' ('+cs.upcoming.length+'건)':'')+'</label>'+
+    '<label class="nt-upl" title="기본은 오늘 할 일 01에 있는 건만 나옵니다. 켜면 앞으로 7일 내 예정(02) 건도 목록에 나와요'+(isDoc?'(체크는 꺼진 채로).':'(체크된 채로).')+'"><input type="checkbox" id="ntShowUp"'+(showUp?' checked':'')+'> 앞으로 7일 내 예정(02)도 보기'+(cs.upcoming.length?' ('+cs.upcoming.length+'건)':'')+'</label>'+
     '<span style="color:var(--ink-soft);">'+(isDoc?'담을 건을 체크하면 아래 안내문이 바로 바뀝니다. 면장을 아직 체크 안 한 건은 "면장 필요"가 자동으로 켜져 있어요(끌 수 있음). 아래 칸에서 문구를 직접 고쳐서 복사해도 돼요.':'담을 건을 체크하고 상태를 고르면 아래 안내문이 바로 바뀝니다. 아래 칸에서 문구를 직접 고쳐서 복사해도 돼요.')+'</span></div>'+
     '<div id="ntList"></div>'+
     '<textarea id="ntOut" spellcheck="false"></textarea>'+
     '</div>'+
     '<div class="modal-foot"><span class="mono" style="font-size:11.5px;color:var(--ink-soft);" id="ntCount"></span><button class="btn btn-primary" id="ntCopyBtn">안내문 복사</button></div>';
-  document.getElementById('modalContent').classList.add('wide');
+  document.getElementById('modalContent').classList.add('wide'); document.getElementById('modalContent').classList.add('ntwide');   // 안내문 창은 더 넓게(House B/L 칸의 표시가 줄 겹치지 않게)
   document.getElementById('modalOverlay').hidden = false;
   document.getElementById('ntCloseBtn').addEventListener('click', closeModal);
   document.getElementById('ntClient').addEventListener('change', function(){ selClient = this.value; draw(); });
@@ -5416,7 +5500,8 @@ document.getElementById('noticeBtn').addEventListener('click', function(){ openN
 document.getElementById('noticeDocBtn').addEventListener('click', function(){ openNoticeModal('doc'); });
 document.getElementById('noticeBar').addEventListener('click', function(e){
   if(e.target.closest('#termUploadBtn')){ document.getElementById('termFileInput').click(); return; }
-  if(e.target.closest('#termClearBtn')){ termClear_(); renderAll(); toast('터미널 스케줄 표시를 껐어요.'); }
+  if(e.target.closest('#termClearBtn')){ termClear_(); renderAll(); toast('터미널 스케줄 표시를 껐어요.'); return; }
+  var tl = e.target.closest('[data-term-list]'); if(tl){ openTermListModal(tl.dataset.termList); }
 });
 document.getElementById('termFileInput').addEventListener('change', function(){ var f = this.files && this.files[0]; this.value = ''; if(f) termHandleFile_(f); });
 document.getElementById('archiveCleanupBtn').addEventListener('click', async function(){
