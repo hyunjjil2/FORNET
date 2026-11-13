@@ -14,7 +14,7 @@
 :root{
   --ink:#12182A; --ink-soft:#4B5164; --paper:#F1F1EC; --paper-rgb:241,241,236; --surface:#FFFFFF; --surface-2:#FBFAF6;
   --line:#DEDCD1; --line-strong:#C7C4B5;
-  --brass:#A9762A; --brass-soft:#E9D9B8;
+  --brass:#A9762A; --brass-soft:#E9D9B8; --warn-bg:#FFE27A; --warn-ink:#4A3600; --warn-line:#E0B800;
   --teal:#1F6B68; --teal-soft:#D7E8E6;
   --plum:#6B4E7C; --plum-soft:#E7DEEC;
   --indigo:#4C58A6; --indigo-soft:#E1E4F4; --sky:#2B7A9E; --sky-soft:#DCEEF6;
@@ -30,7 +30,7 @@
   :root:not([data-theme="light"]){
     --ink:#ECE9DF; --ink-soft:#ADA79A; --paper:#14181B; --paper-rgb:20,24,27; --surface:#1B2024; --surface-2:#20262A;
     --line:#333A3E; --line-strong:#454D52;
-    --brass:#D6A54A; --brass-soft:#3B321F;
+    --brass:#D6A54A; --brass-soft:#3B321F; --warn-bg:#5A4500; --warn-ink:#FFE9A3; --warn-line:#C9A100;
     --teal:#4BA6A0; --teal-soft:#1B302E;
     --plum:#A985BE; --plum-soft:#2E2438;
     --steel:#7FAAD1; --steel-soft:#1D2A36;
@@ -46,7 +46,7 @@
 :root[data-theme="dark"]{
   --ink:#ECE9DF; --ink-soft:#ADA79A; --paper:#14181B; --paper-rgb:20,24,27; --surface:#1B2024; --surface-2:#20262A;
   --line:#333A3E; --line-strong:#454D52;
-  --brass:#D6A54A; --brass-soft:#3B321F;
+  --brass:#D6A54A; --brass-soft:#3B321F; --warn-bg:#5A4500; --warn-ink:#FFE9A3; --warn-line:#C9A100;
   --teal:#4BA6A0; --teal-soft:#1B302E;
   --plum:#A985BE; --plum-soft:#2E2438;
   --steel:#7FAAD1; --steel-soft:#1D2A36;
@@ -405,7 +405,8 @@ img{max-width:100%;}
 .term-status{font-size:12px; color:var(--ink-soft);}
 .term-status .t-delay{color:var(--danger);}
 .term-status .t-check{color:var(--brass);}
-.term-status.stale{color:var(--danger); font-weight:600;}
+.term-status.stale{color:var(--ink-soft);}
+.term-stale{display:inline-block; background:var(--warn-bg); color:var(--warn-ink); border:1px solid var(--warn-line); border-radius:2px; padding:2px 8px; font-weight:700; font-size:12px; margin-right:4px;}
 .term-cnt{border:0; background:none; padding:1px 3px; font:inherit; color:inherit; cursor:pointer; text-decoration:underline; text-underline-offset:2px; border-radius:2px;}
 .term-cnt:hover{background:var(--surface-2); color:var(--ink);}
 .term-cnt:focus-visible{outline:2px solid var(--steel, var(--ink)); outline-offset:1px;}
@@ -5049,7 +5050,7 @@ function termBarHtml_(){
     '<span class="term-status">'+escapeHtml(termMdHm_(TERM_SCHED.asOf))+' 기준 파일은 그대로 있어요 — 켜면 바로 다시 보여요</span>';
   return '<button class="btn btn-sm" id="termUploadBtn" title="오늘 받은 트레드링스 터미널 스케줄 엑셀로 다시 올리기">터미널 스케줄 다시 올리기</button>'+sw+
     '<span class="term-status'+(stale?' stale':'')+'" title="'+escapeHtml((TERM_SCHED.fileName||'')+' · '+TERM_SCHED.count+'행 · 이 PC 브라우저에만 저장됨')+'">'+
-      (stale?'⚠ 오늘 파일이 아니에요 · ':'')+'터미널 '+termMdHm_(TERM_SCHED.asOf)+' 기준'+
+      (stale?'<span class="term-stale" title="오늘 받은 트레드링스 터미널 스케줄 엑셀을 올려야 정확해요">⚠ 오늘 파일이 아니에요 ('+escapeHtml(termMd_(TERM_SCHED.asOf))+' 파일) — 오늘 파일을 올려주세요</span> ':'')+'터미널 '+termMdHm_(TERM_SCHED.asOf)+' 기준'+
       ' · <button class="term-cnt t-delay" data-term-list="delay" title="지연 건 보기">지연 '+(c.delay||0)+'</button>'+
       ' · <button class="term-cnt" data-term-list="done" title="출항 완료 건 보기">출항 완료 '+(c.done||0)+'</button>'+
       (c.early?' · <button class="term-cnt" data-term-list="early" title="조기 출항 건 보기">조기 출항 '+c.early+'</button>':'')+
@@ -5121,7 +5122,7 @@ function openTermListModal(kind){
   mc.innerHTML =
     '<div class="modal-head"><h3>터미널 대조 · '+escapeHtml(label)+' '+items.length+'건</h3><button class="modal-close" id="tlCloseBtn">&times;</button></div>'+
     '<div class="modal-body">'+
-      '<div class="tl-note">트레드링스 터미널 스케줄 '+escapeHtml(termMdHm_(TERM_SCHED.asOf))+' 기준'+(termIsToday_()?'':' <b style="color:var(--danger);">(오늘 파일이 아니에요)</b>')+' · 출항안내 01·02 건 중 · 행을 누르면 건 상세/수정이 열려요. 대시보드 ETD는 바뀌지 않아요.</div>'+
+      '<div class="tl-note">트레드링스 터미널 스케줄 '+escapeHtml(termMdHm_(TERM_SCHED.asOf))+' 기준'+(termIsToday_()?'':' <span class="term-stale">⚠ 오늘 파일이 아니에요</span>')+' · 출항안내 01·02 건 중 · 행을 누르면 건 상세/수정이 열려요. 대시보드 ETD는 바뀌지 않아요.</div>'+
       '<div class="tl-list">'+head+body+'</div>'+
     '</div>'+
     '<div class="modal-foot"><span class="mono" style="font-size:11.5px;color:var(--ink-soft);">'+items.length+'건</span>'+
