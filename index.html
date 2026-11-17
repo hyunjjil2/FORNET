@@ -1011,14 +1011,26 @@ var byId = {};
    그 사이(약 1~2초) 20초 주기 자동 새로고침이 끼어들면 아직 저장 전인 옛날 값으로
    화면을 덮어써서 방금 체크한 항목이 다시 미완료로 돌아왔다가, 저장이 끝나면 또
    사라지는 것처럼 보임 — 저장이 확정될 때까지는 새로고침이 와도 낙관적 값을 유지시켜서 막음. */
-var pendingChecklistWrites = {}; // "id|itemKey" -> 아직 서버 저장 확정 전인 낙관적 값(true/false)
+/* [2026-11-16 근본 수정] 예전에는 "저장이 끝나는 순간" 보호를 풀었는데, 그 전에 이미 출발한 자동 새로고침
+   (Apps Script가 3~5초 걸려 저장 전 시트를 읽어 온 결과)이 저장 뒤에 도착하면 옛 값으로 덮어써서
+   "사라졌다가 다시 뜨는" 현상이 남아 있었음. 이제는 저장이 끝난 "뒤에 출발한" 새로고침 결과가 올 때까지 보호를 유지함
+   (상세창 저장의 recentSaves와 같은 방식). 저장 실패 때만 즉시 풀고 원래대로 되돌림. */
+var pendingChecklistWrites = {}; // "id|itemKey" -> {v: 낙관적 값(true/false), doneAt: 저장 완료 시각(진행 중이면 null)}
+var PENDING_MAX_AGE_MS = 120000;  // 안전장치: 저장 완료 후 2분이 지나도 남아 있으면 정리
 function pendingWriteKey(id, itemKey){ return id+'|'+itemKey; }
-function reapplyPendingWrites(){
+function setPendingWrite(key, value){ pendingChecklistWrites[key] = {v: !!value, doneAt: null}; }
+function markPendingDone(key){ var p = pendingChecklistWrites[key]; if(p) p.doneAt = Date.now(); }
+function dropPendingWrite(key){ delete pendingChecklistWrites[key]; }
+function reapplyPendingWrites(fetchStartedAt){
+  var now = Date.now();
   Object.keys(pendingChecklistWrites).forEach(function(key){
+    var p = pendingChecklistWrites[key];
+    // 저장이 끝난 뒤에 출발한 조회 결과 = 서버 값이 최신 → 보호 해제(서버 값 그대로 씀)
+    if(p.doneAt!==null && ((fetchStartedAt!=null && p.doneAt < fetchStartedAt) || now - p.doneAt > PENDING_MAX_AGE_MS)){ delete pendingChecklistWrites[key]; return; }
     var sep = key.lastIndexOf('|');
     var id = key.slice(0, sep), itemKey = key.slice(sep+1);
     var s = byId[id]; if(!s) return;
-    var nc = Object.assign({}, s.checklist||{}); nc[itemKey] = pendingChecklistWrites[key]; s.checklist = nc;
+    var nc = Object.assign({}, s.checklist||{}); nc[itemKey] = p.v; s.checklist = nc;
   });
 }
 var bookingHolds = [];   // 부킹확인중 메모 — 정식 건과 무관한 별도 목록. [{ID,POL,POD,ETD,ETA,서류마감일,VESSEL,CNTR TYPE,수량,BK NO,선사,화주,REMARK,상태}]
@@ -3318,7 +3330,7 @@ async function bulkApply(sectionId){
   var pKeys = entries.map(function(en){ return pendingWriteKey(en.id, en.item); });
   entries.forEach(function(en, i){
     var s = byId[en.id]; if(!s) return;
-    pendingChecklistWrites[pKeys[i]] = true;
+    setPendingWrite(pKeys[i], true);
     var nc = Object.assign({}, s.checklist||{}); nc[en.item] = true; s.checklist = nc;
   });
   selection[sectionId] = {};
@@ -3326,11 +3338,11 @@ async function bulkApply(sectionId){
   try{
     var items = entries.map(function(en){ var s=byId[en.id]; return {managementNo: s?s.managementNo:en.id, itemKey: en.item}; });
     await apiPost({action:'toggleMany', items: items, value:true});
-    pKeys.forEach(function(k){ delete pendingChecklistWrites[k]; }); // 저장 확정
+    pKeys.forEach(markPendingDone); // 저장 확정 — 보호는 저장 뒤에 출발한 새로고침이 올 때까지 유지
     toast(pickedCount+'건을 일괄 완료 처리했습니다.');
     refreshFromServer(true);
   }catch(e){
-    pKeys.forEach(function(k){ delete pendingChecklistWrites[k]; });
+    pKeys.forEach(dropPendingWrite);
     prevStates.forEach(function(p){ var s=byId[p.id]; if(s && p.prevChecklist) s.checklist=p.prevChecklist; });
     renderAll();
     toast('일괄 처리 실패: '+e.message, {err:true});
@@ -3644,13 +3656,16 @@ async function toggleBlHolding(id, wantsYes, opts){
   var willAutoComplete = wantsYes && hasBlIssueItem && !prevChecklist.blIssue;
   s.blHolding = wantsYes;
   if(willAutoComplete){ var nc = Object.assign({}, prevChecklist); nc.blIssue = true; s.checklist = nc; }
+  noteSaveStart(id, s);   // 저장 중·직후에 도착하는 옛 새로고침 결과가 화면을 되돌리지 않게 보호
   renderAll();
   try{
     await apiPost({action:'upsertOne', id: s.managementNo, data: {'비엘홀딩': wantsYes}});
     if(willAutoComplete){ await apiPost({action:'toggleItem', managementNo:s.managementNo, itemKey:'blIssue', value:true}); }
+    noteSaveDone(id);
     if(!opts.silent) toast('"'+(s.managementNo||id)+'" 비엘 홀딩 상태를 변경했습니다.'+(willAutoComplete?' (비엘발행 자동 완료 처리됨)':''));
     refreshFromServer(true);
   }catch(e){
+    noteSaveFail(id);
     s.blHolding = prevBlHolding; s.checklist = prevChecklist; renderAll();
     toast('변경 실패: '+e.message, {err:true});
   }
@@ -3662,11 +3677,11 @@ function releaseBlHold(id){
   var prevChecklist = Object.assign({}, s.checklist||{});
   var nc = Object.assign({}, prevChecklist); nc[BL_RELEASED_ITEM_KEY] = true;
   var pKey = pendingWriteKey(id, BL_RELEASED_ITEM_KEY);
-  pendingChecklistWrites[pKey] = true;
+  setPendingWrite(pKey, true);
   s.checklist = nc; renderAll();
   apiPost({action:'toggleItem', managementNo:s.managementNo, itemKey:BL_RELEASED_ITEM_KEY, value:true})
-    .then(function(){ delete pendingChecklistWrites[pKey]; toast('"'+(s.managementNo||id)+'" 비엘 홀딩을 해제했습니다. 이제 발행완료 처리할 수 있습니다.'); })
-    .catch(function(e){ delete pendingChecklistWrites[pKey]; s.checklist = prevChecklist; renderAll(); toast('해제 실패: '+e.message, {err:true}); });
+    .then(function(){ markPendingDone(pKey); toast('"'+(s.managementNo||id)+'" 비엘 홀딩을 해제했습니다. 이제 발행완료 처리할 수 있습니다.'); })
+    .catch(function(e){ dropPendingWrite(pKey); s.checklist = prevChecklist; renderAll(); toast('해제 실패: '+e.message, {err:true}); });
 }
 function saveRemark(id, value){
   var s = byId[id]; if(!s) return;
@@ -4010,7 +4025,7 @@ async function refreshFromServer(silent, retryCount){
     allShipments = (json.rows||[]).map(sheetRowToShipment);
     byId = {}; allShipments.forEach(function(s){ byId[s.id]=s; });
     reapplyRecentSaves(fetchStartedAt);
-    reapplyPendingWrites(); // 저장 확정 전인 낙관적 체크 상태는 새로고침으로 덮어쓰지 않음
+    reapplyPendingWrites(fetchStartedAt); // 저장이 끝난 뒤에 출발한 조회가 오기 전까지는 낙관적 체크 상태를 유지
     if(json.myClients) myClientCodes = json.myClients;
     if(json.dispatchClients) dispatchClientCodes = json.dispatchClients;
     if(json.insuranceClients) insuranceClientCodes = json.insuranceClients;
@@ -4068,21 +4083,21 @@ function completeDocGroup(id, itemKey){
   if(pend.length===0){ renderAll(); return; }
   var nc = Object.assign({}, prevChecklist);
   var pKeys = pend.map(function(m){ return pendingWriteKey(id, m.key); });
-  pend.forEach(function(m,i){ nc[m.key]=true; pendingChecklistWrites[pKeys[i]]=true; });
+  pend.forEach(function(m,i){ nc[m.key]=true; setPendingWrite(pKeys[i], true); });
   s.checklist = nc; renderAll();
   var items = pend.map(function(m){ return {managementNo:s.managementNo, itemKey:m.key}; });
   apiPost({action:'toggleMany', items:items, value:true})
     .then(function(){
-      pKeys.forEach(function(k){ delete pendingChecklistWrites[k]; });
+      pKeys.forEach(markPendingDone);
       toast('"'+(s.managementNo||id)+'" '+gName+' 묶음('+pend.map(function(m){return m.label;}).join('·')+') 완료 처리', {undo:function(){
-        pKeys.forEach(function(k){ pendingChecklistWrites[k]=false; });
+        pKeys.forEach(function(k){ setPendingWrite(k, false); });
         s.checklist = prevChecklist; renderAll();
         apiPost({action:'toggleMany', items:items, value:false})
-          .then(function(){ pKeys.forEach(function(k){ delete pendingChecklistWrites[k]; }); })
-          .catch(function(){ pKeys.forEach(function(k){ delete pendingChecklistWrites[k]; }); });
+          .then(function(){ pKeys.forEach(markPendingDone); })
+          .catch(function(){ pKeys.forEach(dropPendingWrite); renderAll(); });
       }});
     })
-    .catch(function(e){ pKeys.forEach(function(k){ delete pendingChecklistWrites[k]; }); s.checklist=prevChecklist; renderAll(); toast('저장 실패: '+e.message, {err:true}); });
+    .catch(function(e){ pKeys.forEach(dropPendingWrite); s.checklist=prevChecklist; renderAll(); toast('저장 실패: '+e.message, {err:true}); });
 }
 function toggleItem(id, itemKey){
   var s = byId[id]; if(!s) return;
@@ -4093,11 +4108,11 @@ function toggleItem(id, itemKey){
   var prevChecklist = Object.assign({}, s.checklist||{});
   var newChecklist = Object.assign({}, prevChecklist); newChecklist[itemKey]=true;
   var pKey = pendingWriteKey(id, itemKey);
-  pendingChecklistWrites[pKey] = true;
+  setPendingWrite(pKey, true);
   s.checklist = newChecklist; renderAll(); // 낙관적 갱신
   apiPost({action:'toggleItem', managementNo:s.managementNo, itemKey:itemKey, value:true})
     .then(function(){
-      delete pendingChecklistWrites[pKey]; // 저장 확정 — 이제 새로고침이 와도 안전
+      markPendingDone(pKey); // 저장 확정 — 저장 뒤에 출발한 새로고침이 올 때까지 화면 값 유지
       // 홀딩 해제 → 최종 발행완료까지 끝났으면 흐름이 끝난 것이므로 비엘홀딩중 상태도 자동으로 종료(목록에서 빠짐)
       if(itemKey===BL_HOLDING_FINAL_ITEM_KEY && s.blHolding){
         toggleBlHolding(id, false, {silent:true});
@@ -4106,14 +4121,14 @@ function toggleItem(id, itemKey){
       }
       toast('"'+(s.managementNo||id)+'" 항목 완료 처리', {undo:function(){
         var uKey = pendingWriteKey(id, itemKey);
-        pendingChecklistWrites[uKey] = false;
+        setPendingWrite(uKey, false);
         s.checklist = prevChecklist; renderAll();
         apiPost({action:'toggleItem', managementNo:s.managementNo, itemKey:itemKey, value:false})
-          .then(function(){ delete pendingChecklistWrites[uKey]; })
-          .catch(function(){ delete pendingChecklistWrites[uKey]; });
+          .then(function(){ markPendingDone(uKey); })
+          .catch(function(){ dropPendingWrite(uKey); renderAll(); });
       }});
     })
-    .catch(function(e){ delete pendingChecklistWrites[pKey]; s.checklist=prevChecklist; renderAll(); toast('저장 실패: '+e.message, {err:true}); });
+    .catch(function(e){ dropPendingWrite(pKey); s.checklist=prevChecklist; renderAll(); toast('저장 실패: '+e.message, {err:true}); });
 }
 /* ================= modal ================= */
 var INFO_FIELDS = [
@@ -5334,7 +5349,9 @@ function buildLetterNoticeText_(items){
     var eta = it.s.etaPort ? it.s.etaPort : it.s.etaDoor;
     if(it.etaShift && toDate(eta)) eta = new Date(toDate(eta).getTime() + it.etaShift*86400000);
     var etaRef = etdD ? etdD.getFullYear() : undefined;
-    return letterHeadOf_(kind)+'\n\n'+v+'\nETD: '+(etdD ? noticeDate_(etdD, false) : '-')+'\nETA: '+noticeDate_(eta, false, etaRef);
+    // 이미 실출항한 건(터미널 기준 출항함, 또는 상태가 "출항 완료")은 ETD 대신 ATD로 표기
+    var lab = (it.termAtd || kind.k==='done') ? 'ATD' : 'ETD';
+    return letterHeadOf_(kind)+'\n\n'+v+'\n'+lab+': '+(etdD ? noticeDate_(etdD, false) : '-')+'\nETA: '+noticeDate_(eta, false, etaRef);
   }).join('\n\n');
 }
 function buildNoticeText_(items){
