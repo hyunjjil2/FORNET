@@ -444,6 +444,7 @@ img{max-width:100%;}
 .nt-all{font-weight:700; padding:3px 8px; border:1px solid var(--line-strong); border-radius:2px; background:var(--surface-2);}
 .bulk-cancel-btn{color:var(--danger); border-color:var(--danger); background:var(--surface);}
 .bulk-cancel-btn:hover:not(:disabled){background:color-mix(in srgb, var(--danger) 8%, var(--surface));}
+.modal.ntwide .nt-row.bl-row{grid-template-columns:24px 110px minmax(220px,1.4fr) minmax(180px,1.2fr) 140px;}
 .nt-upl{display:inline-flex; align-items:center; gap:5px; font-size:12.5px; cursor:pointer; white-space:nowrap;}
 .nt-up{display:inline-block; margin-top:2px; font-size:10.5px; padding:1px 6px; border-radius:8px; background:var(--surface-2); color:var(--ink-soft); font-family:inherit;}
 #ntOut{width:100%; min-height:200px; border:1px solid var(--line-strong); border-radius:2px; padding:10px; background:var(--surface); color:var(--ink); font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; resize:vertical; margin-top:12px;}
@@ -676,7 +677,7 @@ details.help[open] summary:before{content:"–";}
   <div class="chip-row" id="chipRow"></div>
   <div class="chip-row" id="typeChipRow"></div>
   <div class="chip-row chip-row-imp" id="typeChipRowImp"></div>
-  <div class="notice-bar" id="noticeBar" hidden><button class="btn btn-sm" id="noticeBtn">출항 안내문 만들기 (화주용)</button><button class="btn btn-sm" id="noticeDocBtn">서류마감 안내문 만들기 (화주용)</button><span id="termBar"></span><input type="file" id="termFileInput" accept=".xls,.xlsx" hidden><span id="noticeBarHint">지금 목록의 출항안내 건(오늘 할 일 + 앞으로 7일 내)으로 화주에게 보낼 안내문을 만들어요</span></div>
+  <div class="notice-bar" id="noticeBar" hidden><button class="btn btn-sm" id="noticeBtn">출항 안내문 만들기 (화주용)</button><button class="btn btn-sm" id="noticeDocBtn">서류마감 안내문 만들기 (화주용)</button><button class="btn btn-sm" id="noticeBlBtn">비엘 미발행 안내문 만들기 (화주용)</button><span id="termBar"></span><input type="file" id="termFileInput" accept=".xls,.xlsx" hidden><span id="noticeBarHint">지금 목록의 출항안내 건(오늘 할 일 + 앞으로 7일 내)으로 화주에게 보낼 안내문을 만들어요</span></div>
   <section class="board" id="board"></section>
 
   <div class="foot">
@@ -1293,6 +1294,14 @@ function groupForItemKey(s, key){
 /* ===== 지결일(지결 알약을 누른 날) — 2026-11-17 현정님 요청 =====
    지결 완료 시 오늘 날짜를 "지결일" 칸에 저장하고 알약에 "✓ 지결 10/13"으로 표시, 날짜를 누르면 고칠 수 있음.
    저장은 upsertOne 한 번(Code.gs 그대로 — 없는 칸은 자동 생성), 저장 중 새로고침에 되돌려지지 않게 recentSaves로 보호. */
+function clearLegacyBlHold_(s){
+  if(!s || !s.legacyBlHold) return;
+  s.legacyBlHold = false;
+  noteSaveStart(s.id, s);
+  apiPost({action:'upsertOne', id: s.managementNo, data: {'비엘홀딩': false}})
+    .then(function(){ noteSaveDone(s.id); })
+    .catch(function(){ noteSaveFail(s.id); s.legacyBlHold = true; });
+}
 function jigyeolKeyOf_(s){ var g = jigyeolGroupOf(s); return g ? g[0].key : null; }
 function jgNoonIso_(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0).toISOString(); }  // 정오로 저장 → 시트 시간대가 달라도 날짜가 안 밀림
 function saveJigyeolDate_(s, d, opts){
@@ -2103,11 +2112,11 @@ function typeChipCounts(){
 function renderTypeChips(){
   var row = document.getElementById('typeChipRow');
   var ntBar = document.getElementById('noticeBar'); if(ntBar){
-    ntBar.hidden = !(activeTab==='TODAY' && (activeType==='duesoon' || activeType==='docCls'));
-    var nb = document.getElementById('noticeBtn'), nd = document.getElementById('noticeDocBtn'), nh = document.getElementById('noticeBarHint');
-    if(nb) nb.hidden = (activeType==='docCls'); if(nd) nd.hidden = (activeType!=='docCls');
+    ntBar.hidden = !(activeTab==='TODAY' && (activeType==='duesoon' || activeType==='docCls' || activeType==='blissue'));
+    var nb = document.getElementById('noticeBtn'), nd = document.getElementById('noticeDocBtn'), nbl = document.getElementById('noticeBlBtn'), nh = document.getElementById('noticeBarHint');
+    if(nb) nb.hidden = (activeType!=='duesoon'); if(nd) nd.hidden = (activeType!=='docCls'); if(nbl) nbl.hidden = (activeType!=='blissue');
     var tb = document.getElementById('termBar'); if(tb) tb.innerHTML = (activeType==='duesoon' && !ntBar.hidden) ? termBarHtml_() : '';
-    if(nh) nh.textContent = activeType==='docCls' ? '지금 목록의 서류마감 건(오늘 할 일 + 앞으로 7일 내)으로 화주에게 보낼 안내문을 만들어요 · 면장을 아직 안 체크한 건은 "면장 필요"로 자동 표시' : '지금 목록의 출항안내 건(오늘 할 일 + 앞으로 7일 내)으로 화주에게 보낼 안내문을 만들어요';
+    if(nh) nh.textContent = activeType==='blissue' ? '비엘 미발행 건(기본 02: 출항 D+3일 이상 지난 건, 01은 선택해서 추가)으로 화주에게 발행 여부를 묻는 안내문을 만들어요' : activeType==='docCls' ? '지금 목록의 서류마감 건(오늘 할 일 + 앞으로 7일 내)으로 화주에게 보낼 안내문을 만들어요 · 면장을 아직 안 체크한 건은 "면장 필요"로 자동 표시' : '지금 목록의 출항안내 건(오늘 할 일 + 앞으로 7일 내)으로 화주에게 보낼 안내문을 만들어요';
   }
   var rowImp = document.getElementById('typeChipRowImp');
   row.className = 'chip-row'; if(rowImp) rowImp.className = 'chip-row chip-row-imp';
@@ -2198,7 +2207,6 @@ function jumpToChecklistItemGroup(pairs){
 function renderTabRow(){
   var tabs=[
     {key:'TODAY', label:'오늘 할 일', count: feedTodayAll().length + feedUnassigned().length},
-    {key:'BL_HOLDING', label:'비엘홀딩중', count: feedBlHolding().length},
     {key:'CANCELLED', label:'캔슬', count: feedCancelled().length, plain:true}
   ];
   document.getElementById('tabRow').innerHTML = tabs.map(function(t){
@@ -3388,6 +3396,7 @@ async function bulkApply(sectionId){
     pKeys.forEach(markPendingDone); // 저장 확정 — 보호는 저장 뒤에 출발한 새로고침이 올 때까지 유지
     toast(pickedCount+'건을 일괄 완료 처리했습니다.');
     // 일괄 완료에 지결이 들어 있던 건은 오늘 날짜를 지결일로 저장(건마다 한 번, 차례로)
+    entries.forEach(function(en){ if(en.item==='blIssue') clearLegacyBlHold_(byId[en.id]); });
     var jgIds = {}; entries.forEach(function(en){ var sx = byId[en.id]; if(sx && en.item===jigyeolKeyOf_(sx)) jgIds[en.id] = sx; });
     for(var jid in jgIds){ await saveJigyeolDate_(jgIds[jid], new Date(), {noRender:true}); }
     renderAll();
@@ -3864,6 +3873,12 @@ function sheetRowToShipment(row){
     }
   });
   s.id = s.managementNo;
+  /* [2026-11-19] 비엘홀딩중 기능 없앰(현정님 요청 — 비엘발행 단추에서 다 봄). 시트의 "비엘홀딩" 값은 무시.
+     예전에 홀딩 YES로 두면서 비엘발행이 자동 완료됐지만 최종 발행은 아직인 건(legacyBlHold)은
+     화면에서 비엘발행을 "미완료"로 되살려 비엘발행 단추에 다시 나오게 함 → 비엘발행을 체크하면 시트의 비엘홀딩도 NO로 정리. */
+  s.legacyBlHold = !!s.blHolding && !(s.checklist||{})[BL_HOLDING_FINAL_ITEM_KEY];
+  if(s.legacyBlHold && (s.checklist||{}).blIssue){ s.checklist = Object.assign({}, s.checklist); s.checklist.blIssue = false; }
+  s.blHolding = false;
   // 지결일 — 지결 알약을 누른 날(시트 "지결일" 칸, 처음 저장할 때 Code.gs가 칸을 자동으로 만듦)
   s.jigyeolDate = (row['지결일']===undefined || row['지결일']===null) ? '' : String(row['지결일']);
   // 관리번호가 "-X숫자"로 끝나면 시트에 저장된 값과 무관하게 항상 청구전용으로 자동 보정.
@@ -4171,6 +4186,7 @@ function toggleItem(id, itemKey){
   setPendingWrite(pKey, true);
   s.checklist = newChecklist; renderAll(); // 낙관적 갱신
   var isJg = (itemKey===jigyeolKeyOf_(s));
+  if(itemKey==='blIssue') clearLegacyBlHold_(s);   // 예전 비엘홀딩 건이면 시트의 비엘홀딩도 NO로
   if(isJg) saveJigyeolDate_(s, new Date());   // 지결을 누른 날 저장
   apiPost({action:'toggleItem', managementNo:s.managementNo, itemKey:itemKey, value:true})
     .then(function(){
@@ -4517,8 +4533,8 @@ function openModal(id){
     '<div class="select-row"><span class="yn-label">기타 할 일</span>'+ynSelectHtml('fld_etcNeeded', defaultEtcNeeded)+'<span style="color:var(--ink-soft);">— YES 선택 시 기한 날짜와 메모를 직접 적어 "오늘 할 일 > 기타"에서 기한(D-DAY) 기준으로 추적됨(업체별 자유 양식 할 일)</span></div>'+
     '<div id="etcArea">'+etcAreaHtml(defaultEtcNeeded, s, s.checklist)+'</div>'+
     '</div>'+
-    '<div class="modal-group">'+
-    '<div class="select-row"><span class="yn-label">비엘 홀딩중</span>'+ynSelectHtml('fld_blHolding', defaultBlHolding)+'<span style="color:var(--ink-soft);">— YES 선택 시 "비엘홀딩중" 탭에 표시되고, 비엘발행 항목이 있으면 자동으로 완료 처리됨</span></div>'+
+    '<div class="modal-group" style="display:none">'+   // 비엘홀딩중 기능 없앰(2026-11-19) — 칸은 숨김만(저장 땐 항상 NO)
+    '<div class="select-row"><span class="yn-label">비엘 홀딩중</span>'+ynSelectHtml('fld_blHolding', false)+'<span style="color:var(--ink-soft);">— YES 선택 시 "비엘홀딩중" 탭에 표시되고, 비엘발행 항목이 있으면 자동으로 완료 처리됨</span></div>'+
     '<div id="blHoldingArea">'+blHoldingAreaHtml(defaultBlHolding, s.checklist)+'</div>'+
     '</div>'+
     '<div id="isfArea" class="modal-group">'+isfAreaHtml(isUsBoundShipment(s), s.checklist)+'</div>'+
@@ -4567,7 +4583,8 @@ async function saveModal(){
   var etcDueEl = document.getElementById('fld_etcDue'), etcMemoEl = document.getElementById('fld_etcMemo');
   if(etcDueEl) s.etcDue = etcDueEl.value ? etcDueEl.value+'T00:00' : '';
   if(etcMemoEl) s.etcMemo = etcMemoEl.value.trim();
-  s.blHolding = document.getElementById('fld_blHolding').value==='yes';
+  s.blHolding = false;   // 비엘홀딩중 기능 없앰 — 상세창에서 저장하면 시트의 비엘홀딩도 NO로 정리
+  s.legacyBlHold = false;
   var checklist = {};
   document.querySelectorAll('#checklistArea [data-chk], #doorArea [data-chk], #dispatchArea [data-chk], #preAlertArea [data-chk], #insuranceArea [data-chk], #freeTimeArea [data-chk], #ediArea [data-chk], #etcArea [data-chk], #blHoldingArea [data-chk], #isfArea [data-chk]').forEach(function(el){ checklist[el.dataset.chk] = el.checked; });
   // 비엘 홀딩중을 YES로 저장하는 경우, 이 루틴에 "비엘발행" 항목이 있으면 화주 확인이 끝난 것으로 보고
@@ -5450,6 +5467,117 @@ function buildNoticeText_(items){
   });
   return '출항 안내 드립니다.\n\n'+blocks.join('\n\n');
 }
+/* ===== 비엘 미발행 안내문 (비엘발행 업무구분 단추) — 2026-11-19 현정님 요청 =====
+   후보: 비엘발행 단추의 02(출항 D+3일 이상 지난 건) = 기본으로 목록·체크, 01(출항 D+0~2일)은 "01도 보기"로 넣었다 뺐다.
+   문구: 실화주 코드 S112(풍산 울산)만 목록형, 나머지 거래처는 "표제 건(BL# …) …" 한 문단. */
+var BL_NOTICE_LIST_CODES = ['S112'];
+function blNoticeCandidates_(){
+  var seen = {}, recent = [], old = [];
+  feedTodayAll().forEach(function(x){
+    if(x.type!=='blissue' || seen[x.s.id]) return;
+    seen[x.s.id] = true; (x.old ? old : recent).push(x.s);
+  });
+  return {recent:recent, old:old};
+}
+function blNoticeIsList_(s){ return BL_NOTICE_LIST_CODES.indexOf(String(s.clientCode||'').trim().toUpperCase())>=0; }
+function blNoticeBlNo_(s){ return String(s.hbl||'').trim() || String(s.mbl||'').trim() || String(s.lineBookingNo||'').trim() || '-'; }
+function buildBlNoticeText_(items){
+  if(!items.length) return '';
+  var tsOf = function(it){ var d = toDate(it.s.etd); return d ? d.getTime() : 9e15; };
+  items = items.slice().sort(function(a,b){ return tsOf(a)-tsOf(b); });
+  if(!blNoticeIsList_(items[0].s)){
+    var nos = [];
+    items.forEach(function(it){ var n = blNoticeBlNo_(it.s); if(nos.indexOf(n)<0) nos.push(n); });
+    return '표제 건(BL# '+nos.join(', ')+') B/L 아직 발행 전이어서, 아직 발행 홀딩 중이실지 확인 차 여쭙습니다. 발행 일정이 정해지면 추후 발행요청 부탁 드리겠습니다.';
+  }
+  // S112(풍산 울산): 모선별 묶음 + "PO / House B/L / 도착지 / ETD-ETA : …" — 이미 출항했으면 ATD, 도착까지 끝났으면 ATA
+  var now = Date.now(), groups = {}, order = [];
+  items.forEach(function(it){ var v = vesselFullOf_(it.s) || '(모선 미입력)'; if(!groups[v]){ groups[v] = []; order.push(v); } groups[v].push(it); });
+  var blocks = order.map(function(v){
+    var merged = [], byH = {};
+    groups[v].forEach(function(it){
+      var h = String(it.s.hbl||'').trim(), po = String(it.s.poNo||'').trim();
+      if(h && byH[h]){ if(po) byH[h].pos.push(po); return; }
+      var m = {s:it.s, pos: po ? [po] : []}; merged.push(m); if(h) byH[h] = m;
+    });
+    return v+'\n'+merged.map(function(m){
+      var etdD = toDate(m.s.etd), eta = m.s.etaPort ? m.s.etaPort : m.s.etaDoor, etaD = toDate(eta);
+      var gone = !!(etdD && etdD.getTime() <= now), arrived = !!(gone && etaD && etaD.getTime() <= now);
+      var lab = (gone ? 'ATD' : 'ETD')+'-'+(arrived ? 'ATA' : 'ETA');
+      return (m.pos.length ? m.pos.join('_') : '-')+' / '+(String(m.s.hbl||'').trim()||'-')+' / '+noticePodOf_(m.s)+' / '+lab+' : '+noticeDate_(m.s.etd, false)+'-'+noticeDate_(eta, false, etdD ? etdD.getFullYear() : undefined);
+    }).join('\n');
+  });
+  return '비엘 미발행 건들 안내 드리오니, 발행 필요하신 건들 원하시는 타입으로 발행 요청 부탁 드립니다.\n\n'+blocks.join('\n\n');
+}
+function openBlNoticeModal(){
+  editingId = null;
+  var cs = blNoticeCandidates_();
+  var recentIds = {}; cs.recent.forEach(function(s){ recentIds[s.id] = true; });
+  var showRecent = false, cands = [], clientsMap = {}, clients = [], selClient = '', state = {};
+  function buildClients(){
+    cands = cs.old.concat(showRecent ? cs.recent : []);
+    clientsMap = {}; clients = [];
+    cands.forEach(function(s){ var k = s.clientCode || s.client || '-'; if(!clientsMap[k]){ clientsMap[k] = (s.client||k); clients.push(k); } });
+    if(clients.indexOf(selClient)<0) selClient = (clients.filter(function(k){ return BL_NOTICE_LIST_CODES.indexOf(String(k).toUpperCase())>=0; })[0]) || clients[0] || '';
+  }
+  function clientOptionsHtml(){
+    return clients.length ? clients.map(function(k){ return '<option value="'+escapeHtml(k)+'" '+(k===selClient?'selected':'')+'>'+escapeHtml(clientsMap[k])+'</option>'; }).join('') : '<option value="">(비엘 미발행 건 없음)</option>';
+  }
+  function rowsOf(){ return cands.filter(function(s){ return (s.clientCode||s.client||'-')===selClient; }).sort(function(a,b){ var da=toDate(a.etd), db=toDate(b.etd); return (da?da.getTime():9e15)-(db?db.getTime():9e15); }); }
+  function stOf(s){ if(!state[s.id]) state[s.id] = {on:true}; return state[s.id]; }
+  function draw(){
+    var rows = rowsOf();
+    var head = '<div class="nt-row bl-row head"><span></span><span>PO No</span><span>House B/L No</span><span>모선</span><span>ETD / ETA</span></div>';
+    var body = rows.length ? rows.map(function(s){
+      var eta = s.etaPort||s.etaDoor;
+      return '<div class="nt-row bl-row">'+
+        '<input type="checkbox" data-bl-on="'+escapeHtml(s.id)+'" '+(stOf(s).on?'checked':'')+'>'+
+        '<span class="mono">'+(String(s.poNo||'').trim()?escapeHtml(s.poNo):'<span style="color:var(--ink-soft);">-</span>')+(recentIds[s.id]?'<br><span class="nt-up" title="출항 D+0~2일(01)">01 최근</span>':'')+'</span>'+
+        '<span class="mono">'+(String(s.hbl||'').trim()?escapeHtml(s.hbl):'<span class="nt-miss">미입력</span>')+'<br><span style="color:var(--ink-soft);">'+escapeHtml(noticePodOf_(s))+'</span></span>'+
+        '<span>'+(vesselFullOf_(s)?escapeHtml(vesselFullOf_(s)):'<span class="nt-miss">모선 미입력</span>')+'</span>'+
+        '<span class="mono">'+escapeHtml(noticeDate_(s.etd,false))+' / '+escapeHtml(noticeDate_(eta,false))+'</span>'+
+      '</div>';
+    }).join('') : '<div style="padding:14px 0;color:var(--ink-soft);">이 거래처의 비엘 미발행 건이 없습니다.</div>';
+    document.getElementById('ntList').innerHTML = head+body;
+    document.querySelectorAll('#ntList [data-bl-on]').forEach(function(el){ el.addEventListener('change', function(){ state[el.dataset.blOn].on = el.checked; refreshText(); }); });
+    refreshText();
+  }
+  function refreshText(){
+    var items = rowsOf().filter(function(s){ return stOf(s).on; }).map(function(s){ return {s:s}; });
+    document.getElementById('ntOut').value = buildBlNoticeText_(items);
+    document.getElementById('ntCount').textContent = items.length+'건 선택';
+    var allEl = document.getElementById('ntAll'), tot = rowsOf().length;
+    if(allEl){ allEl.disabled = !tot; allEl.checked = tot>0 && items.length===tot; allEl.indeterminate = items.length>0 && items.length<tot; }
+  }
+  buildClients();
+  var mc = document.getElementById('modalContent');
+  mc.classList.remove('detail'); mc.classList.remove('mcwide');
+  mc.innerHTML =
+    '<div class="modal-head"><h3>비엘 미발행 안내문 만들기</h3><button class="modal-close" id="ntCloseBtn">&times;</button></div>'+
+    '<div class="modal-body">'+
+    '<div class="nt-head"><b>거래처</b><select id="ntClient">'+clientOptionsHtml()+'</select>'+
+    '<label class="nt-upl nt-all" title="아래 목록에 보이는 건을 한 번에 모두 체크하거나 모두 해제합니다."><input type="checkbox" id="ntAll"> 전체 선택</label>'+
+    '<label class="nt-upl" title="기본은 02(출항 D+3일 이상 지난 건)만 나와요. 켜면 01(출항 D+0~2일) 건도 체크된 채로 나와요."><input type="checkbox" id="ntShowRecent"> 01(최근 출항)도 넣기'+(cs.recent.length?' ('+cs.recent.length+'건)':'')+'</label>'+
+    '<span style="color:var(--ink-soft);">실화주 코드 S112(풍산 울산)는 목록형, 나머지 거래처는 "표제 건(BL# …)" 문구로 만들어져요. 아래 칸에서 직접 고쳐서 복사해도 돼요.</span></div>'+
+    '<div id="ntList"></div>'+
+    '<textarea id="ntOut" spellcheck="false"></textarea>'+
+    '</div>'+
+    '<div class="modal-foot"><span class="mono" style="font-size:11.5px;color:var(--ink-soft);" id="ntCount"></span><button class="btn btn-primary" id="ntCopyBtn">안내문 복사</button></div>';
+  mc.classList.add('wide'); mc.classList.add('ntwide');
+  document.getElementById('modalOverlay').hidden = false;
+  document.getElementById('ntCloseBtn').addEventListener('click', closeModal);
+  document.getElementById('ntClient').addEventListener('change', function(){ selClient = this.value; draw(); });
+  document.getElementById('ntAll').addEventListener('change', function(){ var on = this.checked; rowsOf().forEach(function(s){ stOf(s).on = on; }); draw(); });
+  document.getElementById('ntShowRecent').addEventListener('change', function(){ showRecent = this.checked; buildClients(); document.getElementById('ntClient').innerHTML = clientOptionsHtml(); draw(); });
+  document.getElementById('ntCopyBtn').addEventListener('click', function(){
+    var ta = document.getElementById('ntOut'), txt = ta.value;
+    if(!txt){ toast('복사할 안내문이 없습니다. 담을 건을 체크해 주세요.', {err:true}); return; }
+    var done = function(){ toast('안내문을 복사했습니다. 메일·메신저에 붙여넣기(Ctrl+V) 하세요.'); };
+    var fallback = function(){ try{ ta.select(); document.execCommand('copy'); done(); }catch(e){ toast('복사에 실패했습니다. 안내문을 직접 선택해서 복사해 주세요.', {err:true}); } };
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(done, fallback); } else fallback();
+  });
+  draw();
+}
 function openNoticeModal(kind, presetIds){
   kind = (kind==='doc') ? 'doc' : 'dep';
   // presetIds: 터미널 대조 창의 "이 건들로 출항 안내문 만들기" — 그 건들만 체크된 채로 열고, 02 건이 있으면 02도 보기를 켬
@@ -5715,6 +5843,7 @@ document.getElementById('myClientsManageBtn').addEventListener('click', openMyCl
 document.getElementById('itemLabelSettingsBtn').addEventListener('click', openItemLabelSettingsModal);
 document.getElementById('noticeBtn').addEventListener('click', function(){ openNoticeModal('dep'); });
 document.getElementById('noticeDocBtn').addEventListener('click', function(){ openNoticeModal('doc'); });
+document.getElementById('noticeBlBtn').addEventListener('click', function(){ openBlNoticeModal(); });
 document.getElementById('noticeBar').addEventListener('click', function(e){
   if(e.target.closest('#termUploadBtn')){ document.getElementById('termFileInput').click(); return; }
 
