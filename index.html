@@ -4979,6 +4979,7 @@ var TERM_ON = true;   // 켜기/끄기 스위치 — 끄면 표시·문구 자�
 try{ TERM_ON = localStorage.getItem('fw_termOn')!=='0'; }catch(e){}
 function termSetOn_(on){ TERM_ON = !!on; try{ localStorage.setItem('fw_termOn', TERM_ON?'1':'0'); }catch(e){} }
 var TERM_DAY = 86400000;
+var TERM_AMBIG_DAYS = 10;   // 조기 출항 후보가 있을 때 ETD 이후 며칠 안의 다음 항차까지 같이 볼지
 function termVKey_(v){ return String(v||'').toUpperCase().replace(/[^0-9A-Z가-힣]/g,''); }
 function termPortGroup_(p){
   var u = String(p||'').toUpperCase().replace(/\s+/g,'');
@@ -5096,7 +5097,11 @@ function termCheckOf_(s){
     else res.reason = '이 항구(POL)의 터미널 스케줄에서 이 모선을 못 찾았어요(모선명 표기·POL 확인)';
     return res;
   }
-  var r = after[0]; res.row = r;
+  var r = after[0];
+  // ETD보다 빠른 출항이 먼저 잡혔는데 ETD 당일 출항도 있으면 → 당일 출항이 그 건(조기 출항으로 보지 않음)
+  var sameDay = after.filter(function(c){ return c!==r && Math.round((dayFloor(new Date(c.dep)).getTime() - base)/TERM_DAY)===0; })[0];
+  if(sameDay && dayFloor(new Date(r.dep)).getTime() < base) r = sameDay;
+  res.row = r;
   res.diffDays = Math.round((dayFloor(new Date(r.dep)).getTime() - base)/TERM_DAY);
   // 출항했는지: 지금 시각(현정님이 확인하는 시점) 기준 — 터미널 출항 시각이 지났으면 출항한 것으로 봄
   res.departed = r.dep <= Math.max(Date.now(), TERM_SCHED.asOf);
@@ -5106,6 +5111,14 @@ function termCheckOf_(s){
   res.status = res.diffDays>0 ? 'delay' : (res.diffDays<0 ? 'early' : (res.departed ? 'done' : 'ok'));
   var nx = after[1];
   if(nx && (nx.dep - r.dep) < 3*TERM_DAY && termVKey_(nx.terminal)!==termVKey_(r.terminal)){ res.check = true; res.reason = '같은 항구의 다른 터미널('+nx.terminal+' '+termMd_(nx.dep)+')에도 이 모선 출항이 있어요'; }
+  // [2026-11-23] ETD보다 빠른 출항과 ETD 이후 출항(10일 안)이 둘 다 있으면 → 조기 출항인지, 그 항차를 놓쳐 다음 항차로 지연된 건지
+  // 엑셀만으로는 알 수 없음(터미널 항차 ≠ 선사 항차) → "확인 필요"로 두 날짜를 모두 보여주고 고르게 함(예: ROTTERDAM TRADER 11/21 vs 11/28)
+  var laterAlt = (res.diffDays<0) ? after.filter(function(c){ var d = Math.round((dayFloor(new Date(c.dep)).getTime() - base)/TERM_DAY); return d>0 && d<=TERM_AMBIG_DAYS; })[0] : null;
+  if(laterAlt){
+    res.status = 'ambig'; res.check = true; res.alt = laterAlt;
+    res.altDiff = Math.round((dayFloor(new Date(laterAlt.dep)).getTime() - base)/TERM_DAY);
+    res.reason = termMd_(r.dep)+' 출항('+(res.departed?'이미 출항':'출항 예정')+')과 '+termMd_(laterAlt.dep)+' 출항 중 어느 항차인지 확인 필요 — 조기 출항 또는 다음 항차로 지연';
+  }
   else if(beforeRange && res.diffDays>0){ res.check = true; res.reason = '대시보드 ETD('+termMd_(etdD.getTime())+')가 엑셀 범위('+termMd_(TERM_SCHED.minDep)+'~)보다 앞이라, 지연인지 다음 항차인지 확인이 필요해요'; }
   return res;
 }
@@ -5118,18 +5131,19 @@ function termCheckOf_(s){
    3) 오늘 출항인데 아직 출항 전이면 → "금일 14시 출항예정" (오늘 날짜 건에만) */
 function termHourText_(ms){ var d = new Date(ms), h = d.getHours(), m = d.getMinutes(); return h+'시'+(m?' '+m+'분':''); }
 function termIsTodayMs_(ms){ var d = new Date(ms), n = new Date(); return d.getFullYear()===n.getFullYear() && d.getMonth()===n.getMonth() && d.getDate()===n.getDate(); }
-function termNoticeOf_(s, tc){
+function termNoticeOf_(s, tc, useAlt){
   tc = tc || termCheckOf_(s);
   if(!tc || !tc.row) return null;
   var etdD = toDate(s.etd), was = etdD ? termMd_(etdD.getTime()) : '';
-  var dep = tc.row.dep, diff = tc.diffDays||0, parts = [];
+  var dep = tc.row.dep, diff = tc.diffDays||0, departed = !!tc.departed, parts = [];
+  if(useAlt && tc.alt){ dep = tc.alt.dep; diff = tc.altDiff||0; departed = dep <= Math.max(Date.now(), tc.asOf||0); }   // "지연 ○○로 넣기"를 고른 경우
   if(diff>0) parts.push('출항 지연'+(was?', 기존 '+was:''));
   else if(diff<0) parts.push('조기 출항'+(was?', 기존 '+was:''));
-  else if(tc.departed) parts.push('출항 완료');
-  if(!tc.departed && termIsTodayMs_(dep)) parts.push('금일 '+termHourText_(dep)+' 출항예정');
+  else if(departed) parts.push('출항 완료');
+  if(!departed && termIsTodayMs_(dep)) parts.push('금일 '+termHourText_(dep)+' 출항예정');
   if(!parts.length) return null;
   // 출항이 n일 늦어지면 안내문 ETA도 n일 늦춰 적음(대시보드 ETA는 그대로). 조기 출항은 도착이 빨라진다는 보장이 없어 ETA를 안 당김
-  return {note:parts.join(', '), dep:diff ? dep : null, atd:!!tc.departed, etaShift:(diff>0 ? diff : 0)};
+  return {note:parts.join(', '), dep:diff ? dep : null, atd:departed, etaShift:(diff>0 ? diff : 0)};
 }
 var TERM_NOTE_RE = /출항\s*(지연|완료|예정)|조기\s*출항|출항일\s*변경/;
 termLoad_();
@@ -5144,6 +5158,7 @@ function termBadgeHtml_(s, tc){
   var goneNote = (r && tc.departed) ? ' · 출항함' : '';
   if(tc.status==='ok'){ cls = 'tp-ok'; txt = todayNote ? '금일 '+termHourText_(r.dep)+' 출항예정 (일정 같음)' : '터미널 출항 '+termMdHm_(r.dep)+' (일정 같음)'; }
   else if(tc.status==='delay'){ cls = 'tp-delay'; txt = '⚠ 출항 지연 '+was+' → '+termMd_(r.dep)+' (+'+tc.diffDays+'일)'+goneNote+todayNote; }
+  else if(tc.status==='ambig'){ cls = 'tp-warn'; txt = '조기 출항 '+termMd_(r.dep)+' 또는 지연 '+termMd_(tc.alt.dep)+'?'; }
   else if(tc.status==='early'){ cls = 'tp-warn'; txt = '조기 출항 '+was+' → '+termMd_(r.dep)+goneNote+todayNote; }
   else if(tc.status==='done'){ cls = 'tp-done'; txt = '✓ 출항 완료 '+termMdHm_(r.dep); }
   else if(tc.status==='noetd'){ cls = 'tp-warn'; txt = '터미널 출항 '+termMd_(r.dep)+' · ETD 미입력'; }
@@ -5481,14 +5496,41 @@ function blNoticeCandidates_(){
 }
 function blNoticeIsList_(s){ return BL_NOTICE_LIST_CODES.indexOf(String(s.clientCode||'').trim().toUpperCase())>=0; }
 function blNoticeBlNo_(s){ return String(s.hbl||'').trim() || String(s.mbl||'').trim() || String(s.lineBookingNo||'').trim() || '-'; }
+/* 비엘 미발행 안내문 끝에 붙는 선사 LBP 별주(**) — LBP_RULES에서 kind가 'lbp'인 선사만(입금지연비용 선사는 제외).
+   선사별로 한 줄: 부과 단계 + 건별 현재 상태(출항 후 며칠째, 부과 중이면 금액, 아직이면 며칠 후부터). */
+function blLbpNotes_(items){
+  var groups = {}, order = [], ids = {};
+  items.forEach(function(it){
+    var s = it.s, r = lbpRuleOf_(s.carrier, s);
+    if(!r || r.kind==='pay' || !r.tiers || !r.tiers.length) return;
+    var key = String(r.tiers.map(function(t){ return t.from+':'+t.fee; }).join('|'));
+    if(!groups[key]){ groups[key] = {r:r, names:[], rows:[]}; order.push(key); }
+    var g = groups[key], nm = String(s.carrier||'').trim() || r.carrier;
+    if(g.names.indexOf(nm)<0) g.names.push(nm);
+    var dd = getDday(s.etd), st = '';
+    if(dd!==null){
+      var el = -dd, lv = 0, fee = '';
+      r.tiers.forEach(function(t){ if(el >= t.from){ lv++; fee = t.fee||''; } });
+      st = '출항 후 '+el+'일째 · '+(lv>0 ? ((fee?fee+' ':'')+'부과 중') : ((r.tiers[0].from-el)+'일 후부터 '+(r.tiers[0].fee||'부과')));
+    }
+    g.rows.push('BL# '+blNoticeBlNo_(s)+(st?': '+st:''));
+    ids[s.id] = true;
+  });
+  var lines = order.map(function(k){
+    var g = groups[k];
+    return '** LBP 안내 — '+g.names.join('/')+' B/L 미발행 시 출항일 기준 '+g.r.tiers.map(function(t){ return t.from+'일째부터 '+(t.fee||'비용'); }).join(', ')+'이 부과. ('+g.rows.join(' / ')+')';
+  });
+  return {ids:ids, lines:lines};
+}
 function buildBlNoticeText_(items){
   if(!items.length) return '';
+  var lbp = blLbpNotes_(items), lbpTail = lbp.lines.length ? '\n\n'+lbp.lines.join('\n') : '';
   var tsOf = function(it){ var d = toDate(it.s.etd); return d ? d.getTime() : 9e15; };
   items = items.slice().sort(function(a,b){ return tsOf(a)-tsOf(b); });
   if(!blNoticeIsList_(items[0].s)){
     var nos = [];
     items.forEach(function(it){ var n = blNoticeBlNo_(it.s); if(nos.indexOf(n)<0) nos.push(n); });
-    return '표제 건(BL# '+nos.join(', ')+') B/L 아직 발행 전이어서, 아직 발행 홀딩 중이실지 확인 차 여쭙습니다. 발행 일정이 정해지면 추후 발행요청 부탁 드리겠습니다.';
+    return '표제 건(BL# '+nos.join(', ')+') B/L 아직 발행 전이어서, 아직 발행 홀딩 중이실지 확인 차 여쭙습니다. 발행 일정이 정해지면 추후 발행요청 부탁 드리겠습니다.'+lbpTail;
   }
   // S112(풍산 울산): 모선별 묶음 + "PO / House B/L / 도착지 / ETD-ETA : …" — 이미 출항했으면 ATD, 도착까지 끝났으면 ATA
   var now = Date.now(), groups = {}, order = [];
@@ -5504,10 +5546,10 @@ function buildBlNoticeText_(items){
       var etdD = toDate(m.s.etd), eta = m.s.etaPort ? m.s.etaPort : m.s.etaDoor, etaD = toDate(eta);
       var gone = !!(etdD && etdD.getTime() <= now), arrived = !!(gone && etaD && etaD.getTime() <= now);
       var lab = (gone ? 'ATD' : 'ETD')+'-'+(arrived ? 'ATA' : 'ETA');
-      return (m.pos.length ? m.pos.join('_') : '-')+' / '+(String(m.s.hbl||'').trim()||'-')+' / '+noticePodOf_(m.s)+' / '+lab+' : '+noticeDate_(m.s.etd, false)+'-'+noticeDate_(eta, false, etdD ? etdD.getFullYear() : undefined);
+      return (m.pos.length ? m.pos.join('_') : '-')+' / '+(String(m.s.hbl||'').trim()||'-')+' / '+noticePodOf_(m.s)+' / '+lab+' : '+noticeDate_(m.s.etd, false)+'-'+noticeDate_(eta, false, etdD ? etdD.getFullYear() : undefined)+(lbp.ids[m.s.id] ? ' **' : '');
     }).join('\n');
   });
-  return '비엘 미발행 건들 안내 드리오니, 발행 필요하신 건들 원하시는 타입으로 발행 요청 부탁 드립니다.\n\n'+blocks.join('\n\n');
+  return '비엘 미발행 건들 안내 드리오니, 발행 필요하신 건들 원하시는 타입으로 발행 요청 부탁 드립니다.\n\n'+blocks.join('\n\n')+lbpTail;
 }
 function openBlNoticeModal(){
   editingId = null;
@@ -5622,7 +5664,13 @@ function openNoticeModal(kind, presetIds){
   function termRowHtml(s){
     if(isDoc || !TERM_SCHED) return '';
     var tc = termCheckOf_(s); if(!tc) return '';
-    var btn = (tc.check && termNoticeOf_(s, tc)) ? ' <button class="btn btn-sm term-apply" data-nt-term="'+escapeHtml(s.id)+'" title="확인해 보고 맞으면 눌러서 지연/출항 완료 문구를 넣어요">문구 넣기</button>' : '';
+    var btn = '';
+    if(tc.status==='ambig' && tc.alt){
+      btn = ' <button class="btn btn-sm term-apply" data-nt-term="'+escapeHtml(s.id)+'" title="'+termMd_(tc.row.dep)+' 출항이 맞으면(조기 출항) 눌러요">조기 출항 '+termMd_(tc.row.dep)+'로 넣기</button>'+
+            ' <button class="btn btn-sm term-apply" data-nt-term-alt="'+escapeHtml(s.id)+'" title="'+termMd_(tc.alt.dep)+' 다음 항차로 밀린 거면 눌러요(ETA도 늦춰 적음)">지연 '+termMd_(tc.alt.dep)+'로 넣기</button>';
+    } else if(tc.check && termNoticeOf_(s, tc)){
+      btn = ' <button class="btn btn-sm term-apply" data-nt-term="'+escapeHtml(s.id)+'" title="확인해 보고 맞으면 눌러서 지연/출항 완료 문구를 넣어요">문구 넣기</button>';
+    }
     return '<div class="term-wrap">'+termBadgeHtml_(s, tc)+btn+'</div>';
   }
   function miss(v){ return v ? escapeHtml(v) : '<span class="nt-miss">미입력</span>'; }
@@ -5670,6 +5718,10 @@ function openNoticeModal(kind, presetIds){
   function wire(){
     document.querySelectorAll('#ntList [data-nt-myeon]').forEach(function(el){ el.addEventListener('change', function(){ state[el.dataset.ntMyeon].myeon = el.checked; refreshText(); }); });
     document.querySelectorAll('#ntList [data-nt-on]').forEach(function(el){ el.addEventListener('change', function(){ state[el.dataset.ntOn].on = el.checked; refreshText(); }); });
+    document.querySelectorAll('#ntList [data-nt-term-alt]').forEach(function(el){ el.addEventListener('click', function(){
+      var sx = byId[el.dataset.ntTermAlt]; var tn = sx ? termNoticeOf_(sx, null, true) : null; if(!tn) return;
+      var st = stOf(sx); st.note = tn.note; st.termDep = tn.dep; st.termAtd = tn.atd; st.termEtaShift = tn.etaShift; draw();
+    }); });
     document.querySelectorAll('#ntList [data-nt-term]').forEach(function(el){ el.addEventListener('click', function(){
       var sx = byId[el.dataset.ntTerm]; var tn = sx ? termNoticeOf_(sx) : null; if(!tn) return;
       var st = stOf(sx); st.note = tn.note; st.termDep = tn.dep; st.termAtd = tn.atd; st.termEtaShift = tn.etaShift; draw();
