@@ -444,6 +444,7 @@ img{max-width:100%;}
 .nt-all{font-weight:700; padding:3px 8px; border:1px solid var(--line-strong); border-radius:2px; background:var(--surface-2);}
 .bulk-cancel-btn{color:var(--danger); border-color:var(--danger); background:var(--surface);}
 .bulk-cancel-btn:hover:not(:disabled){background:color-mix(in srgb, var(--danger) 8%, var(--surface));}
+.nt-done-note{padding:8px 2px 2px;font-size:12px;color:var(--ink-soft);}
 .modal.ntwide .nt-row.bl-row{grid-template-columns:24px 110px minmax(220px,1.4fr) minmax(180px,1.2fr) 140px;}
 .nt-upl{display:inline-flex; align-items:center; gap:5px; font-size:12.5px; cursor:pointer; white-space:nowrap;}
 .nt-up{display:inline-block; margin-top:2px; font-size:10.5px; padding:1px 6px; border-radius:8px; background:var(--surface-2); color:var(--ink-soft); font-family:inherit;}
@@ -5320,24 +5321,36 @@ function noticePodOf_(s){
 }
 /* 안내문 후보 — 기본은 "오늘 할 일 > 01"에 뜨는 출항안내 건만(today). "앞으로 7일 내 예정(02)"에 있는 건(upcoming)은
    안내문 창에서 사용자가 "02도 보기"를 켰을 때만 목록에 나타나고, 그때도 체크는 꺼진 상태로 나옴. */
+/* 서류마감 안내문에서 뺄 건 — 화주가 줄 서류를 다 준 건 = 면장 + 서류마감 알약이 둘 다 체크된 건.
+   (CHK BL은 화주가 아니라 우리 쪽 일이라 안 봄 → 그래서 "오늘 할 일 > 서류마감" 목록엔 CHK BL 끝날 때까지 남아 있어도 안내문에선 빠짐)
+   면장 알약이 아예 없는 루틴이면 서류마감 알약만 보고 판단. 둘 중 하나라도 안 됐으면 안내문에 그대로 남음. */
+function docNoticeDone_(s){
+  var chk = s.checklist||{}, items = relevantItems(s);
+  var main = items.filter(function(it){ return it.anchor==='DOC CLS'; })[0];
+  if(!main || !chk[main.key]) return false;
+  var my = items.some(function(it){ return it.key==='myeonjang'; });
+  return !my || !!chk.myeonjang;
+}
 function noticeCandidates_(kind){
-  var seen = {}, today = [], upcoming = [];
+  var seen = {}, today = [], upcoming = [], docDone = [];
   var wantType = (kind==='doc') ? 'docCls' : 'duesoon';
+  function skipDone(s,b){ if(kind==='doc' && docNoticeDone_(s)){ docDone.push({s:s, b:b}); return true; } return false; }
   feedTodayAll().forEach(function(x){
     if(x.type!==wantType || seen[x.s.id]) return;
-    seen[x.s.id] = true; today.push(x.s);
+    seen[x.s.id] = true; if(skipDone(x.s,'today')) return;
+    today.push(x.s);
   });
   feedUpcomingAll().forEach(function(x){
     if(x.type!==wantType || seen[x.s.id]) return;
-    seen[x.s.id] = true; upcoming.push(x.s);
+    seen[x.s.id] = true; if(skipDone(x.s,'up')) return; upcoming.push(x.s);
   });
   // 03(그 외 — 7일보다 먼 건): 안내문 창에서 "03도 보기"를 켜거나, 터미널 대조 창에서 고른 건이 03일 때 씀
   var later = [];
   feedRemainingAll().forEach(function(x){
     if(x.type!==wantType || seen[x.s.id]) return;
-    seen[x.s.id] = true; later.push(x.s);
+    seen[x.s.id] = true; if(skipDone(x.s,'later')) return; later.push(x.s);
   });
-  return {today:today, upcoming:upcoming, later:later};
+  return {today:today, upcoming:upcoming, later:later, docDone:docDone};
 }
 /* ===== 서류마감 안내문 ("서류마감" 업무구분에 떠 있는 건) =====
    모선(+항차)별로 묶어 모선명을 제목 줄로 먼저 적고, 그 밑에 줄마다:
@@ -5705,6 +5718,11 @@ function openNoticeModal(kind, presetIds){
         '<input type="text" data-nt-note="'+escapeHtml(s.id)+'" value="'+escapeHtml(st.note)+'" placeholder="예: 00시 출항 완료, 실출항일 확인 중">'+
         '</div>';
     }).join('') : '<div style="padding:14px 0;color:var(--ink-soft);">이 거래처의 '+(isDoc?'서류마감':'출항안내')+' 건이 없습니다.</div>';
+    if(isDoc){
+      // 지금 보고 있는 거래처 + 켜 둔 범위(01 / 02 / 03) 안에서 뺀 건 수만 작게 알려줌
+      var shownDone = (cs.docDone||[]).filter(function(d){ return (d.s.clientCode||d.s.client||'-')===selClient && (d.b==='today' || (d.b==='up' && showUp) || (d.b==='later' && showLater)); });
+      if(shownDone.length) body += '<div class="nt-done-note" title="'+escapeHtml(shownDone.map(function(d){ return String(d.s.lineBookingNo||d.s.poNo||d.s.id); }).join('\n'))+'">면장·서류마감 둘 다 체크된 '+shownDone.length+'건은 서류를 다 받은 건이라 뺐어요</div>';
+    }
     document.getElementById('ntList').innerHTML = head+body;
     wire(); refreshText();
   }
