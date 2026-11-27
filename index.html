@@ -844,9 +844,9 @@ var ROUTES = {
     {key:'chkBl', label:'CHK BL'},
     {key:'preAlert', label:'PRE-ALERT'},
     {key:'airDocCls', label:'서류마감', anchor:'DOC CLS'},
-    {key:'settlementDocs', label:'정산서, 마감서류', billing:true},
+    {key:'settlementDocs', label:'정산서, 마감서류', billing:true, mirrorOf:'preAlertFinal'},   // mirrorOf: 항목명 설정에서 "최종 PRE-ALERT"로 바꿔 쓰던 칸 — 실제 일은 PRE-ALERT 단추의 "최종 PRE-ALERT 발송"(preAlertFinal). 청구대기·상세창 체크리스트엔 안 띄우고, 최종 PRE-ALERT가 끝나면 자동 완료(syncMirrorItems_)
     {key:'invoice', label:'화주청구', billing:true},
-    {key:'carrierJigyeol', label:'선사지결', billing:true}
+    {key:'carrierJigyeol', label:'선사지결', billing:true, jigyeolFeed:true}   // jigyeolFeed: 청구 항목이지만 오늘 할 일에선 "청구대기" 대신 "지결" 단추에 띄움
   ]},
   AIR_IMP: {label:'항공수입', items:[
     {key:'impAn', label:'AN', impChip:'impAn', impBase:'ETA2BD'},
@@ -952,6 +952,32 @@ function preAlertItemKeyFor(routeType){ return routeType==='AIR_EXP' ? 'preAlert
 var PREALERT_FINAL_KEY = 'preAlertFinal';
 var PREALERT_STEP1_LABEL = 'PRE-ALERT 발송 완료';
 var PREALERT_FINAL_LABEL = '최종 PRE-ALERT 발송 완료';
+/* PRE-ALERT를 실제로 챙길 건인지 — PRE-ALERT 필요=YES여도 수입 건(해상수입 FCL/LCL·항공수입)은 PRE-ALERT를 보낼 일이 없어서 제외.
+   (거래처 관리에서 PRE-ALERT 화주로 지정하면 서버가 그 화주의 수입 건에도 YES를 걸어 주기 때문에 화면에서 걸러냄. 시트 값은 그대로 둠) */
+function preAlertOn_(s){ return !!s.preAlertNeeded && !s.billingOnly && !isImportRoute(s.routeType); }
+/* mirrorOf 항목(항공수출 "정산서, 마감서류" 칸 = 최종 PRE-ALERT) — 최종 PRE-ALERT 발송을 체크했거나, PRE-ALERT를 챙길 건이 아니면(청구전용 등) 끝난 것으로 봄 */
+function mirrorDone_(s, it){ if(!it.mirrorOf) return false; var chk = s.checklist||{}; return !!chk[it.mirrorOf] || !preAlertOn_(s); }
+/* 시트 정리용: 위 조건으로 끝난 것으로 보는데 시트엔 아직 체크 안 된 칸을 한 번에 체크해 둠(그래야 Code.gs 자동 보관이 이 건을 "완료"로 봄).
+   새로고침 때마다 확인하지만, 같은 칸은 한 번만 보냄. 보낼 게 없으면 아무 요청도 안 함. */
+var mirrorSent_ = {};
+function syncMirrorItems_(){
+  if(!webappReady()) return;
+  var items = [], keys = [];
+  allShipments.forEach(function(s){
+    if(s.cancelled) return;
+    relevantItems(s).forEach(function(it){
+      if(!it.mirrorOf || (s.checklist||{})[it.key] || !mirrorDone_(s, it)) return;
+      var mk = s.managementNo+'|'+it.key; if(mirrorSent_[mk]) return; mirrorSent_[mk] = true;
+      var pk = pendingWriteKey(s.id, it.key); setPendingWrite(pk, true); keys.push({pk:pk, mk:mk});
+      var nc = Object.assign({}, s.checklist||{}); nc[it.key] = true; s.checklist = nc;
+      items.push({managementNo:s.managementNo, itemKey:it.key});
+    });
+  });
+  if(!items.length) return;
+  apiPost({action:'toggleMany', items:items, value:true})
+    .then(function(){ keys.forEach(function(k){ markPendingDone(k.pk); }); })
+    .catch(function(){ keys.forEach(function(k){ dropPendingWrite(k.pk); delete mirrorSent_[k.mk]; }); });
+}
 function preAlertDone(s){ var chk=s.checklist||{}; return !!chk[preAlertItemKeyFor(s.routeType)] && !!chk[PREALERT_FINAL_KEY]; }
 /* "보험 추적" 건(내 거래처 관리에서 보험에 체크한 화주의 건 또는 건 상세에서 YES)의 완료 체크 항목 — 모든 루틴 공통 키 insurance (Code.gs의 isRowDone_와 동일) */
 var INSURANCE_ITEM_KEY = 'insurance';
@@ -1353,10 +1379,10 @@ function itemDoneForFeed(s, it){
 function isDone(s){
   var items=relevantItems(s); if(items.length===0) return false;
   var chk=s.checklist||{};
-  if(!items.every(function(it){return !!chk[it.key];})) return false;
+  if(!items.every(function(it){return !!chk[it.key] || mirrorDone_(s, it);})) return false;
   if(s.doorEligible && !chk.doorArrival) return false;
   if(s.dispatchNeeded && !s.billingOnly && !chk[dispatchItemKeyFor(s.routeType)]) return false;
-  if(s.preAlertNeeded && !s.billingOnly && !preAlertDone(s)) return false;
+  if(preAlertOn_(s) && !preAlertDone(s)) return false;
   if(s.insuranceNeeded && !s.billingOnly && !insuranceDone(s)) return false;
   if(s.freeTimeNeeded && !s.billingOnly && !freeTimeDone(s)) return false;
   if(s.ediNeeded && !s.billingOnly && !ediDone(s)) return false;
@@ -1439,7 +1465,7 @@ function feedBilling(){
     if(isImportRoute(s.routeType)) return;
     var chk=s.checklist||{};
     relevantItems(s).forEach(function(it){
-      if(!it.billing||chk[it.key]) return;
+      if(!isBillingFeedItem(it)||chk[it.key]) return;
       var aging = getAging(s.etd);
       if(aging!==null && aging<0) return; // ETD가 아직 안 지남 → 청구 TASK 보류
       out.push({s:s,item:it,aging:aging});
@@ -1524,7 +1550,7 @@ function feedPreAlert(){
   var out=[];
   activeShipments().forEach(function(s){
     if(!matchesFilter(s) || !matchesMyClients(s)) return;
-    if(!s.preAlertNeeded || s.billingOnly) return;
+    if(!preAlertOn_(s)) return;
     var key = preAlertItemKeyFor(s.routeType);
     var chk=s.checklist||{};
     // 순서대로 다음에 할 단계만 노출: (1) 발송 → (2) 최종 발송. 둘 다 끝났으면 제외.
@@ -1650,9 +1676,11 @@ function feedBlHolding(){
 }
 /* "지결"(콘솔사 지결·운송사 지결·선사지결 등 키에 jigyeol이 들어간 체크리스트 항목) 중 아직 체크 안 된 건 —
    기준일은 출항일(ETD): D-DAY부터 지난 건은 01(오늘 할 일), D-7 이내로 다가온 건은 02, 그보다 먼 건은 03.
-   ETD가 비어 있으면 판단 근거가 없으므로 안전하게 01에 노출함. 청구(billing) 항목인 선사지결 등은 이미
-   "청구대기"에 뜨므로 중복을 피하기 위해 여기서는 제외. */
-function isJigyeolItem(it){ return !it.billing && /jigyeol/i.test(it.key); }
+   ETD가 비어 있으면 판단 근거가 없으므로 안전하게 01에 노출함. 청구(billing) 항목은 원래 "청구대기"에 뜨므로 제외하되,
+   jigyeolFeed 표시가 붙은 항목(항공수출 선사지결)은 지결 업무라서 청구대기 대신 여기(지결)에 띄움(2026-11-25 요청). */
+function isJigyeolItem(it){ return /jigyeol/i.test(it.key) && (!it.billing || !!it.jigyeolFeed); }
+/* 청구대기 단추에 띄울 청구 항목인지 — 지결 단추로 보내는 항목(항공수출 선사지결)은 제외 */
+function isBillingFeedItem(it){ return !!it.billing && !it.jigyeolFeed && !it.mirrorOf; }
 function feedJigyeolAll(){
   var out=[];
   activeShipments().forEach(function(s){
@@ -1738,7 +1766,7 @@ function feedRemainingAll(){
         if(info.dd!==null && info.dd>UPCOMING_WINDOW_DAYS) add(it.anchor==='DOC CLS'?'docCls':'duesoon', s, it, info.dd, field, {holidayShift:info.shifted, holidayEffDate:info.effDate, holidayTitle:info.holidayTitle});
       }
       // 청구대기: 아직 ETD 전이라 보류 중인 건(ETD까지 남은 일수)
-      if(it.billing && !isImportRoute(s.routeType)){
+      if(isBillingFeedItem(it) && !isImportRoute(s.routeType)){
         var ag = getAging(s.etd);
         if(ag!==null && ag<0) add('billing', s, it, -ag, 'etd');
       }
@@ -1779,7 +1807,7 @@ function feedRemainingAll(){
       }
     }
     // PRE-ALERT: 기준일(ETD 하루 전)이 아직 오지 않은 건
-    if(s.preAlertNeeded && !s.billingOnly){
+    if(preAlertOn_(s)){
       var pk = preAlertItemKeyFor(s.routeType), stepKey, stepLabel;
       if(!chk[pk]){ stepKey=pk; stepLabel='PRE-ALERT 발송'; } else if(!chk[PREALERT_FINAL_KEY]){ stepKey=PREALERT_FINAL_KEY; stepLabel='최종 PRE-ALERT 발송'; }
       if(stepKey){
@@ -2291,7 +2319,7 @@ function routePillHtml(s){
     isfBadge = '<span class="flag-pill '+(isfDone?'isf-done':'isf-pending')+'">ISF'+(isfDone?' 완료':'')+'</span>';
   }
   var preAlertBadge = '';
-  if(s.preAlertNeeded && !s.billingOnly){
+  if(preAlertOn_(s)){
     var paChk = s.checklist||{};
     var paDone = preAlertDone(s), paHalf = !paDone && !!paChk[preAlertItemKeyFor(s.routeType)];
     preAlertBadge = '<span class="flag-pill '+(paDone?'prealert-done':'prealert-pending')+'">PRE-ALERT'+(paDone?' 완료':(paHalf?' 1/2':''))+'</span>';
@@ -3871,6 +3899,7 @@ function sheetRowToShipment(row){
       s[f] = v!==undefined ? v : false;
     } else {
       s[f] = (v===undefined || v===null) ? '' : String(v);
+      if(s[f].charAt(0)==="'" && KEEP_TEXT_FIELDS_.indexOf(f)>=0) s[f] = s[f].slice(1);   // 혹시 ' 가 값에 남아 들어온 경우 떼고 표시
     }
   });
   s.id = s.managementNo;
@@ -3888,6 +3917,11 @@ function sheetRowToShipment(row){
   if(isBillingOnlyByNo(s.managementNo)) s.billingOnly = true;
   return s;
 }
+/* 번호 칸(부킹·B/L·PO 등) — 맨 앞이 0인 숫자(예: 040600813339)는 구글시트가 숫자로 바꾸면서 0을 지워 버림.
+   시트에 보낼 때 앞에 ' 를 붙이면 시트가 "글자"로 저장해 0이 그대로 남음(' 자체는 값에 안 들어감).
+   16자리 이상 숫자도 시트가 숫자로 바꾸면 끝자리가 뭉개져서 같이 처리. 관리번호·거래처코드는 서버가 찾는 열쇠라 건드리지 않음. */
+var KEEP_TEXT_FIELDS_ = ['lineBookingNo','hbl','mbl','poNo','vessel','voyage','terminal'];
+function keepTextVal_(v){ var t = String(v==null?'':v); return (/^0\d+$/.test(t) || /^\d{16,}$/.test(t)) ? "'"+t : v; }
 function shipmentToSheetData(s){
   var data = {};
   Object.keys(FIELD_TO_HEADER).forEach(function(f){
@@ -3902,6 +3936,7 @@ function shipmentToSheetData(s){
     if(v===undefined || v===null || v==='') return;
     var d = toDate(v); if(d) data[h] = d.toISOString();
   });
+  KEEP_TEXT_FIELDS_.forEach(function(f){ var h = FIELD_TO_HEADER[f]; if(data[h]!==undefined && data[h]!==null && data[h]!=='') data[h] = keepTextVal_(data[h]); });
   return data;
 }
 var DATE_FIELDS_ = ['docCls','cfsCls','etd','etaPort','etaDoor','etcDue'];
@@ -4109,6 +4144,7 @@ async function refreshFromServer(silent, retryCount){
     applyItemLabelOverrides(json.labelOverrides||[]);
     bookingHolds = mergeBookingHolds_(json.bookingHolds||[]);
     applyHolidays_(json.holidays||[]);
+    syncMirrorItems_();
     document.getElementById('syncDot').className='sync-dot live';
     document.getElementById('syncLabel').textContent='연결됨 · '+allShipments.length+'건 · 약 '+Math.round(POLL_MS/1000)+'초마다 갱신';
     // 부킹확인중 메모를 한창 입력 중일 때 백그라운드 자동 갱신이 편집기 DOM을 통째로
@@ -4245,6 +4281,8 @@ function modalChecklistHtml(routeType, billingOnly, checklist, hidePreAlertItem,
   if(hidePreAlertItem){ var paKey = preAlertItemKeyFor(routeType); items = items.filter(function(it){ return it.key!==paKey; }); }
   // 배차 필요=YES이면 항공수입의 배차(impBaecha)도 위 "배차" 영역에서만 보여줌 — 중복 체크박스 방지
   if(hideDispatchItem){ var dpKey = dispatchItemKeyFor(routeType); items = items.filter(function(it){ return it.key!==dpKey; }); }
+  // mirrorOf 항목(항공수출 "정산서, 마감서류" 칸)은 위 PRE-ALERT 영역의 "최종 PRE-ALERT"와 같은 일이라 체크박스를 안 보여줌(저장 시 자동으로 맞춤)
+  items = items.filter(function(it){ return !it.mirrorOf; });
   if(!routeType) return '<div style="color:var(--ink-soft);font-size:12.5px;">루틴을 먼저 선택하면 체크리스트가 표시됩니다.</div>';
   if(items.length===0) return '<div style="color:var(--ink-soft);font-size:12.5px;">해당 조건의 체크 항목이 없습니다.</div>';
   var chk = checklist||{};
@@ -4295,6 +4333,7 @@ function dispatchAreaHtml(dispatchNeeded, routeType, checklist){
    일반 체크리스트에서 그 항목을 숨기고 여기서만 보여줌(같은 항목이 두 군데서 어긋나는 것 방지, modalChecklistHtml 참고). */
 function preAlertAreaHtml(preAlertNeeded, routeType, checklist){
   if(!preAlertNeeded || !routeType) return '';
+  if(isImportRoute(routeType)) return '<div style="padding:4px 0 2px;color:var(--ink-soft);font-size:12px;">수입 건은 PRE-ALERT를 보내지 않아서 YES여도 할 일에 뜨지 않아요.</div>';
   var key = preAlertItemKeyFor(routeType);
   var chk = checklist||{};
   return '<div class="checklist-block"><h4>PRE-ALERT</h4>'+
@@ -4593,6 +4632,8 @@ async function saveModal(){
   if(s.blHolding && ROUTES[s.routeType] && ROUTES[s.routeType].items.some(function(it){ return it.key==='blIssue'; })){
     checklist.blIssue = true;
   }
+  // 체크박스를 숨긴 mirrorOf 항목: 최종 PRE-ALERT가 체크돼 있거나 이미 완료였으면 완료로 같이 저장
+  routeItems(s.routeType, !!s.billingOnly).forEach(function(it){ if(it.mirrorOf && (checklist[it.mirrorOf] || ((byId[editingId]||{}).checklist||{})[it.key])) checklist[it.key] = true; });
   s.checklist = checklist;
   if(!s.managementNo){ toast('관리번호를 입력해 주세요.', {err:true}); return; }
   s.id = s.managementNo;
@@ -4757,6 +4798,17 @@ function uploadHeaderInfo_(rawRows, rows){
   if(unknown.length) msg += ' · 인식 안 한 열: '+unknown.slice(0,8).join(', ')+(unknown.length>8?' 외 '+(unknown.length-8)+'개':'');
   return {msg:msg, found:found, unknown:unknown};
 }
+/* 엑셀에서 숫자 칸인데 "0"으로 시작하게 보이도록 서식만 걸린 칸(예: 화면엔 040600813339, 실제 값은 40600813339)은
+   화면에 보이는 글자 그대로 가져옴. 날짜·수량처럼 앞자리 0이 없는 칸은 그대로 둠. */
+function restoreLeadingZeros_(sheet, rawRows){
+  var shown = XLSX.utils.sheet_to_json(sheet, {defval:'', raw:false});
+  rawRows.forEach(function(r, i){
+    var sr = shown[i]; if(!sr) return;
+    Object.keys(r).forEach(function(k){
+      if(typeof r[k]==='number' && typeof sr[k]==='string' && /^0\d+$/.test(sr[k].trim())) r[k] = sr[k].trim();
+    });
+  });
+}
 async function handleFile(file){
   if(!webappReady()){ toast('먼저 내 시트(Apps Script 웹 앱 주소)를 연결해 주세요.', {err:true}); showConnect_('first'); return; }
   setUploadBtnBusy(true);
@@ -4770,6 +4822,7 @@ async function handleFile(file){
     uploadStatusStep('데이터 정리 중…', '엑셀 안의 빈 행을 정리하고 있습니다');
     sheet = trimSheetToRealData(sheet);
     var rawRows = XLSX.utils.sheet_to_json(sheet, {defval:''});
+    restoreLeadingZeros_(sheet, rawRows);
     var rows = parseRows(rawRows);
     // 엑셀 머리글 중 대시보드가 알아본 열/못 알아본 열을 확인 — VESSEL·항차처럼 "안 따라왔을 때" 원인을 바로 알 수 있게
     var hdrInfo = uploadHeaderInfo_(rawRows, rows);
