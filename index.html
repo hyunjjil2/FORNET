@@ -1527,6 +1527,7 @@ function feedDispatch(){
   activeShipments().forEach(function(s){
     if(!matchesFilter(s) || !matchesMyClients(s)) return;
     if(!s.dispatchNeeded || s.billingOnly) return;
+    if(isImportRoute(s.routeType)) return;   // 수입 건 배차는 수입 줄 "배차" 단추(impDispatch, eachImportPending)
     var key = dispatchItemKeyFor(s.routeType);
     var chk=s.checklist||{};
     if(chk[key]) return;
@@ -1724,6 +1725,11 @@ function eachImportPending(cb){
       if(!it.impChip || chk[it.key]) return;
       cb(s, it, importItemDueInfo(s, it));
     });
+    // [2026-11-27] 수입 건의 배차(배차 필요=YES)는 수출 "배차" 단추가 아니라 수입 줄의 "배차" 단추에 — 기준일은 다른 수입 업무처럼 ETD
+    if(s.dispatchNeeded && !s.billingOnly){
+      var dk = dispatchItemKeyFor(s.routeType);
+      if(!chk[dk]){ var dit = {key:dk, label:'배차', impChip:'impDispatch', impBase:'ETD'}; cb(s, dit, importItemDueInfo(s, dit)); }
+    }
   });
 }
 function pushImport_(out, info, s, it, bucket){
@@ -1733,7 +1739,7 @@ function pushImport_(out, info, s, it, bucket){
   out.push(o);
 }
 /* ================= "오늘 할 일" 통합 피드 (타입 태그: duesoon/docCls/billing/door/dispatch/isf/prealert/blissue) ================= */
-var TYPE_LABEL = {duesoon:'출항안내', docCls:'서류마감', billing:'청구대기', door:'도착확인', dispatch:'배차', isf:'ISF', prealert:'PRE-ALERT', blissue:'비엘발행', jigyeol:'지결', insurance:'보험', freetime:'프리타임', etc:'기타', edi:'EDI', impArrival:'입항안내', impAn:'AN', impEdi:'EDI', impOwner:'실화주신고', impSettle:'지결', impTransfer:'이체증', impDo:'DO발행', impBill:'화주청구'};
+var TYPE_LABEL = {duesoon:'출항안내', docCls:'서류마감', billing:'청구대기', door:'도착확인', dispatch:'배차', isf:'ISF', prealert:'PRE-ALERT', blissue:'비엘발행', jigyeol:'지결', insurance:'보험', freetime:'프리타임', etc:'기타', edi:'EDI', impArrival:'입항안내', impAn:'AN', impEdi:'EDI', impOwner:'실화주신고', impSettle:'지결', impTransfer:'이체증', impDo:'DO발행', impDispatch:'배차', impBill:'화주청구'};
 function feedTodayAll(){
   var out=[];
   feedDueSoon().forEach(function(x){ out.push({type:'duesoon', s:x.s, item:x.item, dd:x.dd, field:x.field, sortKey:(x.dd===null?9999:x.dd), holidayShift:x.holidayShift, holidayEffDate:x.holidayEffDate, holidayTitle:x.holidayTitle}); });
@@ -1803,7 +1809,7 @@ function feedRemainingAll(){
       if(ii.dd!==null && ii.dd>UPCOMING_WINDOW_DAYS) add('isf', s, {key:US_ISF_ITEM_KEY, label:US_ISF_ITEM_LABEL}, ii.dd, 'docCls', {holidayShift:ii.shifted, holidayEffDate:ii.effDate, holidayTitle:ii.holidayTitle});
     }
     // 배차: 서류마감까지 남은 기간이 알림 시작(D-5)보다 먼 건
-    if(s.dispatchNeeded && !s.billingOnly){
+    if(s.dispatchNeeded && !s.billingOnly && !isImportRoute(s.routeType)){
       var dk = dispatchItemKeyFor(s.routeType);
       if(!chk[dk]){
         var dinfo = effectiveDeadlineInfo(s.docCls);
@@ -2128,6 +2134,7 @@ var IMP_TYPE_DEFS = [
   {key:'impSettle', label:'지결', color:'brass'},
   {key:'impTransfer', label:'이체증', color:'indigo'},
   {key:'impDo', label:'DO발행', color:'plum'},
+  {key:'impDispatch', label:'배차', color:'teal'},
   {key:'impBill', label:'화주청구', color:'sky'}
 ];
 /* 업무구분탭(전체/출항안내/서류마감/청구대기/도착확인/배차/ISF)별 "오늘 할 일" 남은 건수 —
@@ -4555,7 +4562,7 @@ function openModal(id){
     '<div id="doorArea">'+doorAreaHtml(defaultDoorEligible, s.checklist)+'</div>'+
     '</div>'+
     '<div class="modal-group">'+
-    '<div class="select-row"><span class="yn-label">배차 필요</span>'+ynSelectHtml('fld_dispatchNeeded', defaultDispatchNeeded)+'<span style="color:var(--ink-soft);">— YES 선택 시, 서류마감 D-'+DISPATCH_ALERT_WINDOW_DAYS+'부터 미완료면 "오늘 할 일 > 배차" 목록에 표시됨</span></div>'+
+    '<div class="select-row"><span class="yn-label">배차 필요</span>'+ynSelectHtml('fld_dispatchNeeded', defaultDispatchNeeded)+'<span style="color:var(--ink-soft);">— YES 선택 시, '+(isImportRoute(s.routeType)?'수입 건은 ETD 당일부터 미완료면 "오늘 할 일 > 수입 줄 배차"에 표시됨(7일 전부터 02에 미리 보임)':'서류마감 D-'+DISPATCH_ALERT_WINDOW_DAYS+'부터 미완료면 "오늘 할 일 > 배차" 목록에 표시됨')+'</span></div>'+
     '<div id="dispatchArea">'+dispatchAreaHtml(defaultDispatchNeeded, s.routeType, s.checklist)+'</div>'+
     '</div>'+
     '<div class="modal-group">'+
@@ -4732,7 +4739,12 @@ function parseRows(rawRows){
       if(vm && /\d/.test(vm[2]) && /[A-Za-z]/.test(vm[2])){ out.vessel = vm[1].trim(); out.voyage = vm[2].toUpperCase(); }
     }
     if(out.routeTypeRaw){ var rk = ROUTE_LABEL_TO_KEY[normHeader(out.routeTypeRaw)]; out.routeType = rk||''; delete out.routeTypeRaw; }
-    if(!out.routeType && (out.service||out.tradeType)){ out.routeType = deriveRouteFromServiceTrade(out.service, out.tradeType); }
+    if(!out.routeType && (out.service||out.tradeType)){
+      out.routeType = deriveRouteFromServiceTrade(out.service, out.tradeType);
+      // [2026-11-27] 엑셀엔 FCL/LCL 칸이 없어 해상은 일단 FCL로 들어감. Line Booking No가 "-LCL"로 끝나면(콘솔 부킹) LCL로.
+      // 시트에 처음 들어오는 건에만 적용됨(이미 있는 건의 루틴은 Code.gs가 업로드 때 안 바꿈 → 상세/수정의 "LCL 건 (혼적)"으로 바꾼 값이 유지됨)
+      if(/-LCL$/i.test(String(out.lineBookingNo||'').trim()) && LCL_SIBLING[out.routeType] && !isLclRoute(out.routeType)) out.routeType = LCL_SIBLING[out.routeType];
+    }
     return out;
   }).filter(function(r){ return r.managementNo; });
 }
